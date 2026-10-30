@@ -1,6 +1,6 @@
 import os
 from PIL import Image
-from transformers import pipeline
+from transformers import AutoImageProcessor, AutoModelForObjectDetection, pipeline
 
 # Configuration settings
 input_dir = 'input'
@@ -10,10 +10,16 @@ confidence_threshold = 0.25
 # 1. Create the output directory if it doesn't exist
 os.makedirs(output_dir, exist_ok=True)
 
-# 2. Load the signature detection pipeline
-print('Loading signature detection model...')
+# 2. Explicitly load processor and model to avoid class-mapping errors
+model_id = "mdefrance/yolos-base-signature-detection"
+print("Loading signature detection model and processor...")
+
+image_processor = AutoImageProcessor.from_pretrained(model_id)
+model = AutoModelForObjectDetection.from_pretrained(model_id)
+
+# Initialize the pipeline with the explicitly loaded components
 detector = pipeline(
-    task="object-detection", model="mdefrance/yolos-base-signature-detection"
+    task="object-detection", model=model, image_processor=image_processor
 )
 
 # Supported image file extensions

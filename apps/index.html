@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dicteer-app I Was Here</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;min-height:100%;background:#ededeb}
+body{display:flex;justify-content:center;align-items:flex-start;padding:24px 0}
+@media (max-width:430px){body{padding:0}}
+a{color:#1d4fb8}a:hover{color:#123a8c}
+button{font-family:inherit}
+#app{width:390px;height:844px;background:#f6f4ef;color:#14161a;font-family:'IBM Plex Sans',sans-serif;display:flex;flex-direction:column;overflow:hidden}
+.ent{font:inherit;background:none;border:0;padding:0 2px;margin:0 -2px;cursor:pointer;color:inherit;border-radius:4px;text-decoration-line:underline;text-decoration-thickness:2px;text-underline-offset:4px;transition:background-color .5s ease,text-decoration-color .5s ease}
+.ent.detect{text-decoration-style:dotted;text-decoration-color:#8a8f98}
+.ent.linked{text-decoration-style:solid}
+.k-per.linked{text-decoration-color:#1d4fb8;background:rgba(29,79,184,.08)}
+.k-pla.linked{text-decoration-color:#0b7356;background:rgba(11,115,86,.08)}
+.k-dat.linked{text-decoration-color:#a84a06;background:rgba(168,74,6,.08)}
+.k-geb.linked{text-decoration-color:#6d35b8;background:rgba(109,53,184,.08)}
+.k-rol.linked{text-decoration-color:#a52a5e;background:rgba(165,42,94,.08)}
+.k-rel.linked{text-decoration-color:#6a5a33;background:rgba(106,90,51,.1)}
+.ent.sel{outline:2px solid #14161a;outline-offset:1px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.c-per{background:#1d4fb8}.c-pla{background:#0b7356}.c-dat{background:#a84a06}.c-geb{background:#6d35b8}.c-rol{background:#a52a5e}.c-rel{background:#6a5a33}
+@keyframes blink{50%{opacity:0}}
+.caret{display:inline-block;width:2px;height:20px;background:#14161a;vertical-align:-3px;margin-left:2px;animation:blink 1s step-end infinite}
+@keyframes bar{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+.bar{width:3px;height:26px;border-radius:2px;background:#d4462c;transform-origin:center;animation:bar .9s ease-in-out infinite}
+.bar.still{animation:none;transform:scaleY(.2);background:#b8bcc4}
+.row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #e6e3dc;background:none;border-left:0;border-right:0;border-top:0;width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.tab{flex:1;height:44px;border:0;background:none;font:600 13px 'IBM Plex Sans',sans-serif;color:#5d6270;border-bottom:2px solid transparent;cursor:pointer}
+.tab.act{color:#14161a;border-bottom-color:#14161a}
+.badge{font:600 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.04em;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.b-new{background:#fdecc8;color:#6e4a00}.b-link{background:#d9f0e6;color:#0a5a43}.b-wait{background:#ecedf0;color:#4b505a}
+.btn{height:44px;border-radius:10px;font:600 14px 'IBM Plex Sans',sans-serif;cursor:pointer;padding:0 14px}
+.legend{display:flex;gap:5px;align-items:center;font-size:11.5px;color:#3c414b}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div style="padding:18px 20px 10px;display:flex;flex-direction:column;gap:6px;background:#f6f4ef">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-family:'Permanent Marker',cursive;font-size:22px;color:#14161a">I was here</span>
+      <span style="font-size:12px;color:#5d6270">Ingelogd als Asha</span>
+    </div>
+    <span style="font-size:13px;color:#5d6270">Jouw verhaal bij <strong style="color:#14161a">Johanna Wijngaarde</strong> · 's Lands Hospitaal</span>
+  </div>
+
+  <div style="margin:0 12px;background:#fff;border-radius:16px;border:1px solid #e6e3dc;padding:16px 18px;height:300px;box-sizing:border-box;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font:600 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5d6270">Transcript · live</span>
+      <span id="clock" style="font-size:12px;color:#5d6270"></span>
+    </div>
+    <p id="transcript" style="margin:0;font-family:'IBM Plex Serif',serif;font-size:18px;line-height:1.6"></p>
+  </div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;padding:10px 20px 4px">
+    <span class="legend"><span class="dot c-per"></span>persoon</span>
+    <span class="legend"><span class="dot c-pla"></span>plaats</span>
+    <span class="legend"><span class="dot c-dat"></span>datum</span>
+    <span class="legend"><span class="dot c-geb"></span>gebouw · plantage</span>
+    <span class="legend"><span class="dot c-rol"></span>beroep</span>
+    <span class="legend"><span class="dot c-rel"></span>relatie</span>
+  </div>
+
+  <div style="flex:1;min-height:0;margin:8px 12px 0;background:#fff;border-radius:16px 16px 0 0;border:1px solid #e6e3dc;border-bottom:0;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;border-bottom:1px solid #e6e3dc">
+      <button type="button" class="tab" id="tabFound"></button>
+      <button type="button" class="tab" id="tabLinks"></button>
+    </div>
+    <div id="panel" style="flex:1;min-height:0;overflow-y:auto;padding:0 16px"></div>
+  </div>
+
+  <div style="margin:0 12px;background:#fff;border:1px solid #e6e3dc;padding:12px 16px 18px;display:flex;align-items:center;gap:14px">
+    <button type="button" id="recBtn" style="width:60px;height:60px;border-radius:50%;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"></button>
+    <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+      <div id="bars" style="display:flex;gap:3px;align-items:center;height:26px"></div>
+      <span id="recStatus" style="font-size:12px;color:#5d6270"></span>
+    </div>
+    <button type="button" id="restart" class="btn" style="background:none;border:1px solid #c9c6bf;color:#14161a;font-size:13px">Opnieuw</button>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var SEGS = [
+    ['Mijn '], ['grootmoeder', 'rel', 'e1'], [' '], ['Johanna Wijngaarde', 'per', 'e2'], [' werkte als '], ['verpleegster', 'rol', 'e3'],
+    [' in '], ["'s Lands Hospitaal", 'geb', 'e4'], ['. Ze is daar in '], ['1967', 'dat', 'e5'], [' ook overleden. Mijn '],
+    ['grootvader', 'rel', 'e6'], [' heette '], ['Ramlal Doerga', 'per', 'e7'], ['. Hij kwam uit '], ['Nickerie', 'pla', 'e8'],
+    [' en woonde aan de '], ['Zwartenhovenbrugstraat', 'pla', 'e9'], ['. Zijn '], ['vader', 'rel', 'e10'], [' is rond '],
+    ['1908', 'dat', 'e11'], [' met een schip uit '], ['Calcutta', 'pla', 'e12'], [' gekomen. Over zijn moeder weet ik niets. Volgens oma woonde háár grootmoeder op '],
+    ['plantage Tout Lui Faut', 'geb', 'e13'], ['.']
+  ];
+  var META = {
+    e1: ['Relatie', 'Verteller → grootmoeder. Legt jouw plek in de stamboom vast.', 'nieuwe relatie', 'b-new', 'schema:relatedTo'],
+    e2: ['Persoon', "Match met J. Wijngaarde, overleden 1967 in 's Lands Hospitaal. Overlijdensakte gevonden.", 'gekoppeld', 'b-link', 'persoon in de kennisgraaf · bron: overlijdensakte'],
+    e3: ['Beroep', 'Gekoppeld aan de term verpleegkundige uit het Termennetwerk.', 'gekoppeld', 'b-link', 'Termennetwerk · beroepen'],
+    e4: ['Gebouw', "'s Lands Hospitaal, Gravenstraat 64–66. Het centrale gebouw op de kaart.", 'gekoppeld', 'b-link', 'locatie in de kennisgraaf'],
+    e5: ['Datum', 'Jaar van overlijden van Johanna. Komt overeen met de akte.', 'bevestigd', 'b-link', 'gebeurtenis: overlijden · 1967'],
+    e6: ['Relatie', 'Verteller → grootvader.', 'nieuwe relatie', 'b-new', 'schema:relatedTo'],
+    e7: ['Persoon', 'Nog geen match. Er wordt een nieuw profiel aangemaakt, onbevestigd.', 'nieuw', 'b-new', 'nieuw profiel · bron: jouw opname'],
+    e8: ['Plaats', 'District Nickerie, Suriname.', 'gekoppeld', 'b-link', 'GeoNames · Nickerie'],
+    e9: ['Straat', 'Historische straat in Paramaribo. Wordt een punt op de kaart.', 'gekoppeld', 'b-link', 'straatnamen Paramaribo'],
+    e10: ['Relatie', 'Vader van Ramlal — naam onbekend. Er ontstaat een open plek in de stamboom die anderen kunnen aanvullen.', 'open plek', 'b-new', 'onbekende persoon · zoekvraag'],
+    e11: ['Datum', 'Rond 1908 — aankomst. Wordt vergeleken met de registers van Hindostaanse immigranten.', 'zoekt', 'b-wait', 'gebeurtenis: aankomst · ca. 1908'],
+    e12: ['Plaats', 'Calcutta (Kolkata), India. Vertrekhaven van de immigratieschepen.', 'gekoppeld', 'b-link', 'GeoNames · Kolkata'],
+    e13: ['Plantage', 'Plantage aan de Surinamerivier. Mogelijke bronnen in het Zeeuws Archief.', 'mogelijk', 'b-wait', 'plantage · link naar Middelburg']
+  };
+  var LINKS = [
+    ['e4', 'Johanna Wijngaarde', 'werkte in', "'s Lands Hospitaal", 'bewezen · akte', 'b-link'],
+    ['e5', 'Johanna Wijngaarde', 'overleed in 1967 in', "'s Lands Hospitaal", 'bewezen · akte', 'b-link'],
+    ['e7', 'Ramlal Doerga', 'grootvader van', 'Asha', 'onbevestigd · jouw verhaal', 'b-new'],
+    ['e9', 'Ramlal Doerga', 'woonde aan de', 'Zwartenhovenbrugstraat', 'onbevestigd', 'b-new'],
+    ['e12', 'Vader van Ramlal (onbekend)', 'kwam rond 1908 uit', 'Calcutta', 'zoekt match in immigratieregisters', 'b-wait'],
+    ['e13', 'Overgrootmoeder van Johanna', 'woonde op', 'plantage Tout Lui Faut', 'mogelijk · link naar Zeeuws Archief', 'b-wait']
+  ];
+
+  // split plain text into word-ish chunks, keep entities whole
+  var UNITS = [];
+  SEGS.forEach(function (s) {
+    if (s[1]) UNITS.push({ t: s[0], k: s[1], id: s[2] });
+    else s[0].split(/(?<=\s)/).forEach(function (w) { UNITS.push({ t: w }); });
+  });
+
+  var state = { n: 0, rec: true, sel: null, tab: 'found' };
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  // bars (static, restyled on rec change)
+  var barsEl = $('bars');
+  for (var i = 0; i < 22; i++) {
+    var b = document.createElement('span');
+    b.className = 'bar';
+    b.style.animationDelay = ((i * 97) % 900) + 'ms';
+    barsEl.appendChild(b);
+  }
+
+  function render() {
+    var n = state.n, rec = state.rec, sel = state.sel, tab = state.tab;
+    var vis = UNITS.slice(0, n);
+
+    // transcript
+    var html = '';
+    vis.forEach(function (u, i) {
+      if (!u.k) { html += '<span>' + esc(u.t) + '</span>'; return; }
+      var linked = n - i > 4;
+      html += '<button type="button" class="ent k-' + u.k + (linked ? ' linked' : ' detect') + (sel === u.id ? ' sel' : '') + '" data-pick="' + u.id + '">' + esc(u.t) + '</button>';
+    });
+    if (rec) html += '<span class="caret"></span>';
+    $('transcript').innerHTML = html;
+
+    // entity lists
+    var ents = [];
+    vis.forEach(function (u, i) { if (u.k) ents.push({ u: u, i: i }); });
+    var found = ents.slice().reverse().map(function (x) {
+      var m = META[x.u.id], linked = n - x.i > 4;
+      return {
+        id: x.u.id, t: x.u.t, dot: 'c-' + x.u.k,
+        link: linked ? m[1] : 'Zoeken in bronnen…',
+        badge: linked ? m[2] : 'herkennen…',
+        bcls: linked ? m[3] : 'b-wait'
+      };
+    });
+    var has = function (id) { return ents.some(function (x) { return x.u.id === id && n - x.i > 4; }); };
+    var links = LINKS.filter(function (l) { return has(l[0]); }).reverse();
+
+    var sm = sel ? META[sel] : null;
+    var su = sel ? UNITS.filter(function (u) { return u.id === sel; })[0] : null;
+
+    // tabs
+    $('tabFound').textContent = 'Gevonden (' + found.length + ')';
+    $('tabLinks').textContent = 'Nieuwe verbindingen (' + links.length + ')';
+    $('tabFound').className = 'tab' + (tab === 'found' && !sm ? ' act' : '');
+    $('tabLinks').className = 'tab' + (tab === 'links' && !sm ? ' act' : '');
+
+    // panel
+    var p = '';
+    if (sm) {
+      p += '<div style="padding:14px 0;display:flex;flex-direction:column;gap:10px">' +
+        '<div style="display:flex;gap:8px;align-items:center"><span class="dot c-' + su.k + '"></span><span style="font-size:12px;color:#5d6270">' + esc(sm[0]) + '</span></div>' +
+        '<span style="font-family:\'IBM Plex Serif\',serif;font-size:20px">' + esc(su.t) + '</span>' +
+        '<span style="font-size:13px;line-height:1.45;color:#3c414b">' + esc(sm[1]) + '</span>' +
+        '<span style="font-size:12px;color:#5d6270">' + esc(sm[4]) + '</span>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button type="button" class="btn" style="background:#14161a;color:#fff;border:0">Klopt</button>' +
+        '<button type="button" class="btn" style="background:#fff;color:#14161a;border:1px solid #c9c6bf">Corrigeer</button>' +
+        '<button type="button" class="btn" style="background:#fff;color:#14161a;border:1px solid #c9c6bf">Bewijs toevoegen</button>' +
+        '</div>' +
+        '<button type="button" data-close="1" style="background:none;border:0;padding:8px 0;font:600 13px \'IBM Plex Sans\',sans-serif;color:#1d4fb8;text-align:left;cursor:pointer">← Terug naar de lijst</button>' +
+        '</div>';
+    } else if (tab === 'found') {
+      found.forEach(function (f) {
+        p += '<button type="button" class="row" data-pick="' + f.id + '">' +
+          '<span class="dot ' + f.dot + '" style="margin-top:5px"></span>' +
+          '<span style="flex:1;display:flex;flex-direction:column;gap:2px">' +
+          '<span style="font-size:14px;font-weight:600">' + esc(f.t) + '</span>' +
+          '<span style="font-size:12px;color:#5d6270;line-height:1.35">' + esc(f.link) + '</span></span>' +
+          '<span class="badge ' + f.bcls + '">' + esc(f.badge) + '</span></button>';
+      });
+    } else {
+      links.forEach(function (l) {
+        p += '<div style="padding:12px 0;border-bottom:1px solid #e6e3dc;display:flex;flex-direction:column;gap:4px">' +
+          '<span style="font-size:14px;line-height:1.4"><strong>' + esc(l[1]) + '</strong> <span style="color:#5d6270">' + esc(l[2]) + '</span> <strong>' + esc(l[3]) + '</strong></span>' +
+          '<span class="badge ' + l[5] + '" style="align-self:flex-start">' + esc(l[4]) + '</span></div>';
+      });
+      p += '<span style="display:block;padding:12px 0;font-size:12px;line-height:1.45;color:#5d6270">Elke verbinding wordt een triple in de kennisgraaf, met jouw opname als bron. Peers en experts kunnen hem bevestigen.</span>';
+    }
+    $('panel').innerHTML = p;
+
+    // recorder
+    var secs = Math.min(Math.floor(n * 0.42), 59);
+    $('clock').textContent = (rec ? '● ' : '') + '0:' + String(secs).padStart(2, '0');
+    var rb = $('recBtn');
+    rb.style.background = rec ? '#d4462c' : '#14161a';
+    rb.setAttribute('aria-label', rec ? 'Opname stoppen' : 'Opname starten');
+    rb.innerHTML = rec
+      ? '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="4" width="12" height="12" rx="2" fill="#fff"></rect></svg>'
+      : '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="7" y="2" width="8" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.8"></rect><path d="M4 10a7 7 0 0014 0M11 17v3" fill="none" stroke="#fff" stroke-width="1.8"></path></svg>';
+    Array.prototype.forEach.call(barsEl.children, function (el) { el.className = 'bar' + (rec ? '' : ' still'); });
+    $('recStatus').textContent = rec
+      ? 'Luistert… namen en plekken worden live herkend'
+      : (n >= UNITS.length ? 'Klaar · ' + found.length + ' begrippen, ' + links.length + ' verbindingen' : 'Gepauzeerd');
+  }
+
+  // events (delegated)
+  document.getElementById('app').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-pick],[data-close]');
+    if (!t) return;
+    if (t.hasAttribute('data-close')) state.sel = null;
+    else state.sel = t.getAttribute('data-pick');
+    render();
+  });
+  $('tabFound').addEventListener('click', function () { state.tab = 'found'; state.sel = null; render(); });
+  $('tabLinks').addEventListener('click', function () { state.tab = 'links'; state.sel = null; render(); });
+  $('recBtn').addEventListener('click', function () { state.rec = !state.rec; render(); });
+  $('restart').addEventListener('click', function () { state.n = 0; state.rec = true; state.sel = null; render(); });
+
+  // simulated live dictation
+  setInterval(function () {
+    if (!state.rec) return;
+    state.n++;
+    if (state.n >= UNITS.length + 6) state.rec = false;
+    render();
+  }, 230);
+
+  render();
+})();
+</script>
+</body>
+</html>
