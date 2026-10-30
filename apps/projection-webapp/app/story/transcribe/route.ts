@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const ext = EXT[audio.type.split(';')[0]] ?? 'webm';
   try {
     const ctx = await buildContext(key).catch(() => null);
-    const transcript = await transcribe(audio, `story.${ext}`, transcriptionPrompt(ctx), modelOverride(request));
+    const transcript = await transcribe(audio, `story.${ext}`, transcriptionPrompt(ctx, String(form?.get('name') ?? '').slice(0, 120) || undefined), modelOverride(request));
     return Response.json({ transcript });
   } catch (e) {
     return failed('story/transcribe', e);

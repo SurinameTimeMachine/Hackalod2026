@@ -5,6 +5,7 @@ import { datasetLabel, FACT } from '../scan/strings';
 import type { MatchOption, PersonContext } from '../shared/story';
 import { parseKey } from '../shared/keys';
 import { ARCHIVE } from './config';
+import { lifeLabel, lifeOf, type Life } from './lifetime';
 
 const cache = new Map<string, Promise<unknown>>();
 
@@ -116,16 +117,40 @@ export async function searchPlaces(raw: string): Promise<MatchOption[]> {
   }));
 }
 
-export async function searchPeople(q: string, around?: number | null): Promise<(MatchOption & { year: number | null })[]> {
+// People by name, with their possible lifetime (see lifetime.ts). Callers
+// filter by what the story says, then trim.
+export async function searchPeople(q: string, around?: number | null): Promise<MatchOption[]> {
   if (q.trim().length < 2) return [];
   const rows = await get<Row[]>('person_search', { q: q.trim() });
   return rows
-    .map((r) => ({
-      id: `person:${r.person_id}`,
-      label: String(r.full_name ?? '?'),
-      detail: [r.role, datasetLabel(str(r.source_dataset)), r.event_year].filter(Boolean).join(' · '),
-      year: num(r.event_year),
-    }))
+    .map((r) => {
+      const year = num(r.event_year);
+      const role = str(r.role);
+      const ds = str(r.source_dataset);
+      const life = lifeOf(role, year, ds);
+      return {
+        id: `person:${r.person_id}`,
+        label: String(r.full_name ?? '?'),
+        detail: [lifeLabel(role, year, ds, str(r.location)), datasetLabel(ds)].join(' · '),
+        place: str(r.location),
+        ...life,
+        year,
+      };
+    })
     .filter((r) => !around || !r.year || Math.abs(r.year - around) <= 90)
-    .slice(0, 10);
+    .slice(0, 40)
+    .map((r): MatchOption => ({ id: r.id, label: r.label, detail: r.detail, place: r.place, born: r.born, died: r.died }));
+}
+
+// The chosen record's own lifetime, to check it against the story.
+export async function lifeOfKey(key: string): Promise<Life | null> {
+  const k = parseKey(key);
+  if (!k || k.kind === 'name') return null;
+  if (k.kind === 'patient') {
+    const [p] = await get<Row[]>('mh1921_patienten', { patient_id: k.id });
+    const born = num(p?.geboortejaar);
+    return { born: born ? [born, born] : null, died: [1921, (born ?? 1921) + 105] };
+  }
+  const [me] = await get<Row[]>('ui_person', { id: k.id, key: '' });
+  return me ? lifeOf(str(me.role), num(me.event_year), str(me.source_dataset), num(me.age_numeric)) : null;
 }

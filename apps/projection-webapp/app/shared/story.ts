@@ -4,6 +4,7 @@
 // when it is on no screen, from the archive search.
 export type Candidate = {
   key: string;
+  certain?: boolean; // scanned from a screen: the record is the stamp itself
   text: string;
   font?: string; // stamp font + ink, when it came from a screen
   color?: string;
@@ -47,10 +48,17 @@ export type Suggestion = {
   year: number | null;
   quote: string;
   possibly_living: boolean;
+  life: LifeFacts; // for persons: what the story says about their life
 };
 
-// An archive match offered for a suggestion's place or person.
-export type MatchOption = { id: string; label: string; detail: string };
+export type Range = [number, number];
+
+// What a story says about when/where someone lived (for filtering records).
+export type LifeFacts = { born: number | null; died: number | null; alive_in: number | null; place: string | null };
+
+// An archive match offered for a suggestion's place or person. People carry
+// their possible lifetime and place, for the follow-up questions.
+export type MatchOption = { id: string; label: string; detail: string; born?: Range | null; died?: Range | null; place?: string | null };
 
 export type ResolvedSuggestion = Suggestion & {
   id: string;
@@ -60,4 +68,8 @@ export type ResolvedSuggestion = Suggestion & {
   linkedLabel: string | null;
 };
 
-export type ExtractResult = { summary: string; suggestions: ResolvedSuggestion[] };
+// Is the chosen person the one the story is about? 'check': the record does
+// not fit the story (or none was chosen): ask, with the records that do fit.
+export type SubjectCheck = { status: 'ok' | 'check' | 'none'; reason: string | null; options: MatchOption[] };
+
+export type ExtractResult = { summary: string; suggestions: ResolvedSuggestion[]; subject: SubjectCheck };

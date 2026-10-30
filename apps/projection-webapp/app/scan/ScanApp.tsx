@@ -9,9 +9,9 @@ import type { Candidate, PersonContext, ScanResult } from '../shared/story';
 import Dictate from './Dictate';
 import { downscale } from './downscale';
 import { Back, Mic } from './icons';
-import { APP_NAME, FOUND, HOME, SCAN } from './strings';
+import { APP_NAME, FOUND, HOME, PICK, SCAN } from './strings';
 
-type Screen = 'home' | 'scan' | 'found' | 'dict';
+type Screen = 'home' | 'scan' | 'pick' | 'found' | 'dict';
 type Phase = 'reading' | 'found' | 'none' | 'error' | 'typing';
 
 // Shown on the home wall when no screen has reported names yet.
@@ -39,18 +39,24 @@ export default function ScanApp() {
   }, []);
 
   const choose = useCallback((c: Candidate) => {
+    // Not (yet) an archive record: the card says so instead of loading.
+    const unlinked: PersonContext = { key: c.key, name: c.text, surname: null, facts: [{ label: FOUND.archive, value: FOUND.notLinked }], birthYear: null, related: [], places: [] };
     setChosen(c);
     setCtx(null);
     setShowOthers(false);
     setScreen('found');
+    if (c.key.startsWith('name:')) return setCtx(unlinked);
     fetch(`/story/context?key=${encodeURIComponent(c.key)}`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => (r.ok ? r.json() : unlinked))
       .then(setCtx)
-      .catch(() => {});
+      .catch(() => setCtx(unlinked));
   }, []);
 
+  // "Not sure / not in the list": a provisional person with the name as told.
+  const provisional = (name: string): Candidate => ({ key: `name:${crypto.randomUUID()}`, text: name, subtitle: FOUND.provisional, certain: false });
+
   const send = useCallback(
-    async (form: FormData) => {
+    async (form: FormData, photo = false) => {
       setPhase('reading');
       setResult(null);
       try {
@@ -59,8 +65,14 @@ export default function ScanApp() {
         const r: ScanResult = await res.json();
         setResult(r);
         if (!r.candidates.length) return setPhase('none');
-        setPhase('found');
-        setTimeout(() => choose(r.candidates[0]), 1100);
+        // A photo of a stamp on the wall is certain. Archive search results
+        // (and several typed matches) are never picked for the visitor.
+        if (r.source === 'display' && (photo || r.candidates.length === 1)) {
+          setPhase('found');
+          setTimeout(() => choose({ ...r.candidates[0], certain: true }), 1100);
+        } else {
+          setScreen('pick');
+        }
       } catch {
         setPhase('error');
       }
@@ -79,7 +91,7 @@ export default function ScanApp() {
     } catch {
       form.append('image', file);
     }
-    send(form);
+    send(form, true);
   };
 
   const onType = (text: string) => {
@@ -140,6 +152,33 @@ export default function ScanApp() {
 
         {screen === 'scan' && <ScanScreen photo={photo} phase={phase} result={result} onClose={() => setScreen('home')} onShutter={takePhoto} onType={onType} onTypeMode={() => setPhase('typing')} />}
 
+        {screen === 'pick' && result && (
+          <section className="screen s-found" key="pick">
+            <div className="bar-top">
+              <Back onClick={() => setScreen('home')} />
+              <span className="logo">{APP_NAME}</span>
+            </div>
+            <div className="found-body">
+              <div className="ask">
+                <h3>{PICK.title(result.read_text)}</h3>
+                <p>{result.source === 'search' ? PICK.hint : ''}</p>
+              </div>
+              <div className="others">
+                {result.candidates.map((c) => (
+                  <button type="button" key={c.key} onClick={() => choose({ ...c, certain: result.source === 'display' })}>
+                    {c.text}
+                    {c.subtitle && <small>{c.subtitle}</small>}
+                  </button>
+                ))}
+                <button type="button" className="unsure" onClick={() => choose(provisional(result.read_text))}>
+                  {PICK.unsure}
+                  <small>{PICK.unsureHint}</small>
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {screen === 'found' && chosen && (
           <section className="screen s-found" key={`found-${chosen.key}`}>
             <div className="bar-top">
@@ -148,14 +187,18 @@ export default function ScanApp() {
             </div>
             <div className="found-body">
               <div className="namecard">
-                <span className="eyebrow">
-                  <span className="ok">
-                    <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
-                      <path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                    </svg>
+                {chosen.key.startsWith('name:') ? (
+                  <span className="eyebrow">{FOUND.unlinked}</span>
+                ) : (
+                  <span className="eyebrow">
+                    <span className="ok">
+                      <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+                        <path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                      </svg>
+                    </span>
+                    {chosen.certain ? FOUND.recognised : FOUND.fromSearch}
                   </span>
-                  {result?.source === 'search' ? FOUND.fromSearch : FOUND.recognised}
-                </span>
+                )}
                 {chosen.font ? (
                   <div className="plate" style={{ fontFamily: chosen.font, color: inkOf(chosen.color) }}>
                     {chosen.text}
@@ -193,7 +236,7 @@ export default function ScanApp() {
                   {result?.candidates
                     .filter((c) => c.key !== chosen.key)
                     .map((c) => (
-                      <button type="button" key={c.key} onClick={() => choose(c)}>
+                      <button type="button" key={c.key} onClick={() => choose({ ...c, certain: result.source === 'display' })}>
                         {c.text}
                         {c.subtitle && <small>{c.subtitle}</small>}
                       </button>
@@ -219,7 +262,21 @@ export default function ScanApp() {
           </section>
         )}
 
-        {screen === 'dict' && chosen && <Dictate person={chosen} context={ctx} onBack={() => setScreen('found')} />}
+        {screen === 'dict' && chosen && (
+          <Dictate
+            person={chosen}
+            context={ctx}
+            onBack={() => setScreen('found')}
+            onSubject={(c) => {
+              setChosen(c);
+              if (c.key.startsWith('name:')) return;
+              fetch(`/story/context?key=${encodeURIComponent(c.key)}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((x) => x && setCtx(x))
+                .catch(() => {});
+            }}
+          />
+        )}
       </main>
     </div>
   );

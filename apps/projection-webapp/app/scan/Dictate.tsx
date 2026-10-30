@@ -5,9 +5,10 @@
 // contributions dataset, with archive matches to confirm or correct.
 // Nothing is saved yet; that is the consent + /contribute step.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Candidate, ExtractResult, PersonContext, ResolvedSuggestion } from '../shared/story';
-import { APP_NAME, BADGE, CATEGORY, DICT, FIELD, RELATION, TYPE } from './strings';
+import type { Candidate, ExtractResult, MatchOption, PersonContext, ResolvedSuggestion } from '../shared/story';
+import { APP_NAME, ASK, BADGE, CATEGORY, DICT, FIELD, FOUND, RELATION, TYPE } from './strings';
 import { Mic } from './icons';
+import { answer, nextQuestion, startAsk, type Ask, type Question } from './questions';
 import { MAX_SECONDS, useRecorder } from './useRecorder';
 
 type Phase = 'idle' | 'recording' | 'transcribing' | 'extracting' | 'done' | 'typing';
@@ -70,7 +71,7 @@ function columns(s: ResolvedSuggestion, personKey: string, r: Review) {
 }
 
 function badge(s: ResolvedSuggestion, r: Review): [string, string] {
-  if (s.is_subject) return ['b-link', BADGE.linked];
+  if (s.is_subject) return ['b-link', BADGE.self];
   if (!s.kind) return ['b-wait', BADGE.only];
   if (r.status === 'removed') return ['b-wait', DICT.removed];
   if (s.possibly_living) return ['b-warn', 'mogelijk levend'];
@@ -80,7 +81,55 @@ function badge(s: ResolvedSuggestion, r: Review): [string, string] {
   return ['b-new', BADGE.new];
 }
 
-export default function Dictate({ person, context, onBack }: { person: Candidate; context: PersonContext | null; onBack: () => void }) {
+const SUBJECT = 'subject'; // id of the "is this the right person?" question
+
+// One follow-up question with its answers.
+function QuestionCard({ q, left, onAnswer }: { q: Question; left: number; onAnswer: (value: string) => void }) {
+  return (
+    <div className="qcard">
+      <span className="qtext">{q.text}</span>
+      {q.option && (
+        <div className="opt on" style={{ cursor: 'default' }}>
+          <span>
+            {q.option.label}
+            <small>{q.option.detail}</small>
+          </span>
+        </div>
+      )}
+      {q.kind === 'list' ? (
+        <div className="opts">
+          {q.chips.map((c) =>
+            c.detail ? (
+              <button type="button" key={c.value} className="opt" onClick={() => onAnswer(c.value)}>
+                <span>
+                  {c.label}
+                  <small>{c.detail}</small>
+                </span>
+              </button>
+            ) : (
+              <button type="button" key={c.value} className={`qchip${c.value === 'skip' ? ' skip' : ''}`} onClick={() => onAnswer(c.value)}>
+                {c.label}
+              </button>
+            ),
+          )}
+        </div>
+      ) : (
+        <div className="chips">
+          {q.chips.map((c) => (
+            <button type="button" key={c.value} className={`qchip${c.value === 'skip' ? ' skip' : ''}`} onClick={() => onAnswer(c.value)}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {q.kind !== 'confirm' && <span className="qcount">{ASK.remaining(left)}</span>}
+    </div>
+  );
+}
+
+type Props = { person: Candidate; context: PersonContext | null; onBack: () => void; onSubject: (c: Candidate) => void };
+
+export default function Dictate({ person, context, onBack, onSubject }: Props) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [transcript, setTranscript] = useState('');
   const [typed, setTyped] = useState('');
@@ -92,6 +141,8 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
   const [toast, setToast] = useState<string | null>(null);
   const [failed, setFailed] = useState<'transcribe' | 'extract' | null>(null);
   const lastAudio = useRef<Blob | null>(null);
+  const [asks, setAsks] = useState<Record<string, Ask>>({});
+  const [walking, setWalking] = useState(false);
 
   const say = (msg: string) => {
     setToast(msg);
@@ -109,11 +160,18 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
         const res = await fetch('/story/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: person.key, transcript: text }),
+          body: JSON.stringify({ key: person.key, name: person.text, certain: !!person.certain, transcript: text }),
         });
         if (!res.ok) throw new Error(String(res.status));
         const out: ExtractResult = await res.json();
         setReview(Object.fromEntries(out.suggestions.map((s) => [s.id, { status: s.kind && s.possibly_living ? 'removed' : 'open', choice: s.linked }])));
+        // A question for every named person with archive candidates, and one
+        // for the person themselves when the story does not fit the record.
+        const next: Record<string, Ask> = {};
+        if (out.subject.status === 'check') next[SUBJECT] = startAsk(out.subject.options);
+        for (const s of out.suggestions) if (s.type === 'person' && !s.is_subject && !s.related_key && s.options.length) next[s.id] = startAsk(s.options);
+        setAsks(next);
+        setWalking(false);
         setRevealed(0);
         setData(out);
         setPhase('done');
@@ -122,7 +180,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
         setFailed('extract');
       }
     },
-    [person.key],
+    [person.key, person.text, person.certain],
   );
 
   const onAudio = useCallback(
@@ -133,6 +191,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
       const form = new FormData();
       form.append('audio', audio, 'story');
       form.append('key', person.key);
+      form.append('name', person.text);
       try {
         const res = await fetch('/story/transcribe', { method: 'POST', body: form });
         if (!res.ok) throw new Error(String(res.status));
@@ -144,7 +203,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
         setFailed('transcribe');
       }
     },
-    [person.key, process],
+    [person.key, person.text, process],
   );
 
   const rec = useRecorder(onAudio);
@@ -197,6 +256,39 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
   };
   const update = (id: string, r: Partial<Review>) => setReview((all) => ({ ...all, [id]: { ...all[id], ...r } }));
 
+  // --- Follow-up questions ----------------------------------------------------
+  const optionsOf = (id: string): MatchOption[] => (id === SUBJECT ? (data?.subject.options ?? []) : (list.find((s) => s.id === id)?.options ?? []));
+  const nameOf = (id: string) => {
+    const s = list.find((x) => x.id === id);
+    return id === SUBJECT ? person.text : (s?.name_raw ?? s?.mention ?? '');
+  };
+  const isOpen = (id: string) => !!asks[id] && !asks[id].done;
+  const openIds = [SUBJECT, ...shown.map((s) => s.id)].filter(isOpen);
+
+  const onAnswer = (id: string, q: Question, value: string) => {
+    const opts = optionsOf(id);
+    const next = answer(q, value, opts, asks[id]);
+    setAsks((all) => ({ ...all, [id]: next }));
+    if (!next.done) return;
+    const picked = next.result ? opts.find((o) => o.id === next.result) : null;
+    if (id === SUBJECT) {
+      // The story moves to the record that fits, or to the name as told.
+      if (picked) onSubject({ key: picked.id, text: picked.label, subtitle: picked.detail, certain: true });
+      else if (value === 'no' && !person.key.startsWith('name:'))
+        onSubject({ key: `name:${crypto.randomUUID()}`, text: person.text, subtitle: FOUND.provisional, certain: false });
+    } else {
+      update(id, picked ? { choice: picked.id, status: 'ok' } : { choice: null });
+    }
+    if (walking) {
+      const rest = openIds.filter((x) => x !== id);
+      setSel(rest[0] ?? null);
+      if (!rest.length) {
+        setWalking(false);
+        say(ASK.thanks);
+      }
+    }
+  };
+
   // --- Transcript (top half) ------------------------------------------------
   let body: React.ReactNode;
   if (phase === 'typing') {
@@ -211,7 +303,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
       if (m.start > at) parts.push(transcript.slice(at, m.start));
       const lit = (order.get(s.id) ?? 0) < revealed;
       const r = review[s.id];
-      const cls = ['ent', `k-${s.category}`, lit && (!s.kind || r?.choice || r?.status === 'ok' || !s.options.length) ? 'linked' : '', r?.status === 'removed' ? 'gone' : '', sel === s.id ? 'sel' : '']
+      const cls = ['ent', `k-${s.category}`, lit && (!s.kind || r?.choice || r?.status === 'ok' || !s.options.length) ? 'linked' : '', r?.status === 'removed' ? 'gone' : '', lit && isOpen(s.id) ? 'ask' : '', sel === s.id ? 'sel' : '']
         .filter(Boolean)
         .join(' ');
       parts.push(
@@ -228,9 +320,36 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
   // --- Dataset (bottom half) ------------------------------------------------
   let panel: React.ReactNode;
   const selected = sel ? list.find((s) => s.id === sel) : null;
-  if (selected) {
+  const subject = data?.subject;
+  const question = (id: string) => (isOpen(id) ? nextQuestion(nameOf(id), optionsOf(id), asks[id]) : null);
+  const card = (id: string) => {
+    const q = question(id);
+    return q && <QuestionCard q={q} left={asks[id].remaining.length} onAnswer={(v) => onAnswer(id, q, v)} />;
+  };
+  const backLink = (
+    <button type="button" className="textbtn" onClick={() => (setSel(null), setWalking(false))} style={{ textAlign: 'left', padding: '8px 0', fontSize: 13 }}>
+      {DICT.back}
+    </button>
+  );
+  if (sel === SUBJECT && subject) {
+    const a = asks[SUBJECT];
+    const picked = a?.result ? subject.options.find((o) => o.id === a.result) : null;
+    panel = (
+      <div className="det">
+        <span className="ty">
+          <span className="dot c-per" />
+          {ASK.who}
+        </span>
+        <span className="nm">{person.text}</span>
+        {subject.reason && <span className="foot-note">{subject.reason}</span>}
+        {card(SUBJECT) ??
+          (picked ? <span className="foot-note">{ASK.linkedTo(`${picked.label} (${picked.detail})`)}</span> : <span className="foot-note">{subject.status === 'none' ? ASK.subjectNone : ASK.keptAsTold}</span>)}
+        {backLink}
+      </div>
+    );
+  } else if (selected) {
     const r = review[selected.id];
-    const [b, bl] = badge(selected, r);
+    const [b, bl] = isOpen(selected.id) ? ['b-ask', '?'] : badge(selected, r);
     const isPerson = selected.type === 'person';
     panel = (
       <div className="det">
@@ -240,6 +359,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
         </span>
         <span className="nm">{selected.mention}</span>
         <span className="quote">“{selected.quote}”</span>
+        {card(selected.id)}
         <div className="cols">
           {columns(selected, person.key, r).map(([k, v]) => (
             <code key={k}>
@@ -249,7 +369,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
         </div>
         {!selected.kind && !selected.is_subject && <span className="foot-note">{DICT.notStoredNote}</span>}
         {selected.kind && selected.possibly_living && <span className="foot-note">{DICT.living}</span>}
-        {(selected.options.length > 0 || selected.linked) && (
+        {!isOpen(selected.id) && (selected.options.length > 0 || selected.linked) && (
           <div className="opts">
             <span className="ttl">{selected.kind ? DICT.choose : 'In het archief'}</span>
             {selected.linked && !selected.options.some((o) => o.id === selected.linked) && (
@@ -276,7 +396,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
             </button>
           </div>
         )}
-        {selected.kind && <div className="acts">
+        {selected.kind && !isOpen(selected.id) && <div className="acts">
           <button
             type="button"
             className="btn primary"
@@ -298,27 +418,59 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
             {r.status === 'removed' ? 'Terugzetten' : DICT.remove}
           </button>
         </div>}
-        <button type="button" className="textbtn" onClick={() => setSel(null)} style={{ textAlign: 'left', padding: '8px 0', fontSize: 13 }}>
-          {DICT.back}
-        </button>
+        {backLink}
       </div>
     );
   } else if (tab === 'found') {
+    const subjectRow = subject && subject.status !== 'ok' && (
+      <button type="button" key={SUBJECT} className="row subject" onClick={() => setSel(SUBJECT)}>
+        <span className="dot c-per" />
+        <span className="tx">
+          <span className="tt">{person.text}</span>
+          <span className="ll">
+            {asks[SUBJECT]?.result
+              ? ASK.linkedTo(subject.options.find((o) => o.id === asks[SUBJECT].result)?.label ?? '')
+              : subject.status === 'check'
+                ? ASK.subjectCheck(subject.options.length)
+                : ASK.subjectNone}
+          </span>
+        </span>
+        <span className={`badge ${isOpen(SUBJECT) ? 'b-ask' : asks[SUBJECT]?.result ? 'b-link' : 'b-new'}`}>
+          {isOpen(SUBJECT) ? '?' : asks[SUBJECT]?.result ? BADGE.linked : BADGE.new}
+        </span>
+      </button>
+    );
+    const banner = openIds.length > 0 && (
+      <div className="askbar" key="askbar">
+        <span>{ASK.banner(openIds.length)}</span>
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => {
+            setWalking(true);
+            setSel(openIds[0]);
+          }}
+        >
+          {ASK.go}
+        </button>
+      </div>
+    );
     panel = shown.length ? (
-      shown.map((s) => {
+      [banner, subjectRow, ...shown.map((s) => {
         const r = review[s.id];
-        const [b, bl] = badge(s, r);
+        const [b, bl] = isOpen(s.id) ? ['b-ask', '?'] : badge(s, r);
+        const left = isOpen(s.id) ? ` · ${ASK.remaining(asks[s.id].remaining.length)}` : '';
         return (
           <button type="button" key={s.id} className={`row${r.status === 'removed' ? ' gone' : ''}`} onClick={() => setSel(s.id)}>
             <span className={`dot c-${s.category}`} />
             <span className="tx">
               <span className="tt">{s.mention}</span>
-              <span className="ll">{describe(s, person.text, labelOf(s))}</span>
+              <span className="ll">{describe(s, person.text, labelOf(s)) + left}</span>
             </span>
             <span className={`badge ${b}`}>{bl}</span>
           </button>
         );
-      })
+      })]
     ) : (
       <div className="empty">
         {failed ? DICT.failed : phase === 'extracting' ? DICT.extracting : data ? 'Niets herkend in dit verhaal.' : DICT.foundEmpty}

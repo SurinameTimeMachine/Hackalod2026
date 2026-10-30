@@ -13,7 +13,8 @@ export async function POST(request: Request) {
   if (!key || !transcript) return Response.json({ error: 'key and transcript: required' }, { status: 400 });
   if (transcript.length > LIMITS.transcriptChars) return Response.json({ error: 'transcript too long' }, { status: 413 });
   try {
-    return Response.json(await extract(key, transcript, modelOverride(request)));
+    const name = typeof body?.name === 'string' ? body.name.slice(0, 120) : undefined;
+    return Response.json(await extract(key, transcript, { name, certain: body?.certain === true, model: modelOverride(request) }));
   } catch (e) {
     return failed('story/extract', e);
   }

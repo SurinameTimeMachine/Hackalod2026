@@ -35,6 +35,17 @@ export const FOUND = {
   others: 'Niet de juiste naam?',
   rescan: 'Scan opnieuw',
   loading: 'Archief raadplegen…',
+  provisional: 'nog niet gekoppeld aan het archief',
+  unlinked: 'Nog niet gekoppeld',
+  archive: 'Archief',
+  notLinked: 'Nog niet gekoppeld. Na je verhaal zoeken we samen de juiste persoon.',
+};
+
+export const PICK = {
+  title: (name: string) => `Welke ${name} bedoel je?`,
+  hint: 'Gevonden in het archief. Kies de persoon over wie je wilt vertellen.',
+  unsure: 'Weet ik niet zeker / staat er niet tussen',
+  unsureHint: 'Geen probleem: na je verhaal zoeken we verder.',
 };
 
 export const DICT = {
@@ -120,6 +131,7 @@ export const BADGE = {
   choose: 'kies',
   new: 'nieuw',
   only: 'herkend',
+  self: 'zelf',
 };
 
 export const DATASETS: Record<string, string> = {
@@ -145,4 +157,16 @@ export const FACT = {
   year: 'Jaar',
   place: 'Plaats',
   source: 'Bron',
+};
+
+export const ASK = {
+  banner: (n: number) => `${n} ${n === 1 ? 'vraag' : 'vragen'} om de juiste personen te vinden`,
+  go: 'Help zoeken',
+  who: 'Over wie gaat je verhaal?',
+  subjectCheck: (n: number) => `Klopt de persoon? ${n} ${n === 1 ? 'archiefstuk past' : 'archiefstukken passen'} bij je verhaal`,
+  subjectNone: 'Geen archiefstuk past bij je verhaal · het blijft bij deze naam',
+  linkedTo: (label: string) => `Gekoppeld aan ${label}`,
+  keptAsTold: 'Zoals verteld bewaard, zonder archiefkoppeling.',
+  remaining: (n: number) => `${n} mogelijk in het archief`,
+  thanks: 'Dank je! Alles is nagelopen.',
 };

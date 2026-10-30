@@ -123,6 +123,7 @@
 .others { display: flex; flex-direction: column; gap: 6px; }
 .others button { text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); cursor: pointer; font: inherit; color: inherit; }
 .others small { display: block; color: var(--muted); font-size: 12px; }
+.others .unsure { background: none; border-style: dashed; color: var(--soft); }
 .found-foot { padding: 14px 16px 24px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 
 /* 4 · Dictate: transcript on the top half, dataset on the bottom half */
@@ -211,3 +212,17 @@
 .toast { position: absolute; left: 50%; bottom: 110px; transform: translate(-50%, 10px); background: var(--ink); color: #fff; font-size: 13px; padding: 10px 14px;
   border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; width: max-content; max-width: 80%; text-align: center; z-index: 5; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* Follow-up questions: a ? on names that have more than one archive match */
+.b-ask { background: #fde2c8; color: #8a3d00; min-width: 22px; text-align: center; }
+.ent.ask::after { content: '?'; font: 700 11px var(--sans); color: #c2410c; vertical-align: super; margin-left: 1px; }
+.askbar { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; margin: 10px 0 4px; background: #fff4e8;
+  border-radius: 12px; font-size: 13px; line-height: 1.35; color: #6b3200; }
+.askbar .btn { height: 38px; flex: none; }
+.qcard { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; background: #fff8f0; border: 1px solid #f6d7b8; }
+.qtext { font: 500 18px/1.35 var(--serif); }
+.qcount { font-size: 12px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.qchip { min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--card); font: 600 14px var(--sans); color: var(--ink); cursor: pointer; }
+.qchip.skip { border-style: dashed; color: var(--muted); }
+.row.subject { background: #fffaf3; }

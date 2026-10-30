@@ -1,8 +1,9 @@
 // The story pipeline: which name was scanned, and what a told story says,
 // mapped onto the columns of the contributions dataset.
-import type { Candidate, ExtractResult, PersonContext, ResolvedSuggestion, ScanResult, Suggestion } from '../shared/story';
-import { buildContext, searchPeople, searchPlaces } from './archive';
+import type { Candidate, ExtractResult, LifeFacts, PersonContext, ResolvedSuggestion, ScanResult, SubjectCheck, Suggestion } from '../shared/story';
+import { buildContext, lifeOfKey, searchPeople, searchPlaces } from './archive';
 import { activeStamps } from './display';
+import { fits } from './lifetime';
 import { chatJson } from './openai';
 
 const fold = (s: string) =>
@@ -90,8 +91,8 @@ export async function scanText(text: string): Promise<ScanResult> {
 
 // --- Transcription hints ----------------------------------------------------
 
-export function transcriptionPrompt(ctx: PersonContext | null) {
-  if (!ctx) return '';
+export function transcriptionPrompt(ctx: PersonContext | null, name?: string) {
+  if (!ctx) return name ? `Een verhaal over ${name} uit Suriname.` : '';
   const names = [ctx.name, ...ctx.related.map((r) => r.name)].slice(0, 40);
   return `Een verhaal over ${ctx.name} uit Suriname. Namen: ${names.join(', ')}. Plaatsen: ${['Paramaribo', ...ctx.places].slice(0, 20).join(', ')}.`.slice(0, 1200);
 }
@@ -105,18 +106,32 @@ const nullable = (t: string, extra: object = {}) => ({ type: [t, 'null'], ...ext
 
 const TYPES = ['person', 'place', 'date', 'occupation', 'relation', 'organisation', 'other'];
 
+// What the story says about when and where someone lived.
+const LIFE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['born', 'died', 'alive_in', 'place'],
+  properties: {
+    born: nullable('integer'),
+    died: nullable('integer'),
+    alive_in: nullable('integer', { description: 'A year the story says they were alive (worked, married, moved …)' }),
+    place: nullable('string', { description: 'Where they lived, as told' }),
+  },
+};
+
 const EXTRACT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'entities'],
+  required: ['summary', 'subject_life', 'entities'],
   properties: {
     summary: { type: 'string' },
+    subject_life: LIFE_SCHEMA,
     entities: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['mention', 'type', 'about', 'is_subject', 'kind', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living'],
+        required: ['mention', 'type', 'about', 'is_subject', 'kind', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living', 'life'],
         properties: {
           mention: { type: 'string', description: 'The exact words in the transcript, copied character for character' },
           type: { type: 'string', enum: TYPES },
@@ -132,6 +147,7 @@ const EXTRACT_SCHEMA = {
           year: nullable('integer'),
           quote: { type: 'string', description: 'The sentence from the transcript it comes from, copied exactly' },
           possibly_living: { type: 'boolean' },
+          life: LIFE_SCHEMA,
         },
       },
     },
@@ -149,9 +165,17 @@ Step 2, place it in the dataset: if the entity can be stored as an addition abou
 - kind "date": a dated event in the subject's life. year; value = the event.
 A kinship word gets kind null (its person carries the relation). Kinship is relative to whoever it is said of: "mijn oma" is the narrator's grandmother, not the subject's; a narrator's relative becomes kind "relation" only if the story says how they relate to the subject. Places, dates and occupations of other people get kind null.
 
-Rules: only what is said, never infer. "mention" is copied exactly from the transcript; "quote" is the sentence it is in, copied exactly. For person entities set name_raw to the name as told and possibly_living true if they may still be alive (the narrator's parents or siblings, anyone born after 1930). Columns that do not apply are null. summary: one sentence in Dutch.`;
+Rules: only what is said, never infer. "mention" is copied exactly from the transcript; "quote" is the sentence it is in, copied exactly. For person entities set name_raw to the name as told and possibly_living true if they may still be alive (the narrator's parents or siblings, anyone born after 1930). Columns that do not apply are null. value and summary are written in Dutch; call people by their name, never "the subject" or "de subject".
+
+Lifetimes: "life" (on every person entity; all null for other types) and "subject_life" (the subject) hold only what the transcript itself says, never what is known from the archive: born / died years, alive_in = one year they were alive (worked, married, arrived …; "rond 1908" → 1908), place = where they lived. Use null when not said; never guess from generations.`;
 
 const KINSHIP = /\b(oma|opa|grootmoeder|grootvader|over\w*|moeder|vader|ma|pa|zus|zuster|broer|oom|tante|neef|nicht|zoon|dochter|kind|man|vrouw|echtgeno\w*|kleinkind|kleinzoon|kleindochter|familie)\b/i;
+
+const NARRATOR_KIN = '(?:moeder|vader|oma|opa|ouders?|broer|zus|zuster|oom|tante|neef|nicht|zoon|dochter|man|vrouw|\\w*moeder|\\w*vader)';
+const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// "mijn grootvader (heette) Ramlal": the narrator's own relative.
+const narratorsRelative = (quote: string, name: string) =>
+  new RegExp(`\\b(?:mijn|onze)\\s+${NARRATOR_KIN}\\s+(?:heette\\s+|was\\s+|,\\s*)?${escapeRe(name.trim().split(/\s+/)[0])}`, 'i').test(quote);
 
 const CATEGORY: Record<string, ResolvedSuggestion['category']> = {
   person: 'per',
@@ -163,20 +187,56 @@ const CATEGORY: Record<string, ResolvedSuggestion['category']> = {
   other: 'oth',
 };
 
-export async function extract(key: string, transcript: string, model?: string): Promise<ExtractResult> {
+const MAX_OPTIONS = 10;
+const yearsOf = (l: LifeFacts) => [l.born && `geboren ${l.born}`, l.died && `overleden ${l.died}`, l.alive_in && l.alive_in !== l.died && `leefde in ${l.alive_in}`].filter(Boolean).join(', ');
+
+// Is the chosen record the person the story is about? A screen stamp is
+// certain; a pick from the search (or "not sure") is checked against what
+// the story says, and the records that do fit are offered instead.
+async function checkSubject(key: string, name: string, certain: boolean, life: LifeFacts): Promise<SubjectCheck> {
+  if (certain) return { status: 'ok', reason: null, options: [] };
+  const own = await lifeOfKey(key).catch(() => null);
+  const ownFits = own ? fits(own, life) : false;
+  if (own && ownFits) return { status: 'ok', reason: null, options: [] };
+  const options = (await searchPeople(name).catch(() => [])).filter((o) => o.id !== key && fits({ born: o.born ?? null, died: o.died ?? null }, life)).slice(0, MAX_OPTIONS);
+  const told = yearsOf(life);
+  const reason = own ? `Je verhaal zegt: ${told || 'iets anders'}. Dat past niet bij het gekozen archiefstuk.` : null;
+  return { status: options.length ? 'check' : 'none', reason, options };
+}
+
+export async function extract(key: string, transcript: string, opts: { name?: string; certain?: boolean; model?: string } = {}): Promise<ExtractResult> {
+  const { model } = opts;
   const ctx = await buildContext(key).catch(() => null);
+  const subjectName = ctx?.name ?? opts.name ?? key;
   const people = (ctx?.related ?? []).slice(0, 60);
+  // An uncertain pick may be the wrong record: then its facts must not
+  // leak into what the story is taken to say.
+  const known = opts.certain && ctx;
   const user = [
-    `Subject: ${ctx?.name ?? key} (${key})${ctx?.birthYear ? `, born about ${ctx.birthYear}` : ''}.`,
-    ctx?.facts.length ? `Known: ${ctx.facts.map((f) => `${f.label}: ${f.value}`).join('; ')}.` : '',
+    `Subject: ${subjectName} (${key})${known && ctx.birthYear ? `, born about ${ctx.birthYear}` : ''}.`,
+    known && ctx.facts.length ? `Known from the archive: ${ctx.facts.map((f) => `${f.label}: ${f.value}`).join('; ')}.` : '',
     people.length ? `Candidate people (key | name | role on record | year):\n${people.map((p) => `${p.key} | ${p.name} | ${p.role ?? ''} | ${p.year ?? ''}`).join('\n')}` : 'No candidate people.',
     `Transcript:\n"""${transcript}"""`,
   ]
     .filter(Boolean)
     .join('\n\n');
 
-  const out = await chatJson<{ summary: string; entities: Suggestion[] }>({ model, name: 'story', schema: EXTRACT_SCHEMA, system: EXTRACT_SYSTEM, user });
-  const known = new Map(people.map((p) => [p.key, p.name]));
+  const out = await chatJson<{ summary: string; subject_life: LifeFacts; entities: Suggestion[] }>({ model, name: 'story', schema: EXTRACT_SCHEMA, system: EXTRACT_SYSTEM, user });
+  // The model sometimes writes the subject's name instead of "subject".
+  const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const selfNames = [subjectName, ...out.entities.filter((e) => e.is_subject).flatMap((e) => [e.name_raw ?? '', e.mention])].map(fold).filter((x) => x.length > 2);
+  // Same person when every word of one name occurs in the other ("Johanna"
+  // in "Johanna Wijngaarde"); kinship words and short fragments never count.
+  const words = (x: string) => fold(x).split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !KINSHIP.test(w) && w !== 'mijn');
+  const isSelf = (about: string) => {
+    const a = words(about);
+    return a.length > 0 && selfNames.some((n) => {
+      const w = words(n);
+      return w.length > 0 && (a.every((x) => w.includes(x)) || w.every((x) => a.includes(x)));
+    });
+  };
+  for (const e of out.entities) if (e.about && e.about !== 'subject' && e.about !== 'narrator' && isSelf(e.about)) e.about = 'subject';
+  const keyed = new Map(people.map((p) => [p.key, p.name]));
 
   const suggestions = await Promise.all(
     out.entities.map(async (s, i): Promise<ResolvedSuggestion> => {
@@ -187,10 +247,13 @@ export async function extract(key: string, transcript: string, model?: string): 
       // places and dates stay recognised-only. A person can only be a
       // relation, and the subject is never their own relative.
       if (r.about && r.about !== 'subject') r.kind = null;
+      // An occupation of the subject always has a column of its own.
+      else if (r.type === 'occupation' && !r.kind) Object.assign(r, { kind: 'fact', field: 'occupation', value: r.value ?? r.mention });
       if (r.type === 'person' && r.kind !== 'relation') r.kind = null;
+      if (r.kind === 'relation' && narratorsRelative(r.quote, r.name_raw ?? r.mention)) r.kind = null;
       if (r.is_subject) {
         r.kind = null;
-        r.linked = key;
+        r.linked = key.startsWith('name:') ? null : key;
         r.linkedLabel = ctx?.name ?? null;
         r.category = 'per';
         return r;
@@ -199,17 +262,19 @@ export async function extract(key: string, transcript: string, model?: string): 
         r.type = 'relation';
         r.category = 'rel';
       }
-      if (s.related_key && !known.has(s.related_key)) r.related_key = null; // only keys we offered
+      if (s.related_key && !keyed.has(s.related_key)) r.related_key = null; // only keys we offered
       if (r.related_key) {
         r.linked = r.related_key;
-        r.linkedLabel = known.get(r.related_key)!;
+        r.linkedLabel = keyed.get(r.related_key)!;
       } else if (s.type === 'person') {
         // "his brother Carl": blood relatives usually share the surname.
         const name = (s.name_raw ?? s.mention).trim();
         const firstOnly = s.kind === 'relation' && !name.includes(' ') && BLOOD.has(s.relation_type ?? '') && ctx?.surname;
-        r.options = await searchPeople(firstOnly ? `${name} ${ctx.surname}` : name, ctx?.birthYear).catch(() => []);
+        // Only records that can be this person, given what the story says.
+        const found = await searchPeople(firstOnly ? `${name} ${ctx.surname}` : name, ctx?.birthYear).catch(() => []);
+        r.options = found.filter((o) => fits({ born: o.born ?? null, died: o.died ?? null }, s.life)).slice(0, MAX_OPTIONS);
       }
-      const place = s.type === 'place' ? (s.place_raw ?? s.mention) : s.field === 'address_text' ? s.value : null;
+      const place = s.type === 'place' || r.kind === 'place' ? (s.place_raw ?? s.mention) : s.field === 'address_text' ? s.value : null;
       if (place) {
         r.options = await searchPlaces(place).catch(() => []);
         // Only auto-link a place that becomes a row; the rest are just shown.
@@ -221,5 +286,15 @@ export async function extract(key: string, transcript: string, model?: string): 
       return r;
     }),
   );
-  return { summary: out.summary, suggestions };
+  // What the story says about the subject: its own lifetime, plus what the
+  // named subject entity carries.
+  const self = out.entities.find((e) => e.is_subject)?.life;
+  const life: LifeFacts = {
+    born: out.subject_life.born ?? self?.born ?? null,
+    died: out.subject_life.died ?? self?.died ?? null,
+    alive_in: out.subject_life.alive_in ?? self?.alive_in ?? null,
+    place: out.subject_life.place ?? self?.place ?? null,
+  };
+  const subject = await checkSubject(key, subjectName, !!opts.certain, life);
+  return { summary: out.summary, suggestions, subject };
 }
