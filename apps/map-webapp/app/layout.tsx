@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Permanent_Marker } from "next/font/google";
+import SiteHeader from './components/SiteHeader';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -11,6 +12,7 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+const marker = Permanent_Marker({ weight: '400', subsets: ['latin'], variable: '--font-marker' });
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -21,9 +23,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${marker.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><SiteHeader />{children}</body>
     </html>
   );
 }

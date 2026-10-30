@@ -3,6 +3,39 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --site-header-height: 64px;
+}
+
+.site-header {
+  height: var(--site-header-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 38px;
+  padding: 0 24px;
+  background: #fff;
+  color: #1d1b17;
+  border-bottom: 1px solid #e8e4dd;
+}
+.site-brand { display: flex; align-items: baseline; gap: 14px; white-space: nowrap; text-decoration: none; }
+.site-wordmark { font-family: var(--font-marker), cursive; color: #946000; font-size: 24px; line-height: 1; }
+.site-brand-subtitle { font-size: 13px; color: #686259; }
+.site-nav { display: flex; align-items: center; gap: 28px; height: 100%; }
+.site-nav a { display: flex; align-items: center; height: 100%; position: relative; color: #645e54; text-decoration: none; font-size: 14px; }
+.site-nav a[aria-current='page'] { color: #1d1b17; }
+.site-nav a[aria-current='page']::after { content: ''; position: absolute; height: 2px; background: #e3a614; bottom: 13px; left: 0; right: 0; }
+.site-header a:focus-visible { outline: 2px solid #a86e00; outline-offset: 3px; }
+.stories-page { flex: 1; padding: 48px 24px; background: #fbfaf8; color: #1d1b17; }
+.stories-page h1 { font-family: Georgia, serif; font-size: 36px; }
+.stories-page p { margin: 12px 0 20px; }
+.stories-page a { color: #855800; text-decoration: underline; }
+@media (max-width: 600px) {
+  :root { --site-header-height: 56px; }
+  .site-header { gap: 24px; padding: 0 16px; }
+  .site-brand-subtitle { display: none; }
+  .site-wordmark { font-size: 21px; }
+  .site-nav { gap: 20px; }
+  .site-nav a[aria-current='page']::after { bottom: 9px; }
 }
 
 @theme inline {

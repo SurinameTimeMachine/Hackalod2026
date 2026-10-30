@@ -303,7 +303,7 @@ export default function Landscape() {
       style={{
         position: 'relative',
         width: '100%',
-        height: '100dvh',
+        height: 'calc(100dvh - var(--site-header-height))',
         background: '#101f20',
       }}
     >
