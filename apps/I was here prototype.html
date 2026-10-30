@@ -1,0 +1,526 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>I was here prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&family=Permanent+Marker&display=swap">
+<style>
+/* Layout: one phone-sized app; on desktop it sits in a device frame with a flow index beside it, on phones it fills the screen.
+   Single light look, taken from the existing Dicteer-app design. */
+:root{
+  --paper:#f6f4ef; --card:#ffffff; --ink:#14161a; --muted:#5d6270; --soft:#3c414b;
+  --line:#e6e3dc; --line-2:#c9c6bf; --rec:#d4462c; --blue:#1d4fb8; --stage:#e7e3da; --night:#121316;
+  --c-per:#1d4fb8; --c-pla:#0b7356; --c-dat:#a84a06; --c-geb:#6d35b8; --c-rol:#a52a5e; --c-rel:#6a5a33;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --serif:'IBM Plex Serif',Georgia,'Times New Roman',serif;
+  --marker:'Permanent Marker','Comic Sans MS','Marker Felt',cursive;
+}
+html,body{height:100%}
+body{background:var(--stage);color:var(--ink);font-family:var(--sans);margin:0}
+button{font-family:inherit;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.stage{min-height:100%;display:flex;align-items:center;justify-content:center;gap:48px;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
+.phone{position:relative;width:390px;height:min(844px,calc(100vh - 48px));min-height:640px;background:var(--paper);border-radius:44px;overflow:hidden;box-shadow:0 0 0 10px var(--ink),0 30px 80px rgba(20,22,26,.28);flex:none}
+
+/* Flow index beside the phone (desktop only) */
+.flow{width:260px;display:flex;flex-direction:column;gap:18px}
+.flow h1{font:400 30px/1 var(--marker);margin:0}
+.flow p{margin:0;font-size:13px;line-height:1.5;color:var(--soft)}
+.flow ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.flow li button{width:100%;display:flex;gap:12px;align-items:center;padding:10px 12px;border:0;border-radius:10px;background:none;text-align:left;cursor:pointer;font-size:14px;color:var(--soft)}
+.flow li button:hover{background:rgba(20,22,26,.05)}
+.flow li button.on{background:var(--card);color:var(--ink);font-weight:600;box-shadow:0 1px 0 var(--line)}
+.flow .num{width:22px;height:22px;border-radius:50%;border:1px solid var(--line-2);display:grid;place-items:center;font-size:11px;font-variant-numeric:tabular-nums;flex:none}
+.flow li button.on .num{background:var(--ink);border-color:var(--ink);color:#fff}
+.flow .note{font-size:12px;color:var(--muted);border-top:1px solid var(--line-2);padding-top:14px}
+
+@media (max-width:760px){
+  .flow{display:none}
+  .stage{padding:0;height:100%}
+  .phone{width:100%;height:100%;min-height:0;border-radius:0;box-shadow:none}
+}
+
+/* Screens */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;visibility:hidden;transform:translateX(24px);transition:opacity .35s ease,transform .35s ease,visibility 0s linear .35s}
+.screen.active{opacity:1;visibility:visible;transform:none;transition:opacity .35s ease,transform .35s ease}
+.screen.left{transform:translateX(-24px)}
+@media (prefers-reduced-motion:reduce){.screen,.screen.active{transition:none;transform:none}}
+
+.bigbtn{height:56px;border-radius:14px;border:0;display:flex;align-items:center;justify-content:center;gap:10px;font:600 16px var(--sans);cursor:pointer;width:100%}
+.bigbtn.dark{background:var(--ink);color:#fff}
+.bigbtn.red{background:var(--rec);color:#fff}
+.textbtn{background:none;border:0;padding:10px 0;font:600 14px var(--sans);color:var(--blue);cursor:pointer}
+
+/* 1 · Welcome */
+#s-home{background:var(--paper)}
+.wall{position:relative;flex:1;min-height:0;overflow:hidden;padding:56px 24px 0}
+.names{display:flex;flex-wrap:wrap;gap:6px 14px;font:400 15px/1.5 var(--serif);color:#cdc8bd;letter-spacing:.06em;text-transform:uppercase;user-select:none}
+.names span:nth-child(3n){color:#bdb8ac}
+.names span:nth-child(5n){font-style:italic;text-transform:none;letter-spacing:0}
+.wall::after{content:"";position:absolute;inset:auto 0 0;height:45%;background:linear-gradient(transparent,var(--paper))}
+.scrawl{position:absolute;left:22px;top:38%;transform:rotate(-7deg);font:400 64px/1 var(--marker);color:var(--ink);z-index:1;white-space:nowrap;text-shadow:0 0 6px var(--paper),0 0 14px var(--paper),0 0 24px var(--paper)}
+.scrawl small{display:block;font:400 13px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--rec);transform:rotate(7deg);margin:10px 0 0 6px}
+.home-body{padding:0 24px 28px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+.home-body h2{font:400 25px/1.25 var(--serif);margin:0;text-wrap:balance}
+.home-body .lede{font-size:14px;line-height:1.5;color:var(--soft);margin:0}
+.home-body .hint{font-size:12px;line-height:1.45;color:var(--muted);margin:0;text-align:center}
+.place{font-size:11.5px;color:var(--muted);text-align:center;letter-spacing:.04em}
+
+/* 2 · Scan */
+#s-scan{background:var(--night);color:#fff}
+.scan-top{display:flex;justify-content:space-between;align-items:center;padding:18px 20px}
+.iconbtn{width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer}
+.iconbtn.light{background:rgba(20,22,26,.06);color:var(--ink)}
+.viewfinder{position:relative;flex:1;min-height:0;margin:0 16px;border-radius:20px;overflow:hidden;background:radial-gradient(120% 90% at 40% 30%,#4a4740,#23221f 70%)}
+.plaque{position:absolute;left:50%;top:48%;width:78%;transform:translate(-50%,-50%) rotate(-3deg) perspective(600px) rotateX(6deg);padding:26px 18px 30px;border-radius:6px;background:linear-gradient(135deg,#9b968b,#7d786e 45%,#8d887d);box-shadow:inset 0 0 0 3px rgba(0,0,0,.18),inset 0 0 40px rgba(0,0,0,.25),0 18px 40px rgba(0,0,0,.5);text-align:center;font-family:var(--serif);color:#3a3731;filter:blur(.3px)}
+.plaque .ttl{font-size:10px;letter-spacing:.24em;text-transform:uppercase;margin-bottom:14px;text-shadow:0 1px 0 rgba(255,255,255,.25)}
+.plaque .nm{font-size:17px;letter-spacing:.05em;padding:5px 4px;border-radius:4px;text-shadow:0 1px 0 rgba(255,255,255,.3);transition:background-color .3s,color .3s,box-shadow .3s}
+.plaque .nm.hit{background:rgba(255,255,255,.92);color:var(--ink);box-shadow:0 0 0 2px var(--rec);text-shadow:none}
+.corners{position:absolute;inset:18% 9%;pointer-events:none}
+.corners i{position:absolute;width:28px;height:28px;border:3px solid #fff}
+.corners i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
+.corners i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
+.corners i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0;border-radius:0 0 0 8px}
+.corners i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0;border-radius:0 0 8px 0}
+.scanline{position:absolute;left:9%;right:9%;height:2px;background:var(--rec);box-shadow:0 0 12px 2px rgba(212,70,44,.7);top:18%;animation:sweep 1.8s ease-in-out infinite alternate}
+@keyframes sweep{to{top:82%}}
+#s-scan.done .scanline{display:none}
+.chip{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);background:#fff;color:var(--ink);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center;white-space:nowrap;opacity:0;transition:opacity .3s}
+#s-scan.done .chip{opacity:1}
+.scan-bottom{padding:20px 24px 28px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.scan-bottom p{margin:0;font-size:14px;color:rgba(255,255,255,.82);text-align:center;min-height:20px}
+.shutter{width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:none;padding:4px;cursor:pointer}
+.shutter span{display:block;width:100%;height:100%;border-radius:50%;background:#fff;transition:transform .15s}
+.shutter:active span{transform:scale(.88)}
+
+/* 3 · Found */
+#s-found{background:var(--paper)}
+.bar-top{display:flex;align-items:center;gap:10px;padding:18px 20px 10px}
+.logo{font:400 22px var(--marker);color:var(--ink)}
+.found-body{flex:1;min-height:0;overflow-y:auto;padding:6px 16px 0;display:flex;flex-direction:column;gap:16px}
+.namecard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.eyebrow{font:600 10.5px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+.eyebrow .ok{width:16px;height:16px;border-radius:50%;background:#d9f0e6;color:#0a5a43;display:grid;place-items:center}
+.namecard h2{margin:0;font:400 28px/1.15 var(--serif);text-decoration:underline;text-decoration-color:var(--c-per);text-decoration-thickness:2px;text-underline-offset:6px}
+.facts{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line)}
+.facts div{display:flex;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.facts div:last-child{border-bottom:0;padding-bottom:0}
+.facts dt{width:84px;flex:none;color:var(--muted);font-size:12px}
+.facts dd{margin:0;flex:1;min-width:0}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+.c-per{background:var(--c-per)}.c-pla{background:var(--c-pla)}.c-dat{background:var(--c-dat)}.c-geb{background:var(--c-geb)}.c-rol{background:var(--c-rol)}.c-rel{background:var(--c-rel)}
+.ask h3{margin:0 0 4px;font:500 18px var(--serif)}
+.ask p{margin:0 0 10px;font-size:13.5px;line-height:1.5;color:var(--soft)}
+.prompts{display:flex;flex-direction:column;gap:8px}
+.prompts span{font:italic 400 15px/1.4 var(--serif);color:var(--ink);padding-left:12px;border-left:2px solid var(--line-2)}
+.found-foot{padding:14px 16px 24px;display:flex;flex-direction:column;align-items:center;gap:2px;background:linear-gradient(transparent,var(--paper) 18px)}
+
+/* 4 · Dictate (from the Dicteer-app design) */
+#s-dict{background:var(--paper)}
+.d-head{padding:18px 20px 10px;display:flex;flex-direction:column;gap:6px}
+.d-head .r{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.d-head .l{display:flex;align-items:center;gap:8px}
+.backbtn{width:30px;height:30px;margin-left:-6px;border:0;background:none;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+.backbtn:hover{background:rgba(20,22,26,.06)}
+.who{font-size:12px;color:var(--muted)}
+.sub{font-size:13px;color:var(--muted)}
+.sub strong{color:var(--ink)}
+.transcript{margin:0 16px;background:var(--card);border-radius:16px;border:1px solid var(--line);padding:16px 18px;flex:0 1 300px;min-height:150px;box-sizing:border-box;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.t-head{display:flex;justify-content:space-between;align-items:center}
+.t-label{font:600 10.5px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.t-clock{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.t-text{margin:0;font-family:var(--serif);font-size:18px;line-height:1.6}
+.t-empty{color:var(--muted);font-style:italic}
+.ent{font:inherit;background:none;border:0;padding:0 2px;margin:0 -2px;cursor:pointer;color:inherit;border-radius:4px;text-decoration-line:underline;text-decoration-thickness:2px;text-underline-offset:4px;transition:background-color .5s ease,text-decoration-color .5s ease}
+.ent.detect{text-decoration-style:dotted;text-decoration-color:#8a8f98}
+.ent.linked{text-decoration-style:solid}
+.k-per.linked{text-decoration-color:var(--c-per);background:rgba(29,79,184,.08)}
+.k-pla.linked{text-decoration-color:var(--c-pla);background:rgba(11,115,86,.08)}
+.k-dat.linked{text-decoration-color:var(--c-dat);background:rgba(168,74,6,.08)}
+.k-geb.linked{text-decoration-color:var(--c-geb);background:rgba(109,53,184,.08)}
+.k-rol.linked{text-decoration-color:var(--c-rol);background:rgba(165,42,94,.08)}
+.k-rel.linked{text-decoration-color:var(--c-rel);background:rgba(106,90,51,.1)}
+.ent.sel{outline:2px solid var(--ink);outline-offset:1px}
+@keyframes blink{50%{opacity:0}}
+.caret{display:inline-block;width:2px;height:20px;background:var(--ink);vertical-align:-3px;margin-left:2px;animation:blink 1s step-end infinite}
+.legend{display:flex;gap:6px 10px;flex-wrap:wrap;padding:10px 20px 4px}
+.legend span{display:flex;gap:5px;align-items:center;font-size:11.5px;color:var(--soft)}
+.panel{flex:1;min-height:120px;margin:8px 16px 0;background:var(--card);border-radius:16px 16px 0 0;border:1px solid var(--line);border-bottom:0;display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{flex:1;height:44px;border:0;background:none;font:600 13px var(--sans);color:var(--muted);border-bottom:2px solid transparent;cursor:pointer}
+.tab.act{color:var(--ink);border-bottom-color:var(--ink)}
+.panel-body{flex:1;min-height:0;overflow-y:auto;padding:0 16px}
+.row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border:0;border-bottom:1px solid var(--line);background:none;width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.row .dot{margin-top:5px}
+.row .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.row .tt{font-size:14px;font-weight:600}
+.row .ll{font-size:12px;color:var(--muted);line-height:1.35}
+.badge{font:600 10.5px var(--sans);letter-spacing:.04em;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.b-new{background:#fdecc8;color:#6e4a00}.b-link{background:#d9f0e6;color:#0a5a43}.b-wait{background:#ecedf0;color:#4b505a}.b-you{background:var(--ink);color:#fff}
+.empty{padding:18px 0;font-size:13px;line-height:1.5;color:var(--muted)}
+.det{padding:14px 0;display:flex;flex-direction:column;gap:10px}
+.det .ty{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+.det .nm{font:400 20px var(--serif)}
+.det .lk{font-size:13px;line-height:1.45;color:var(--soft)}
+.det .uri{font-size:12px;color:var(--muted)}
+.det .acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{height:44px;border-radius:10px;font:600 14px var(--sans);cursor:pointer;padding:0 14px;background:var(--card);color:var(--ink);border:1px solid var(--line-2)}
+.btn.primary{background:var(--ink);color:#fff;border:0}
+.linkrow{padding:12px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.linkrow .s{font-size:14px;line-height:1.4}
+.linkrow .p{color:var(--muted)}
+.linkrow .badge{align-self:flex-start}
+.foot-note{display:block;padding:12px 0;font-size:12px;line-height:1.45;color:var(--muted)}
+.recbar{margin:0 16px;background:var(--card);border:1px solid var(--line);padding:12px 16px 18px;display:flex;align-items:center;gap:14px}
+.recbtn{width:60px;height:60px;border-radius:50%;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;background:var(--ink);transition:background-color .2s}
+.recbtn.on{background:var(--rec)}
+.wave{display:flex;gap:3px;align-items:center;height:26px}
+@keyframes bar{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+.wave span{width:3px;height:26px;border-radius:2px;background:var(--rec);transform-origin:center;animation:bar .9s ease-in-out infinite}
+.wave.still span{animation:none;transform:scaleY(.2);background:#b8bcc4}
+.recinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.recstatus{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.wave span,.scanline,.caret{animation:none}}
+
+.toast{position:absolute;left:50%;bottom:110px;transform:translate(-50%,10px);background:var(--ink);color:#fff;font-size:13px;padding:10px 14px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;width:max-content;max-width:80%;text-align:center;z-index:5}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+
+<div class="stage">
+  <aside class="flow" aria-label="Schermen in dit prototype">
+    <h1>I was here</h1>
+    <p>Prototype van de mobiele webapp. Doorloop de flow in de telefoon, of spring direct naar een scherm.</p>
+    <ol>
+      <li><button type="button" data-go="home"><span class="num">1</span>Openingsscherm</button></li>
+      <li><button type="button" data-go="scan"><span class="num">2</span>Naam scannen</button></li>
+      <li><button type="button" data-go="found"><span class="num">3</span>Naam herkend</button></li>
+      <li><button type="button" data-go="dict"><span class="num">4</span>Verhaal dicteren</button></li>
+    </ol>
+    <p class="note">Camera, spraakherkenning en het koppelen aan bronnen zijn in dit prototype gesimuleerd met een voorbeeldverhaal.</p>
+  </aside>
+
+  <main class="phone" id="phone">
+
+    <!-- 1 · Openingsscherm -->
+    <section class="screen active" id="s-home" aria-label="Openingsscherm">
+      <div class="wall" aria-hidden="true">
+        <div class="names" id="names"></div>
+        <div class="scrawl">I was here<small>Paramaribo · Suriname</small></div>
+      </div>
+      <div class="home-body">
+        <h2>Achter elke naam zit een verhaal.</h2>
+        <p class="lede">Help mee om iedereen in Suriname met elkaar te verbinden via verhalen. Daarvoor is jouw verhaal nodig.</p>
+        <button type="button" class="bigbtn dark" id="btn-scan">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+          Scan de naam
+        </button>
+        <p class="hint">Richt je camera op een naam: op een gedenkplaat, een graf of in een document.</p>
+      </div>
+    </section>
+
+    <!-- 2 · Naam scannen -->
+    <section class="screen" id="s-scan" aria-label="Naam scannen">
+      <div class="scan-top">
+        <button type="button" class="iconbtn" data-go="home" aria-label="Sluiten">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.8"/></svg>
+        </button>
+        <span style="font-size:14px;font-weight:600">Scan de naam</span>
+        <span style="width:40px"></span>
+      </div>
+      <div class="viewfinder">
+        <div class="plaque" aria-hidden="true">
+          <div class="ttl">In dankbare herinnering</div>
+          <div class="nm">Marie Sumter</div>
+          <div class="nm" id="hitname">Johanna Wijngaarde</div>
+          <div class="nm">Carla Tjon A Fong</div>
+          <div class="nm">Elisabeth Kanhai</div>
+        </div>
+        <div class="corners"><i></i><i></i><i></i><i></i></div>
+        <div class="scanline"></div>
+        <div class="chip"><span class="dot c-per"></span>Johanna Wijngaarde</div>
+      </div>
+      <div class="scan-bottom">
+        <p id="scan-msg">Houd één naam binnen het kader</p>
+        <button type="button" class="shutter" id="btn-shutter" aria-label="Foto maken"><span></span></button>
+      </div>
+    </section>
+
+    <!-- 3 · Naam herkend -->
+    <section class="screen" id="s-found" aria-label="Naam herkend">
+      <div class="bar-top">
+        <button type="button" class="iconbtn light" data-go="home" aria-label="Terug naar begin">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        </button>
+        <span class="logo">I was here</span>
+      </div>
+      <div class="found-body">
+        <div class="namecard">
+          <span class="eyebrow"><span class="ok"><svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.2l2.2 2.2L8.5 2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>Naam herkend</span>
+          <h2>Johanna Wijngaarde</h2>
+          <dl class="facts">
+            <div><dt>Overleden</dt><dd><span class="dot c-dat"></span> 1967</dd></div>
+            <div><dt>Plek</dt><dd><span class="dot c-geb"></span> 's Lands Hospitaal, Gravenstraat 64–66</dd></div>
+            <div><dt>Bron</dt><dd>Overlijdensakte · in de kennisgraaf</dd></div>
+          </dl>
+        </div>
+        <div class="ask">
+          <h3>Wat weet jij over haar?</h3>
+          <p>Je hoeft niets te typen. Vertel je verhaal hardop. Namen, plekken en jaartallen worden herkend en verbonden met archieven.</p>
+          <div class="prompts">
+            <span>Wie was zij voor jou of je familie?</span>
+            <span>Waar woonde of werkte ze?</span>
+            <span>Welke namen, plekken en jaartallen horen bij haar verhaal?</span>
+          </div>
+        </div>
+      </div>
+      <div class="found-foot">
+        <button type="button" class="bigbtn red" id="btn-dict">
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="7" y="2" width="8" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M4 10a7 7 0 0014 0M11 17v3" fill="none" stroke="#fff" stroke-width="1.8"/></svg>
+          Start dicteren
+        </button>
+        <button type="button" class="textbtn" data-go="scan">Niet de juiste naam? Scan opnieuw</button>
+      </div>
+    </section>
+
+    <!-- 4 · Dicteren -->
+    <section class="screen" id="s-dict" aria-label="Verhaal dicteren">
+      <div class="d-head">
+        <div class="r">
+          <span class="l">
+            <button type="button" class="backbtn" data-go="found" aria-label="Terug">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+            </button>
+            <span class="logo">I was here</span>
+          </span>
+          <span class="who">Ingelogd als Asha</span>
+        </div>
+        <span class="sub">Jouw verhaal bij <strong>Johanna Wijngaarde</strong> · 's Lands Hospitaal</span>
+      </div>
+
+      <div class="transcript" id="transcript">
+        <div class="t-head"><span class="t-label">Transcript · live</span><span class="t-clock" id="clock">0:00</span></div>
+        <p class="t-text" id="ttext"></p>
+      </div>
+
+      <div class="legend" aria-label="Legenda">
+        <span><span class="dot c-per"></span>persoon</span>
+        <span><span class="dot c-pla"></span>plaats</span>
+        <span><span class="dot c-dat"></span>datum</span>
+        <span><span class="dot c-geb"></span>gebouw · plantage</span>
+        <span><span class="dot c-rol"></span>beroep</span>
+        <span><span class="dot c-rel"></span>relatie</span>
+      </div>
+
+      <div class="panel">
+        <div class="tabs">
+          <button type="button" class="tab act" id="tab-found">Gevonden (0)</button>
+          <button type="button" class="tab" id="tab-links">Nieuwe verbindingen (0)</button>
+        </div>
+        <div class="panel-body" id="pbody"></div>
+      </div>
+
+      <div class="recbar">
+        <button type="button" class="recbtn on" id="recbtn" aria-label="Opname stoppen"></button>
+        <div class="recinfo">
+          <div class="wave" id="wave"></div>
+          <span class="recstatus" id="recstatus">Luistert…</span>
+        </div>
+        <button type="button" class="btn" id="restart" style="font-size:13px;background:none">Opnieuw</button>
+      </div>
+      <div class="toast" id="toast" role="status"></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  /* ---------- Name wall on the opening screen ---------- */
+  var NAMES = ['Wijngaarde','Doerga','Kartosen','Tjon A Fong','Pinas','Ramdin','Sumter','Amatredjo','Kanhai','Fernandes','Biswamitre','Tsai','Mohamed','Kromodikoro','Lie','Abeleven','Jagessar','Vreden','Soekhai','Linger','Ho Tsoi','Panka','Sitaldin','Kasanpawiro','Monsels','Pengel','Goeptar','Esajas','Chin A Sen','Ramsaran','Karijopawiro','Emanuels','Bhagwandin','Wong','Nerkust','Sardjoe','Haverkamp','Dikland','Moestadja','Brunings','Tjin','Kalloe','Simons','Wirjosentono','Ferrier','Mahabier'];
+  var wall = document.getElementById('names');
+  NAMES.concat(NAMES.slice(0,20)).forEach(function(n){ var s=document.createElement('span'); s.textContent=n; wall.appendChild(s); });
+
+  /* ---------- Screen navigation ---------- */
+  var ORDER = ['home','scan','found','dict'];
+  var current = 'home';
+  function go(id){
+    if (id === current) return;
+    var from = ORDER.indexOf(current), to = ORDER.indexOf(id);
+    ORDER.forEach(function(s){
+      var el = document.getElementById('s-'+s);
+      el.classList.toggle('active', s === id);
+      el.classList.toggle('left', ORDER.indexOf(s) < to);
+    });
+    leave(current); current = id; enter(id);
+    document.querySelectorAll('.flow [data-go]').forEach(function(b){ b.classList.toggle('on', b.dataset.go === id); });
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-go]'); if (b) go(b.dataset.go);
+  });
+  document.querySelector('.flow [data-go="home"]').classList.add('on');
+  document.getElementById('btn-scan').onclick = function(){ go('scan'); };
+  document.getElementById('btn-dict').onclick = function(){ go('dict'); };
+
+  function enter(id){ if (id==='scan') startScan(); if (id==='dict') startDict(); }
+  function leave(id){ if (id==='scan') stopScan(); if (id==='dict') stopDict(); }
+
+  /* ---------- 2 · Scan simulation ---------- */
+  var scanEl = document.getElementById('s-scan'), scanMsg = document.getElementById('scan-msg'), hit = document.getElementById('hitname');
+  var st = [];
+  function startScan(){
+    stopScan();
+    scanEl.classList.remove('done'); hit.classList.remove('hit');
+    scanMsg.textContent = 'Houd één naam binnen het kader';
+    st.push(setTimeout(function(){ scanMsg.textContent = 'Tekst gevonden, naam lezen…'; }, 1200));
+    st.push(setTimeout(detect, 2600));
+  }
+  function detect(){
+    if (scanEl.classList.contains('done')) return;
+    st.forEach(clearTimeout); st = [];
+    scanEl.classList.add('done'); hit.classList.add('hit');
+    scanMsg.textContent = 'Naam herkend. Zoeken in archieven…';
+    st.push(setTimeout(function(){ go('found'); }, 1400));
+  }
+  function stopScan(){ st.forEach(clearTimeout); st = []; }
+  document.getElementById('btn-shutter').onclick = detect;
+
+  /* ---------- 4 · Dictation (port of the Dicteer-app design) ---------- */
+  var SEGS = [
+    ['Mijn '], ['grootmoeder','rel','e1'], [' '], ['Johanna Wijngaarde','per','e2'], [' werkte als '], ['verpleegster','rol','e3'],
+    [' in '], ["'s Lands Hospitaal",'geb','e4'], ['. Ze is daar in '], ['1967','dat','e5'], [' ook overleden. Mijn '],
+    ['grootvader','rel','e6'], [' heette '], ['Ramlal Doerga','per','e7'], ['. Hij kwam uit '], ['Nickerie','pla','e8'],
+    [' en woonde aan de '], ['Zwartenhovenbrugstraat','pla','e9'], ['. Zijn '], ['vader','rel','e10'], [' is rond '],
+    ['1908','dat','e11'], [' met een schip uit '], ['Calcutta','pla','e12'], [' gekomen. Over zijn moeder weet ik niets. Volgens oma woonde háár grootmoeder op '],
+    ['plantage Tout Lui Faut','geb','e13'], ['.']
+  ];
+  var META = {
+    e1:['Relatie','Verteller → grootmoeder. Legt jouw plek in de stamboom vast.','nieuwe relatie','b-new','schema:relatedTo'],
+    e2:['Persoon',"Match met J. Wijngaarde, overleden 1967 in 's Lands Hospitaal. Overlijdensakte gevonden.",'gekoppeld','b-link','persoon in de kennisgraaf · bron: overlijdensakte'],
+    e3:['Beroep','Gekoppeld aan de term verpleegkundige uit het Termennetwerk.','gekoppeld','b-link','Termennetwerk · beroepen'],
+    e4:['Gebouw',"'s Lands Hospitaal, Gravenstraat 64–66. Het centrale gebouw op de kaart.",'gekoppeld','b-link','locatie in de kennisgraaf'],
+    e5:['Datum','Jaar van overlijden van Johanna. Komt overeen met de akte.','bevestigd','b-link','gebeurtenis: overlijden · 1967'],
+    e6:['Relatie','Verteller → grootvader.','nieuwe relatie','b-new','schema:relatedTo'],
+    e7:['Persoon','Nog geen match. Er wordt een nieuw profiel aangemaakt, onbevestigd.','nieuw','b-new','nieuw profiel · bron: jouw opname'],
+    e8:['Plaats','District Nickerie, Suriname.','gekoppeld','b-link','GeoNames · Nickerie'],
+    e9:['Straat','Historische straat in Paramaribo. Wordt een punt op de kaart.','gekoppeld','b-link','straatnamen Paramaribo'],
+    e10:['Relatie','Vader van Ramlal, naam onbekend. Er ontstaat een open plek in de stamboom die anderen kunnen aanvullen.','open plek','b-new','onbekende persoon · zoekvraag'],
+    e11:['Datum','Rond 1908, aankomst. Wordt vergeleken met de registers van Hindostaanse immigranten.','zoekt','b-wait','gebeurtenis: aankomst · ca. 1908'],
+    e12:['Plaats','Calcutta (Kolkata), India. Vertrekhaven van de immigratieschepen.','gekoppeld','b-link','GeoNames · Kolkata'],
+    e13:['Plantage','Plantage aan de Surinamerivier. Mogelijke bronnen in het Zeeuws Archief.','mogelijk','b-wait','plantage · link naar Middelburg']
+  };
+  var LINKS = [
+    ['e4','Johanna Wijngaarde','werkte in',"'s Lands Hospitaal",'bewezen · akte','b-link'],
+    ['e5','Johanna Wijngaarde','overleed in 1967 in',"'s Lands Hospitaal",'bewezen · akte','b-link'],
+    ['e7','Ramlal Doerga','grootvader van','Asha','onbevestigd · jouw verhaal','b-new'],
+    ['e9','Ramlal Doerga','woonde aan de','Zwartenhovenbrugstraat','onbevestigd','b-new'],
+    ['e12','Vader van Ramlal (onbekend)','kwam rond 1908 uit','Calcutta','zoekt match in immigratieregisters','b-wait'],
+    ['e13','Overgrootmoeder van Johanna','woonde op','plantage Tout Lui Faut','mogelijk · link naar Zeeuws Archief','b-wait']
+  ];
+  var U = [];
+  SEGS.forEach(function(s){
+    if (s[1]) U.push({t:s[0],k:s[1],id:s[2]});
+    else s[0].split(/(?<=\s)/).forEach(function(w){ U.push({t:w}); });
+  });
+
+  var S = {n:0, rec:true, sel:null, tab:'found', ok:{}};
+  var timer = null, lastN = -1;
+  var esc = function(x){ return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+
+  var ttext = document.getElementById('ttext'), tbox = document.getElementById('transcript'), clock = document.getElementById('clock');
+  var pbody = document.getElementById('pbody'), tabF = document.getElementById('tab-found'), tabL = document.getElementById('tab-links');
+  var recbtn = document.getElementById('recbtn'), wave = document.getElementById('wave'), recstatus = document.getElementById('recstatus');
+  for (var i=0;i<22;i++){ var b=document.createElement('span'); b.style.animationDelay=((i*97)%900)+'ms'; wave.appendChild(b); }
+
+  var MIC = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="7" y="2" width="8" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M4 10a7 7 0 0014 0M11 17v3" fill="none" stroke="#fff" stroke-width="1.8"/></svg>';
+  var STOP = '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="4" width="12" height="12" rx="2" fill="#fff"/></svg>';
+
+  function isLinked(i){ return S.n - i > 4; }
+
+  function render(){
+    var n = S.n, vis = U.slice(0, n);
+    // transcript
+    var h = '';
+    vis.forEach(function(u,i){
+      if (!u.k) { h += esc(u.t); return; }
+      h += '<button type="button" class="ent k-'+u.k+(isLinked(i)?' linked':' detect')+(S.sel===u.id?' sel':'')+'" data-id="'+u.id+'">'+esc(u.t)+'</button>';
+    });
+    if (!n) h = '<span class="t-empty">Begin maar met vertellen…</span>';
+    if (S.rec) h += '<span class="caret"></span>';
+    ttext.innerHTML = h;
+    if (n !== lastN) { tbox.scrollTop = tbox.scrollHeight; lastN = n; }
+
+    var ents = [];
+    vis.forEach(function(u,i){ if (u.k) ents.push({u:u,i:i}); });
+    var found = ents.slice().reverse();
+    var links = LINKS.filter(function(l){ return ents.some(function(x){ return x.u.id===l[0] && isLinked(x.i); }); }).reverse();
+
+    tabF.textContent = 'Gevonden ('+found.length+')';
+    tabL.textContent = 'Nieuwe verbindingen ('+links.length+')';
+    tabF.classList.toggle('act', S.tab==='found' && !S.sel);
+    tabL.classList.toggle('act', S.tab==='links' && !S.sel);
+
+    var p = '';
+    if (S.sel) {
+      var m = META[S.sel], su = U.filter(function(u){ return u.id===S.sel; })[0];
+      p = '<div class="det"><span class="ty"><span class="dot c-'+su.k+'"></span>'+esc(m[0])+(S.ok[S.sel]?' · bevestigd door jou':'')+'</span>'
+        + '<span class="nm">'+esc(su.t)+'</span><span class="lk">'+esc(m[1])+'</span><span class="uri">'+esc(m[4])+'</span>'
+        + '<div class="acts"><button type="button" class="btn primary" data-act="ok">Klopt</button><button type="button" class="btn" data-act="fix">Corrigeer</button><button type="button" class="btn" data-act="proof">Bewijs toevoegen</button></div>'
+        + '<button type="button" class="textbtn" data-act="close" style="text-align:left;padding:8px 0;font-size:13px">← Terug naar de lijst</button></div>';
+    } else if (S.tab === 'found') {
+      if (!found.length) p = '<div class="empty">Namen, plekken, data en beroepen die je noemt verschijnen hier, met wat er in de bronnen over gevonden is.</div>';
+      found.forEach(function(x){
+        var m = META[x.u.id], l = isLinked(x.i), mine = S.ok[x.u.id];
+        p += '<button type="button" class="row" data-id="'+x.u.id+'"><span class="dot c-'+x.u.k+'"></span><span class="tx"><span class="tt">'+esc(x.u.t)+'</span><span class="ll">'+esc(l?m[1]:'Zoeken in bronnen…')+'</span></span>'
+          + '<span class="badge '+(mine?'b-you':(l?m[3]:'b-wait'))+'">'+esc(mine?'bevestigd':(l?m[2]:'herkennen…'))+'</span></button>';
+      });
+    } else {
+      if (!links.length) p = '<div class="empty">Zodra namen gekoppeld zijn, zie je hier welke nieuwe verbindingen je verhaal oplevert.</div>';
+      links.forEach(function(l){
+        p += '<div class="linkrow"><span class="s"><strong>'+esc(l[1])+'</strong> <span class="p">'+esc(l[2])+'</span> <strong>'+esc(l[3])+'</strong></span><span class="badge '+l[5]+'">'+esc(l[4])+'</span></div>';
+      });
+      p += '<span class="foot-note">Elke verbinding wordt een triple in de kennisgraaf, met jouw opname als bron. Peers en experts kunnen hem bevestigen.</span>';
+    }
+    pbody.innerHTML = p;
+
+    var secs = Math.min(Math.floor(n*0.42), 59);
+    clock.textContent = (S.rec?'● ':'') + '0:' + String(secs).padStart(2,'0');
+    recbtn.classList.toggle('on', S.rec);
+    recbtn.innerHTML = S.rec ? STOP : MIC;
+    recbtn.setAttribute('aria-label', S.rec ? 'Opname stoppen' : 'Opname starten');
+    wave.classList.toggle('still', !S.rec);
+    recstatus.textContent = S.rec ? 'Luistert… namen en plekken worden live herkend'
+      : (n >= U.length ? 'Klaar · '+found.length+' begrippen, '+links.length+' verbindingen' : (n ? 'Gepauzeerd' : 'Tik op de microfoon om te beginnen'));
+  }
+
+  function tick(){
+    if (!S.rec) return;
+    S.n++;
+    if (S.n >= U.length + 6) S.rec = false;
+    render();
+  }
+  function startDict(){
+    if (S.n >= U.length + 6 || S.n === 0) { S.n = 0; S.sel = null; S.tab = 'found'; S.ok = {}; }
+    S.rec = true; lastN = -1; render();
+    clearInterval(timer); timer = setInterval(tick, 230);
+  }
+  function stopDict(){ clearInterval(timer); timer = null; }
+
+  ttext.addEventListener('click', function(e){ var b=e.target.closest('[data-id]'); if (b){ S.sel=b.dataset.id; render(); } });
+  pbody.addEventListener('click', function(e){
+    var r = e.target.closest('.row[data-id]'); if (r){ S.sel=r.dataset.id; render(); return; }
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    var act = a.dataset.act;
+    if (act==='close') { S.sel=null; render(); }
+    if (act==='ok') { S.ok[S.sel]=true; S.sel=null; render(); toast('Bevestigd. Dank je, dit telt mee als bron.'); }
+    if (act==='fix') toast('Corrigeren komt in de volgende versie.');
+    if (act==='proof') toast('Foto of document toevoegen komt in de volgende versie.');
+  });
+  tabF.onclick = function(){ S.tab='found'; S.sel=null; render(); };
+  tabL.onclick = function(){ S.tab='links'; S.sel=null; render(); };
+  recbtn.onclick = function(){ S.rec = !S.rec; render(); };
+  document.getElementById('restart').onclick = function(){ S.n=0; S.rec=true; S.sel=null; S.ok={}; lastN=-1; render(); };
+
+  var tt, toastEl = document.getElementById('toast');
+  function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(tt); tt=setTimeout(function(){ toastEl.classList.remove('show'); },2200); }
+})();
+</script>
+
+</body></html>

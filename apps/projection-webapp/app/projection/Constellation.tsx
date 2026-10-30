@@ -2,6 +2,7 @@ import { Line, Text } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import type { Group } from 'three';
+import Stamp, { type StampState } from './Stamp';
 import { CAPTION_FONT } from './stampStyle';
 import { WALL, type StampLayout } from './wallLayout';
 
@@ -11,10 +12,23 @@ export type ConstellationLine = {
   to: StampLayout;
   fromScale: number; // the stamp's scale while lit, to clear its text
   toScale: number;
-  fromBelow: number; // extra room under the selected name for its caption, world units
+  fromBelow: number; // extra room under a lit name for its caption, world units
+  toBelow: number;
   certain: boolean;
   reason: string;
   reference: string;
+  showReference: boolean; // only on lines of the name in focus, to keep it calm
+  labelAt: number; // where along the line (0 = from, 1 = to) the label sits
+};
+
+// A name that exists only in the constellation (not on the wall).
+export type ConstellationName = {
+  key: string;
+  stamp: StampLayout;
+  state: StampState;
+  caption?: string;
+  pulse: boolean;
+  origin?: { x: number; y: number };
 };
 
 const THREAD = '#e6dcc6';
@@ -48,14 +62,15 @@ function Thread({ line }: { line: ConstellationLine }) {
   const ux = dx / dist;
   const uy = dy / dist;
   const start = clearance(from, line.fromScale, ux, uy, line.fromBelow);
-  const end = dist - clearance(to, line.toScale, ux, uy);
+  const end = dist - clearance(to, line.toScale, ux, uy, line.toBelow);
   const length = Math.max(end - start, 0);
   const angle = Math.atan2(dy, dx);
-  const mid = start + length / 2;
+  const mid = start + length * line.labelAt;
   const size = Math.max(from.size * 0.6, 11);
   // Label sits at the middle of the line, nudged inside the wall if it would
   // run off an edge (Courier Prime is monospaced: ~0.6 em per character).
-  const labelHalf = (Math.min(Math.max(line.reason.length, line.reference.length * 0.8), 26 / 0.6) * size * 0.6) / 2;
+  const labels = line.showReference ? [line.reason, line.reference] : [line.reason];
+  const labelHalf = (Math.min(Math.max(line.reason.length, line.showReference ? line.reference.length * 0.8 : 0), 26 / 0.6) * size * 0.6) / 2;
   const edge = WALL.width / 2 - WALL.margin / 2;
   const labelX = Math.min(Math.max(from.x + ux * mid, -edge + labelHalf), edge - labelHalf);
   const labelY = from.y + uy * mid;
@@ -92,7 +107,7 @@ function Thread({ line }: { line: ConstellationLine }) {
       </group>
       {/* Labels stay horizontal so they read from a distance on the beamer. */}
       <group ref={label} position={[labelX, labelY, 0.8]} visible={false}>
-        {[line.reason, line.reference].map((text, i) => (
+        {line.reason && labels.map((text, i) => (
           <Text
             key={i}
             ref={(el) => {
@@ -119,12 +134,32 @@ function Thread({ line }: { line: ConstellationLine }) {
   );
 }
 
-// Lines between lit names, each labelled with why they are connected.
-export default function Constellation({ lines }: { lines: ConstellationLine[] }) {
+// The names reached by clicking, and the lines between all lit names, each
+// labelled with why they are connected.
+export default function Constellation({
+  names,
+  lines,
+  onClick,
+}: {
+  names: ConstellationName[];
+  lines: ConstellationLine[];
+  onClick: (key: string) => void;
+}) {
   return (
     <>
       {lines.map((l) => (
         <Thread key={l.key} line={l} />
+      ))}
+      {names.map((n) => (
+        <Stamp
+          key={n.key}
+          stamp={n.stamp}
+          state={n.state}
+          caption={n.caption}
+          pulse={n.pulse}
+          origin={n.origin}
+          onClick={() => onClick(n.key)}
+        />
       ))}
     </>
   );

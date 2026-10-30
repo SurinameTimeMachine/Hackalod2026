@@ -1,13 +1,13 @@
 import { Text } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { Group } from 'three';
 import { CAPTION_FONT, FONTS, INKS } from './stampStyle';
 import { WALL, type StampLayout } from './wallLayout';
 
 export type StampState = 'idle' | 'selected' | 'related' | 'dimmed';
 
-const DIMMED = 0.15;
+const DIMMED = 0.08; // the wall behind an open constellation
 // Names on the scattered wall are small; lit ones grow so they read from afar.
 export const LIT_SCALE = { selected: 2, related: 1.6 };
 
@@ -19,23 +19,38 @@ const FADE = 600; // ms
 type Props = {
   stamp: StampLayout;
   state: StampState;
-  caption?: string; // shown under the name when selected
-  onSelect: (id: number) => void;
+  caption?: string; // shown under the name when lit
+  pulse?: boolean; // loading: breathe softly
+  origin?: { x: number; y: number }; // glide in from here (the name it came from)
+  onClick: () => void;
 };
 
 // One name: flat solid text on black, no frame. Opacity and scale ease
 // towards the target for the current state.
-export default function Stamp({ stamp, state, caption, onSelect }: Props) {
+export default function Stamp({ stamp, state, caption, pulse, origin, onClick }: Props) {
   const group = useRef<Group>(null);
   const name = useRef<{ fillOpacity: number } | null>(null);
   const target = state === 'dimmed' ? DIMMED : state === 'idle' ? stamp.opacity : 1;
   const targetScale = state === 'selected' ? LIT_SCALE.selected : state === 'related' ? LIT_SCALE.related : 1;
 
-  useFrame((_, dt) => {
+  const z = state === 'idle' || state === 'dimmed' ? 0 : 1;
+
+  useLayoutEffect(() => {
+    group.current?.position.set(origin?.x ?? stamp.x, origin?.y ?? stamp.y, z);
+    // Only on mount: afterwards the position eases towards the target.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useFrame(({ clock }, dt) => {
     const k = 1 - Math.exp((-dt * 1000 * 4) / FADE);
-    if (name.current) name.current.fillOpacity += (target - name.current.fillOpacity) * k;
+    const breathe = pulse ? 0.55 + 0.45 * (0.5 + 0.5 * Math.cos(clock.elapsedTime * 4)) : 1;
+    if (name.current) name.current.fillOpacity += (target * breathe - name.current.fillOpacity) * k;
     const g = group.current;
-    if (g) g.scale.setScalar(g.scale.x + (targetScale - g.scale.x) * k);
+    if (!g) return;
+    g.scale.setScalar(g.scale.x + (targetScale - g.scale.x) * k);
+    g.position.x += (stamp.x - g.position.x) * k;
+    g.position.y += (stamp.y - g.position.y) * k;
+    g.position.z = z;
   });
 
   // Keep the caption inside the wall when the name sits near an edge
@@ -48,11 +63,11 @@ export default function Stamp({ stamp, state, caption, onSelect }: Props) {
 
   const click = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    onSelect(stamp.id);
+    onClick();
   };
 
   return (
-    <group ref={group} position={[stamp.x, stamp.y, state === 'idle' || state === 'dimmed' ? 0 : 1]} rotation={[0, 0, stamp.rotation]}>
+    <group ref={group} rotation={[0, 0, stamp.rotation]}>
       <Text
         ref={name}
         font={FONTS[stamp.combo.font].url}

@@ -1,0 +1,2 @@
+# Secrets (OpenAI key etc.): never commit
+.env

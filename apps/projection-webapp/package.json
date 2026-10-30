@@ -8,17 +8,20 @@
     "start": "next start --port 3001",
     "lint": "eslint",
     "snapshot": "node scripts/build-snapshot.mjs",
-    "snapshot:open": "node scripts/build-snapshot.mjs --respect-embargo"
+    "snapshot:open": "node scripts/build-snapshot.mjs --respect-embargo",
+    "dev:phone": "cloudflared tunnel --url http://localhost:3001"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
+    "d3-force": "^3.0.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@types/d3-force": "^3.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

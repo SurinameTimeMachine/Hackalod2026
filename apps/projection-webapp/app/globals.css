@@ -18,3 +18,12 @@ body {
   white-space: pre;
   pointer-events: none;
 }
+
+.offline {
+  position: fixed;
+  bottom: 12px;
+  right: 16px;
+  font: 12px/1.4 ui-monospace, monospace;
+  color: #5d5a54;
+  pointer-events: none;
+}
