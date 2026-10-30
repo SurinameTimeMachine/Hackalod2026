@@ -1,5 +1,5 @@
 import { MercatorCoordinate, type CustomLayerInterface, type Map as MapLibreMap } from 'maplibre-gl';
-import { Camera, Color, DirectionalLight, AmbientLight, InstancedMesh, Matrix4, MeshPhongMaterial, Scene, SphereGeometry, WebGLRenderer } from 'three';
+import { Camera, DirectionalLight, AmbientLight, InstancedMesh, Matrix4, MeshPhongMaterial, Scene, SphereGeometry, WebGLRenderer } from 'three';
 import type { PeopleCluster } from './people-data';
 
 export const PEOPLE_LAYER_ID = 'people-spheres';
@@ -14,8 +14,14 @@ export function createPeopleLayer(clusters: PeopleCluster[]) {
   const camera = new Camera();
   const geometry = new SphereGeometry(1, 16, 12);
   const material = new MeshPhongMaterial({ color: '#dfaf49', specular: '#fff0bf', shininess: 45 });
+  const fadedMaterial = new MeshPhongMaterial({ color: '#dfaf49', transparent: true, opacity: 0.18, depthWrite: false });
+  const selectedMaterial = new MeshPhongMaterial({ color: '#ffdc72', emissive: '#b26a10', emissiveIntensity: 0.65, specular: '#ffffff', shininess: 70 });
   const mesh = new InstancedMesh(geometry, material, clusters.length);
-  mesh.frustumCulled = false;
+  const faded = new InstancedMesh(geometry, fadedMaterial, clusters.length);
+  const highlighted = new InstancedMesh(geometry, selectedMaterial, clusters.length);
+  for (const item of [mesh, faded, highlighted]) item.frustumCulled = false;
+  faded.count = 0;
+  highlighted.count = 0;
   // Local origin avoids precision loss when metre-sized spheres use float32 matrices.
   const origin = MercatorCoordinate.fromLngLat([-55.9, 4.4]);
   const translation = new Matrix4().makeTranslation(origin.x, origin.y, 0);
@@ -35,7 +41,7 @@ export function createPeopleLayer(clusters: PeopleCluster[]) {
     onAdd(currentMap, gl) {
       map = currentMap;
       scene.add(mesh);
-      clusters.forEach((_, i) => mesh.setColorAt(i, new Color('#ffffff')));
+      scene.add(faded, highlighted);
       scene.add(new AmbientLight('#fff0cc', 1.3));
       const sun = new DirectionalLight('#fff8e4', 2.5);
       sun.position.set(-1, -1, 2);
@@ -47,15 +53,21 @@ export function createPeopleLayer(clusters: PeopleCluster[]) {
     },
     render(_gl, options) {
       if (dirty) {
-        positions.forEach(({ cluster, point, scale }, i) => {
+        let normalCount = 0, fadedCount = 0, selectedCount = 0;
+        positions.forEach(({ cluster, point, scale }) => {
           const elevation = map.queryTerrainElevation(cluster.center) ?? 0;
           const r = cluster.radiusMeters * scale;
           matrix.makeScale(r, r, r);
           matrix.setPosition(point.x - origin.x, point.y - origin.y,
             (elevation + cluster.radiusMeters + 8) * scale);
-          mesh.setMatrixAt(i, matrix);
+          if (selected.size === 0) mesh.setMatrixAt(normalCount++, matrix);
+          else if (selected.has(cluster.id)) highlighted.setMatrixAt(selectedCount++, matrix);
+          else faded.setMatrixAt(fadedCount++, matrix);
         });
-        mesh.instanceMatrix.needsUpdate = true;
+        mesh.count = normalCount;
+        faded.count = fadedCount;
+        highlighted.count = selectedCount;
+        for (const item of [mesh, faded, highlighted]) item.instanceMatrix.needsUpdate = true;
         dirty = false;
       }
       // MapLibre 6 supplies render options, not the v4 matrix argument.
@@ -69,7 +81,11 @@ export function createPeopleLayer(clusters: PeopleCluster[]) {
       map.off('moveend', invalidate);
       geometry.dispose();
       material.dispose();
+      fadedMaterial.dispose();
+      selectedMaterial.dispose();
       mesh.dispose();
+      faded.dispose();
+      highlighted.dispose();
       renderer?.dispose();
     },
   };
@@ -77,8 +93,7 @@ export function createPeopleLayer(clusters: PeopleCluster[]) {
     layer,
     select(ids: string[]) {
       selected = new Set(ids);
-      clusters.forEach((cluster, i) => mesh.setColorAt(i, new Color(selected.size && !selected.has(cluster.id) ? '#55504a' : '#ffffff')));
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      dirty = true;
       map?.triggerRepaint();
     },
   };

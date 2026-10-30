@@ -102,3 +102,8 @@ body {
 .selection-panel { position: absolute; right: 16px; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); left: 16px; max-width: 420px; font-size: 14px; }
 .selection-panel h2 { font-size: 18px; font-weight: 600; }
 .selection-panel button, .search-results-heading button { float: right; min-height: 44px; padding: 0 10px; }
+
+/* MapLibre controls create their own stacking layers; keep app UI above them. */
+.map-home, .people-search, .selection-panel, .people-status {
+  z-index: 10;
+}

@@ -108,6 +108,11 @@ export default function Landscape() {
     map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
     map.on('load', () => {
+      map.addSource('selection-indicators', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({ id: 'selection-indicators', type: 'circle', source: 'selection-indicators', paint: {
+        'circle-radius': 15, 'circle-color': '#ffe28a', 'circle-opacity': 0.08,
+        'circle-stroke-color': '#fff1b6', 'circle-stroke-width': 2, 'circle-stroke-opacity': 0.95,
+      } });
       map.setTerrain({
         source: 'elevation',
         exaggeration: 2.4,
@@ -127,6 +132,7 @@ export default function Landscape() {
       }
       if (closest) {
         layerRef.current?.select([closest.id]);
+        updateSelectionIndicators(map, [closest]);
         setSelectedPerson(null);
         setSelectedPlace(closest);
         if (map.getLayer('person-connections')) map.setLayoutProperty('person-connections', 'visibility', 'none');
@@ -150,11 +156,17 @@ export default function Landscape() {
     };
   }, []);
 
+  function updateSelectionIndicators(map: maplibregl.Map, places: PeopleCluster[]) {
+    const source = map.getSource('selection-indicators') as maplibregl.GeoJSONSource | undefined;
+    source?.setData({ type: 'FeatureCollection', features: places.map(place => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: place.center } })) });
+  }
+
   function showPlace(place: PeopleCluster) {
     setSelectedPerson(null);
     setSelectedPlace(place);
     layerRef.current?.select([place.id]);
     const map = mapRef.current;
+    if (map) updateSelectionIndicators(map, [place]);
     if (map?.getLayer('person-connections')) map.setLayoutProperty('person-connections', 'visibility', 'none');
     map?.flyTo({ center: place.center, zoom: Math.max(map.getZoom(), 13), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
   }
@@ -166,9 +178,9 @@ export default function Landscape() {
     layerRef.current?.select(selected.map(p => p.id));
     const map = mapRef.current;
     if (!map) return;
-    const data: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    updateSelectionIndicators(map, selected);
     // Straight lines are visual associations, not reconstructed routes.
-    if (selected.length > 1) data.features = selected.slice(1).map(place => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [selected[0].center, place.center] } }));
+    const data = { type: 'FeatureCollection' as const, features: selected.slice(1).map(place => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [selected[0].center, place.center] } })) };
     const source = map.getSource('person-connections') as maplibregl.GeoJSONSource | undefined;
     if (source) { source.setData(data); map.setLayoutProperty('person-connections', 'visibility', 'visible'); }
     else {
@@ -185,6 +197,7 @@ export default function Landscape() {
   function clearSelection() {
     setSelectedPlace(null); setSelectedPerson(null);
     layerRef.current?.select([]);
+    if (mapRef.current) updateSelectionIndicators(mapRef.current, []);
     if (mapRef.current?.getLayer('person-connections')) mapRef.current.setLayoutProperty('person-connections', 'visibility', 'none');
   }
 
