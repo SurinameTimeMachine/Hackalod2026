@@ -30,6 +30,21 @@ So a phone scan only has to choose among names that are actually readable, the p
 - Each name carries its shared key (`patient:<id>` / `person:<id>`, see `app/shared/keys.ts`), text, font, ink name, position (0–1 across the wall, y from the top), letter height, state and subtitle. Types in `app/shared/display.ts`.
 - `GET /display` lists all screens, `GET /display?screen=projection` one screen, `GET /display?stamps=1` a flat list of every visible name: the candidate list for `/story/scan`.
 
+## Phone app: "I was here" (`/scan`)
+
+A visitor photographs a name on the wall, confirms the person, and tells what they know. Look and wording follow the team's "I was here" prototype (light paper, IBM Plex, Permanent Marker, Dutch). See `README_MobileApp.md` for the full brief.
+
+1. **Home**: the background names are the ones the projection shows right now.
+2. **Scan**: the native camera (`<input capture>`), downscaled to 1280 px, goes to `POST /story/scan`. One vision call picks the name from the display registry's candidates (font, ink and position break ties between identical names). A name on no screen falls back to `person_search`. Or type a name.
+3. **Found**: the name in its own stamp lettering, with facts from the archive (`GET /story/context?key=`). Other candidates are one tap away.
+4. **Tell**: tap to record (max 3 min, or type instead). `POST /story/transcribe` takes the audio, with the person's related names and places as a spelling hint. `POST /story/extract` maps the story onto the columns of the `contributions` dataset, and the code resolves places (`ui_places`) and people (`person_search`). The top half shows the transcript with recognised words underlined in their colour (dotted means it still needs a choice). The bottom half lists what was found and the dataset rows it would become. Tap a word or row to pick the archive match, keep it as told, confirm or remove it.
+
+Not yet: consent + saving (`/contribute`, jsonl fallback), `/select` lighting the name on the wall, stories list, and follow-up questions to pin down which archive person is meant.
+
+**Setup.** Put `OPENAI_API_KEY` in `.env` at the repo root (see `.env.example`); `next.config.ts` loads it. The key is only used server-side (`app/server/openai.ts`). Models are set in `app/server/config.ts`: `gpt-5.4-mini` for scan and extraction, `gpt-4o-transcribe` for speech. In dev, append `?model=` to a `/story/*` request to try another model.
+
+**On a real phone** you need HTTPS for the camera and microphone: `brew install cloudflared`, run `pnpm dev`, then `pnpm dev:phone` and open the printed `https://….trycloudflare.com/scan` URL.
+
 ## Data
 
 - **The wall** comes live from `/api/suriname_person_search/mh1921_patienten.json`. In dev, `next.config.ts` proxies `/api/*` to `https://hackalod.sbco.design`; in production Caddy serves it on the same origin. If the API is down, the app falls back to `public/data/mh1921_patienten.json`.
@@ -56,6 +71,11 @@ app/projection/
   wallLayout.ts        seeded random scatter, no overlaps, thinning towards a ragged edge
                        (FILL sets how airy the wall is, and with it the font size)
   stampStyle.ts        fonts, inks, seeded variation, font+ink candidates per patient
+app/scan/              phone app: ScanApp (home/scan/found), Dictate, useRecorder,
+                       downscale, strings (all Dutch wording), scan.css
+app/story/*/route.ts   /story/scan, /story/context, /story/transcribe, /story/extract
+app/server/            story.ts (prompts, schemas, resolving), archive.ts (Datasette
+                       reads, buildContext), openai.ts, config.ts, guard.ts (rate limit)
 app/display/route.ts   GET/POST /display
 app/server/display.ts  in-memory display registry (activeStamps() for the scan)
 app/shared/

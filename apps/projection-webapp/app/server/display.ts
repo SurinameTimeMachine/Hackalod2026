@@ -8,7 +8,7 @@ const MAX_STAMPS = 2000;
 
 // On globalThis so dev hot reloads keep the registry.
 const g = globalThis as { __displayRegistry?: Map<string, DisplayScreen> };
-const registry = (g.__displayRegistry ??= new Map());
+const registry = (g.__displayRegistry ??= new Map<string, DisplayScreen>());
 
 function prune() {
   const now = Date.now();
