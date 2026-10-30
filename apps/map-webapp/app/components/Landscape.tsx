@@ -10,8 +10,10 @@ import { getHomeView } from '../lib/map-views';
 import { isPopularPlace, type PeopleCluster, type PeopleResponse } from '../lib/people-data';
 import PeopleSearch, { type PersonSelection } from './PeopleSearch';
 import TimeSlider, { type YearRange } from './TimeSlider';
+import './LandscapeTheme.css';
 
 const PlaceWall = dynamic(() => import('./PlaceWall'), { ssr: false });
+const HOSPITAL_ID = 'stm-1885-address-0327';
 
 maplibregl.setWorkerUrl(
   new URL(
@@ -33,13 +35,38 @@ export default function Landscape() {
   const [selectedPlace, setSelectedPlace] = useState<PeopleCluster | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<PeopleCluster[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonSelection | null>(null);
-  const layerRef = useRef<{ select: (ids: string[]) => void; setPopularOnly: (value: boolean) => void; setData: (data: PeopleCluster[]) => void; setConnections: (ids: string[]) => void; hitTest: (point: [number, number]) => PeopleCluster[] } | null>(null);
+  const [desktop, setDesktop] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
+  const layerRef = useRef<{ select: (ids: string[]) => void; setPopularOnly: (value: boolean) => void; setData: (data: PeopleCluster[]) => void; setConnections: (ids: string[]) => void; setHospitalVisible: (value: boolean) => void; setHospitalFocus: (value: boolean) => void; hitTest: (point: [number, number]) => PeopleCluster[] } | null>(null);
+  const hospitalVisibleRef = useRef(false);
+  const hospitalFocusRef = useRef(false);
   const clustersRef = useRef<PeopleCluster[]>([]);
   const allClusters = useRef<PeopleCluster[]>([]);
   const timeRequest = useRef<AbortController | null>(null);
   const [appliedYears, setAppliedYears] = useState<YearRange>(null);
   const [timeKey, setTimeKey] = useState(0);
   const retryPeople = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)');
+    const update = () => setDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    const year = selectedPerson?.person.event_year;
+    const personInRange = !appliedYears || (year != null && year >= appliedYears[0] && year <= appliedYears[1]);
+    const visible = desktop && (popularOnly || selectedPlace?.id === HOSPITAL_ID ||
+      !!(selectedPerson && personInRange && selectedPerson.ids.includes(HOSPITAL_ID) && clusters.some(place => place.id === HOSPITAL_ID)));
+    const focused = desktop && selectedPlace?.id === HOSPITAL_ID;
+    hospitalVisibleRef.current = visible;
+    hospitalFocusRef.current = focused;
+    layerRef.current?.setHospitalVisible(visible);
+    layerRef.current?.setHospitalFocus(focused);
+    if (mapRef.current && selectedPlace?.id === HOSPITAL_ID) updateSelectionIndicators(mapRef.current, focused ? [] : [selectedPlace]);
+  }, [desktop, popularOnly, selectedPlace, selectedPerson, appliedYears, clusters]);
 
   useEffect(() => {
     if (!container.current) return;
@@ -51,7 +78,7 @@ export default function Landscape() {
       style: landscapeStyle,
       ...getHomeView(mobile),
       minZoom: 5,
-      maxZoom: 16,
+      maxZoom: 20,
       maxPitch: 65,
       maxBounds: [
         [-60, 0],
@@ -88,6 +115,8 @@ export default function Landscape() {
         map.addLayer(peopleLayer.layer);
         layerRef.current = peopleLayer;
         peopleLayer.setPopularOnly(popularOnlyRef.current);
+        peopleLayer.setHospitalVisible(hospitalVisibleRef.current);
+        peopleLayer.setHospitalFocus(hospitalFocusRef.current);
         allClusters.current = data.clusters;
         clustersRef.current = data.clusters;
         setClusters(data.clusters);
@@ -142,6 +171,9 @@ export default function Landscape() {
         setSelectedPerson(null);
         setSelectedPlace(place);
         layerRef.current?.setConnections([]);
+        if (place.id === HOSPITAL_ID && window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)').matches) {
+          map.flyTo({ center: place.center, zoom: Math.max(map.getZoom(), 17.5), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
+        }
       } else if (hits.length > 1) {
         setNearbyPlaces(hits);
       }
@@ -191,7 +223,7 @@ export default function Landscape() {
     const map = mapRef.current;
     if (map) updateSelectionIndicators(map, [place]);
     layerRef.current?.setConnections([]);
-    map?.flyTo({ center: place.center, zoom: Math.max(map.getZoom(), 13), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
+    map?.flyTo({ center: place.center, zoom: Math.max(map.getZoom(), desktop && place.id === HOSPITAL_ID ? 17.5 : 13), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
   }
 
   function showPerson(selection: PersonSelection) {
@@ -200,6 +232,7 @@ export default function Landscape() {
     const year = selection.person.event_year;
     const inRange = !appliedYears || (year !== null && year >= appliedYears[0] && year <= appliedYears[1]);
     const selected = inRange ? clusters.filter(c => selection.ids.includes(c.id)) : [];
+    setNearbyPlaces([]);
     if (popularOnlyRef.current && selected.some(c => !isPopularPlace(c))) updatePopularOnly(false);
     layerRef.current?.select(selected.map(p => p.id));
     const map = mapRef.current;
@@ -252,6 +285,7 @@ export default function Landscape() {
       layerRef.current?.setData(allClusters.current);
     }
     setAppliedYears(null);
+    setTimeOpen(false);
     setTimeKey(value => value + 1);
     clearSelection();
     updatePopularOnly(false);
@@ -265,6 +299,7 @@ export default function Landscape() {
 
   return (
     <main
+      className="landscape-shell"
       style={{
         position: 'relative',
         width: '100%',
@@ -307,13 +342,14 @@ export default function Landscape() {
       </div>
 
       <PeopleSearch clusters={clusters} onPlace={showPlace} onPerson={showPerson} />
-      <div className="map-panel-stack">
+      <div className={`map-panel-stack${timeOpen ? ' time-open' : ''}`}>
       {status && <div className="map-status" role="status">{status}</div>}
       {peopleStatus && <div className="people-status" role="status">
         <p>{peopleStatus}</p>
         {peopleFailed && <button type="button" onClick={() => retryPeople.current?.()}>Retry people</button>}
       </div>}
-      <TimeSlider key={timeKey} onApply={applyTime} />
+      <button type="button" className="mobile-time-toggle" aria-expanded={timeOpen} aria-controls="time-controls" onClick={() => setTimeOpen(value => !value)}>{timeOpen ? 'Close time' : 'Time'}</button>
+      <div id="time-controls" className="time-controls"><TimeSlider key={timeKey} onApply={async range => { const ok = await applyTime(range); if (ok) setTimeOpen(false); return ok; }} /></div>
       {nearbyPlaces.length > 0 && <section className="nearby-places" aria-label="Choose a place">
         <div className="search-results-heading"><strong>Choose a place</strong><button type="button" onClick={() => setNearbyPlaces([])}>Close</button></div>
         {nearbyPlaces.length > 30 && <button type="button" className="nearby-place" onClick={() => {
@@ -328,7 +364,7 @@ export default function Landscape() {
       {(selectedPlace || selectedPerson) && <section className="selection-panel" aria-label="Selection">
         <button type="button" onClick={clearSelection} aria-label="Close selection">Close</button>
         {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString()} person records · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'All dates'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0} onClick={() => setWallPlace(selectedPlace)}>Open wall of names</button></>}
-        {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Unnamed person'}</h2><p>Record {selectedPerson.person.person_id} · {selectedPerson.person.source_dataset}{selectedPerson.person.event_year ? ` · ${selectedPerson.person.event_year}` : ''}</p>{selectedPerson.limited && <p>Some links may be missing because the API limits results.</p>}</>}
+        {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Unnamed person'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Outside the selected years.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} mapped places</p>}{selectedPerson.limited && <p>Some links may be missing because the API limits results.</p>}</>}
       </section>}
 
       </div>
