@@ -4,17 +4,22 @@ import { OrthographicCamera } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePatientEdges, usePatientIndex, usePatients } from '../shared/hooks';
+import type { DisplayReport, DisplayStamp } from '../shared/display';
+import { fromNodeKey, patientKey } from '../shared/keys';
 import { useSignals } from '../shared/signals';
 import { ARCHIVE_OFFLINE, displayName, NO_TIES, subtitle } from '../shared/strings';
 import Constellation, { type ConstellationLine, type ConstellationName } from './Constellation';
 import type { GNode, NodeKey } from './graph';
 import { captionSize, captionTop, LIT_SCALE, type StampState } from './Stamp';
-import { comboCandidates, FONTS, variation } from './stampStyle';
+import { comboCandidates, FONTS, INK_NAMES, variation } from './stampStyle';
 import { useConstellation } from './useConstellation';
+import { useDisplayReport } from './useDisplayReport';
 import Wall from './Wall';
 import { layoutWall, makeMeasure, WALL, type StampLayout } from './wallLayout';
 
 const IDLE_TIMEOUT = 60_000;
+// Which screen this is in the display registry; ?screen=<name> for a second wall.
+const SCREEN = 'projection';
 const SUMMARY_COMBO = { font: 3, ink: 0 }; // typewriter, bone: reads as a note, not a name
 
 // Fit the 1920×1080 wall into whatever the window is.
@@ -205,6 +210,40 @@ export default function ProjectionPage() {
     return { lit, captions, pulsing, names, lines };
   }, [graph, loading, wallStamp, byId, nodeStamp]);
 
+  // The names a visitor can read right now, for the display registry: the
+  // whole wall, or with a constellation open only its lit names (the dimmed
+  // wall behind it is too faint to scan).
+  const [screen] = useState(() => new URLSearchParams(window.location.search).get('screen') || SCREEN);
+  const displayReport = useMemo((): DisplayReport | null => {
+    if (!stamps.length) return null;
+    const entry = (key: string, s: StampLayout, state: DisplayStamp['state'], subtitle?: string): DisplayStamp => ({
+      key,
+      text: s.text,
+      font: FONTS[s.combo.font].name,
+      color: INK_NAMES[s.combo.ink],
+      x: +((s.x + WALL.width / 2) / WALL.width).toFixed(4),
+      y: +((WALL.height / 2 - s.y) / WALL.height).toFixed(4),
+      size: +((s.size * (state === 'idle' ? 1 : LIT_SCALE[state])) / WALL.height).toFixed(4),
+      state,
+      ...(subtitle ? { subtitle } : {}),
+    });
+    const sub = (id: number) => (byId.has(id) ? subtitle(byId.get(id)!) : undefined);
+    if (!graph) {
+      return { screen, view: 'wall', focus: null, stamps: stamps.map((s) => entry(patientKey(s.id), s, 'idle', sub(s.id))) };
+    }
+    const out: DisplayStamp[] = [];
+    for (const s of stamps) {
+      const state = view.lit.get(s.id);
+      if (state === 'selected' || state === 'related') out.push(entry(patientKey(s.id), s, state, sub(s.id)));
+    }
+    for (const n of view.names) {
+      const key = fromNodeKey(n.key);
+      if (key && (n.state === 'selected' || n.state === 'related')) out.push(entry(key, n.stamp, n.state, n.caption));
+    }
+    return { screen, view: 'constellation', focus: fromNodeKey(graph.focus), stamps: out };
+  }, [screen, stamps, graph, view, byId]);
+  useDisplayReport(displayReport);
+
   return (
     <main style={{ position: 'fixed', inset: 0, background: '#000' }}>
       <Canvas flat dpr={[1, 2]} onPointerMissed={reset}>
@@ -223,7 +262,7 @@ export default function ProjectionPage() {
       {offline && <div className="offline">{ARCHIVE_OFFLINE}</div>}
       {debug && (
         <div className="debug">
-          {`data: ${source}\nnames: ${stamps.length} @ ${baseSize.toFixed(1)} units\npatient index: ${patientIndex.size}\ngraph: ${graph ? `${graph.nodes.size} names, ${graph.edges.size} lines` : '–'}\nfocus: ${graph?.focus ?? '–'}\nloading: ${loading.size}`}
+          {`data: ${source}\nnames: ${stamps.length} @ ${baseSize.toFixed(1)} units\npatient index: ${patientIndex.size}\ngraph: ${graph ? `${graph.nodes.size} names, ${graph.edges.size} lines` : '–'}\nfocus: ${graph?.focus ?? '–'}\nloading: ${loading.size}\nreported: ${displayReport?.stamps.length ?? 0} names as "${screen}"`}
         </div>
       )}
     </main>

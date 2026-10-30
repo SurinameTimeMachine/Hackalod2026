@@ -19,7 +19,16 @@ Open http://localhost:3001/projection (port 3001, so it can run next to map-weba
 - A summary name such as "witness · 214 more" appears when one click would add more than 20 names (`GROUP_THRESHOLD`); family is always shown in full. Click it to show the next 20.
 - **Esc** steps back one click; at the first step it returns to the full wall. Clicking the black background, or 60 s without input, also returns to the full wall.
 - `?patient=<patient_id>` opens with that constellation, for example `/projection?patient=120` or `?patient=1`.
-- **D** toggles a small debug overlay (data source, counts, selected id).
+- **D** toggles a small debug overlay (data source, counts, selected id, names reported to the display registry).
+- `?screen=<name>` sets the name this wall reports under in the display registry (default `projection`).
+
+## Display registry
+
+So a phone scan only has to choose among names that are actually readable, the projection reports what it shows to `POST /display` (a route handler in this app, kept in memory, see `app/server/display.ts`). It reports whenever the view settles (debounced 0.5 s, unchanged views skipped) and every 5 min as a heartbeat; screens not heard from for 15 min are dropped.
+
+- On the full wall: all names. With a constellation open: only the lit names (the dimmed wall behind it is too faint to scan).
+- Each name carries its shared key (`patient:<id>` / `person:<id>`, see `app/shared/keys.ts`), text, font, ink name, position (0–1 across the wall, y from the top), letter height, state and subtitle. Types in `app/shared/display.ts`.
+- `GET /display` lists all screens, `GET /display?screen=projection` one screen, `GET /display?stamps=1` a flat list of every visible name: the candidate list for `/story/scan`.
 
 ## Data
 
@@ -37,6 +46,7 @@ Open http://localhost:3001/projection (port 3001, so it can run next to map-weba
 ```
 app/projection/
   ProjectionPage.tsx   canvas, ortho camera fitted to a 1920×1080 wall, selection, keys
+  useDisplayReport.ts  posts the visible names to /display
   Wall.tsx             the names; data in via props so other locations can reuse it
   graph.ts             graph model + the live queries behind each click
   useConstellation.ts  growing graph, grouping of busy names, Esc history, loading state
@@ -46,8 +56,11 @@ app/projection/
   wallLayout.ts        seeded random scatter, no overlaps, thinning towards a ragged edge
                        (FILL sets how airy the wall is, and with it the font size)
   stampStyle.ts        fonts, inks, seeded variation, font+ink candidates per patient
+app/display/route.ts   GET/POST /display
+app/server/display.ts  in-memory display registry (activeStamps() for the scan)
 app/shared/
   api.ts  hooks.ts     API base, fetch helpers, usePatients / usePatientEdges
+  keys.ts  display.ts  shared key format, display registry types
   strings.ts           all visible wording (to review with Nisha)
   signals.ts           websocket hook, no-op for now
 public/fonts/          OFL/Apache fonts (via Fontsource) + licenses/

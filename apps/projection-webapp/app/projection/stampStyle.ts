@@ -28,6 +28,9 @@ export const INKS = [
   '#a58ab0', // faded violet
 ];
 
+// Names for the inks, as reported to the display registry and the phone.
+export const INK_NAMES = ['bone', 'red', 'ochre', 'slate', 'green', 'violet'];
+
 export function rng(seed: number) {
   let a = seed >>> 0;
   return () => {
