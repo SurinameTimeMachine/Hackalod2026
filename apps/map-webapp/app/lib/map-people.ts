@@ -46,7 +46,7 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
   const fadedMaterial = new MeshPhongMaterial({ color: '#dfaf49', transparent: true, opacity: 0.48, depthWrite: false });
   const selectedMaterial = new MeshPhongMaterial({ color: '#ffdc72', emissive: '#b26a10', emissiveIntensity: 0.65, specular: '#ffffff', shininess: 70 });
   const connectionGeometry = new LineSegmentsGeometry();
-  const connectionMaterial = new LineMaterial({ color: '#ffe497', linewidth: 3, transparent: true, opacity: 0.8, depthWrite: false });
+  const connectionMaterial = new LineMaterial({ color: '#9b6800', linewidth: 3, transparent: true, opacity: 0.8, depthWrite: false });
   const lines = new LineSegments2(connectionGeometry, connectionMaterial);
   lines.frustumCulled = false;
   const lightGeometry = new BufferGeometry();

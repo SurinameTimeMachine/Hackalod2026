@@ -162,3 +162,85 @@
   .landscape-shell .people-search { top: calc(72px + env(safe-area-inset-top, 0px)); }
   .landscape-shell .people-search label::before { width: 16px; height: 16px; }
 }
+
+/* Light map interface, inspired by the hospital concept. */
+.landscape-shell {
+  --shadows-cream: #1d1b17;
+  --shadows-gold: #a86e00;
+  --shadows-muted: #625f57;
+  --shadows-line: #dcd8d0;
+  color-scheme: light;
+  color: #1d1b17;
+}
+.landscape-shell .map-sidebar { display: contents; }
+.landscape-shell .map-toolbar,
+.landscape-shell .search-results,
+.landscape-shell .selection-panel,
+.landscape-shell .nearby-places,
+.landscape-shell .time-slider,
+.landscape-shell .people-status,
+.landscape-shell .map-status,
+.landscape-shell .maplibregl-ctrl-group {
+  background: rgba(255, 255, 255, .97);
+  color: #1d1b17;
+  border: 1px solid #dcd8d0;
+  border-radius: 0;
+  box-shadow: 0 4px 18px rgb(40 30 10 / 8%);
+}
+.landscape-shell .map-toolbar .map-home,
+.landscape-shell .map-toolbar .popular-toggle { color: #48443c; border-radius: 0; }
+.landscape-shell .map-toolbar .popular-toggle[aria-pressed='true'] { color: #1d1b17; background: #f7e4ae; border-color: #d39a00; }
+.landscape-shell .people-search label { color: #4c473d; text-shadow: none; }
+.landscape-shell .people-search label::before { display: none; }
+.landscape-shell .people-search input { background: #fff; color: #1d1b17; border: 1px solid #cfcac0; border-radius: 0; box-shadow: 0 4px 18px rgb(40 30 10 / 8%); }
+.landscape-shell .people-search input::placeholder { color: #716d64; }
+.landscape-shell .search-results button:not(.search-results-heading button),
+.landscape-shell .nearby-place { border-bottom-color: #e3dfd7; }
+.landscape-shell .selection-panel p { color: #625f57; }
+.landscape-shell .selection-panel .open-wall { background: #e3a614; color: #1d1b17; border-radius: 0; }
+.landscape-shell .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
+.landscape-shell .maplibregl-ctrl-attrib-button { filter: none; }
+.landscape-shell .maplibregl-ctrl-group button + button { border-top-color: #e3dfd7; }
+.landscape-shell .maplibregl-ctrl-scale,
+.landscape-shell .maplibregl-ctrl-attrib { background: rgba(255,255,255,.9); color: #48443c; border-color: #777267; }
+.landscape-shell .maplibregl-ctrl-attrib a { color: #5f470e; }
+.landscape-shell .timeline-dock { position: absolute; z-index: 18; left: 0; right: 0; bottom: 0; }
+.landscape-shell .time-controls .time-slider { position: static; width: 100%; max-width: none; box-shadow: none; }
+.landscape-shell .time-slider { padding: 12px 24px max(12px, env(safe-area-inset-bottom)); background: #fbfaf8; }
+.landscape-shell .time-heading span { font-family: Georgia, serif; font-size: 18px; }
+.landscape-shell .time-heading button,
+.landscape-shell .time-range-row button { border: 1px solid #d6d0c5; border-radius: 0; }
+.landscape-shell .dual-range-track { background: #dcd8d0; }
+.landscape-shell .dual-range-selected { background: #e3a614; }
+.landscape-shell .dual-range input[type='range']::-webkit-slider-thumb { background: #e3a614; border-color: #9b6800; border-radius: 2px; }
+.landscape-shell .dual-range input[type='range']::-moz-range-thumb { background: #e3a614; border-color: #9b6800; border-radius: 2px; }
+.landscape-shell .timeline-scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.landscape-shell .timeline-axis { min-width: 700px; }
+.landscape-shell .timeline-events { --period-row: 28px; position: relative; height: calc(3 * var(--period-row)); margin: 0 11px; color: #48443c; }
+.landscape-shell .timeline-period { position: absolute; height: 25px; min-height: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 2px 5px; font-size: 11px; text-align: left; border: 1px solid #b66f5e; background: #f7e9e4; }
+.landscape-shell .timeline-period.contract { border-color: #6d9e97; background: #e7f0ed; }
+.landscape-shell .timeline-period.migration { border-color: #818eb4; background: #eceefa; }
+.landscape-shell .timeline-period[aria-pressed='true'] { outline: 2px solid #9b6800; outline-offset: -2px; }
+.landscape-shell .timeline-ticks { position: relative; height: 20px; margin: 0 11px; font-size: 11px; color: #625f57; }
+.landscape-shell .timeline-ticks span { position: absolute; transform: translateX(-50%); }
+
+@media (min-width: 768px) {
+  .landscape-shell .map-sidebar { display: flex; position: absolute; z-index: 20; top: 16px; right: 16px; width: min(340px, 33vw); max-height: calc(100% - 240px); flex-direction: column; gap: 8px; pointer-events: none; }
+  .landscape-shell .map-sidebar .people-search,
+  .landscape-shell .map-sidebar .map-panel-stack { position: static; width: 100%; max-width: none; pointer-events: auto; }
+  .landscape-shell .map-sidebar .map-panel-stack { max-height: 40dvh; }
+  .landscape-shell .search-results { max-height: min(32dvh, 340px); }
+  .landscape-shell .maplibregl-ctrl-bottom-right { bottom: 220px; }
+  .landscape-shell .maplibregl-ctrl-bottom-left { bottom: 220px; }
+}
+@media (max-width: 767px) {
+  .landscape-shell .mobile-time-toggle { display: block; min-height: 44px; margin: 0 0 10px 16px; color: #1d1b17; background: #fff; border: 1px solid #cfcac0; border-radius: 0; }
+  .landscape-shell .time-controls { display: none; }
+  .landscape-shell .timeline-dock.time-open .time-controls { display: block; }
+  .landscape-shell .timeline-axis { min-width: 1100px; }
+  .landscape-shell .timeline-events { --period-row: 46px; }
+  .landscape-shell .timeline-period { height: 44px; font-size: 12px; }
+  .landscape-shell .time-slider { padding: 10px 16px max(10px, env(safe-area-inset-bottom)); }
+  .landscape-shell .map-panel-stack { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
+  .landscape-shell .maplibregl-ctrl-bottom-right { bottom: 60px; }
+}

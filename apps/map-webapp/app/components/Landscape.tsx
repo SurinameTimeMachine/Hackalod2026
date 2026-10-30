@@ -141,7 +141,7 @@ export default function Landscape() {
       new maplibregl.NavigationControl({
         visualizePitch: true,
       }),
-      'top-right',
+      'bottom-right',
     );
 
     map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
@@ -149,8 +149,8 @@ export default function Landscape() {
     map.on('load', () => {
       map.addSource('selection-indicators', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addLayer({ id: 'selection-indicators', type: 'circle', source: 'selection-indicators', paint: {
-        'circle-radius': 15, 'circle-color': '#ffe28a', 'circle-opacity': 0.08,
-        'circle-stroke-color': '#fff1b6', 'circle-stroke-width': 2, 'circle-stroke-opacity': 0.95,
+        'circle-radius': 15, 'circle-color': '#c18a11', 'circle-opacity': 0.08,
+        'circle-stroke-color': '#9b6800', 'circle-stroke-width': 2, 'circle-stroke-opacity': 0.95,
       } });
       map.setTerrain({
         source: 'elevation',
@@ -341,6 +341,7 @@ export default function Landscape() {
       </button>
       </div>
 
+      <div className="map-sidebar">
       <PeopleSearch clusters={clusters} onPlace={showPlace} onPerson={showPerson} />
       <div className={`map-panel-stack${timeOpen ? ' time-open' : ''}`}>
       {status && <div className="map-status" role="status">{status}</div>}
@@ -348,8 +349,6 @@ export default function Landscape() {
         <p>{peopleStatus}</p>
         {peopleFailed && <button type="button" onClick={() => retryPeople.current?.()}>Retry people</button>}
       </div>}
-      <button type="button" className="mobile-time-toggle" aria-expanded={timeOpen} aria-controls="time-controls" onClick={() => setTimeOpen(value => !value)}>{timeOpen ? 'Close time' : 'Time'}</button>
-      <div id="time-controls" className="time-controls"><TimeSlider key={timeKey} onApply={async range => { const ok = await applyTime(range); if (ok) setTimeOpen(false); return ok; }} /></div>
       {nearbyPlaces.length > 0 && <section className="nearby-places" aria-label="Choose a place">
         <div className="search-results-heading"><strong>Choose a place</strong><button type="button" onClick={() => setNearbyPlaces([])}>Close</button></div>
         {nearbyPlaces.length > 30 && <button type="button" className="nearby-place" onClick={() => {
@@ -367,6 +366,11 @@ export default function Landscape() {
         {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Unnamed person'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Outside the selected years.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} mapped places</p>}{selectedPerson.limited && <p>Some links may be missing because the API limits results.</p>}</>}
       </section>}
 
+      </div>
+      </div>
+      <div className={`timeline-dock${timeOpen ? ' time-open' : ''}`}>
+        <button type="button" className="mobile-time-toggle" aria-expanded={timeOpen} aria-controls="time-controls" onClick={() => setTimeOpen(value => !value)}>{timeOpen ? 'Close time' : 'Time'}</button>
+        <div id="time-controls" className="time-controls"><TimeSlider key={timeKey} onApply={applyTime} onCancel={() => timeRequest.current?.abort()} /></div>
       </div>
       {wallPlace && <PlaceWall place={wallPlace} years={appliedYears} onClose={() => setWallPlace(null)} />}
 
