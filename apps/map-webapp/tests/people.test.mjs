@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { parsePeoplePage, parsePeoplePayload, peopleQuery, peoplePayloadQuery } from '../app/lib/people-data.ts';
+import { parsePeoplePage, parsePeoplePayload, peopleQuery, peoplePayloadQuery, isPopularPlace } from '../app/lib/people-data.ts';
 import { interiorFootprint, placeCluster } from '../app/lib/people-placement.ts';
 const place = { id:'a', uri:'https://example.org/a', label:'A', type:'plantation', lat:5, lng:-55, person_count:8 };
 const square = {type:'Polygon', coordinates:[[[-55.01,4.99],[-54.99,4.99],[-54.99,5.01],[-55.01,5.01],[-55.01,4.99]]]};
@@ -21,6 +21,11 @@ test('deduplicates aliases and duplicate locations while allowing one person at 
   const payload = db.prepare(peoplePayloadQuery()).all();
   assert.equal(parsePeoplePayload({ok:true,truncated:false,rows:payload}).length, 2);
   assert.throws(() => parsePeoplePayload({ok:true,truncated:false,rows:[{...payload[0],place_count:99}]}));
+  db.exec(`ALTER TABLE persons ADD COLUMN event_year INTEGER;
+    UPDATE persons SET event_year = CASE person_id WHEN 10 THEN 1900 WHEN 11 THEN 1920 ELSE NULL END;`);
+  const period = db.prepare(peopleQuery(true)).all({year_from: 1910, year_to: 1930});
+  assert.deepEqual(period.map(r => [r.id, r.person_count]), [['a', 1], ['b', 1]]);
+  assert.deepEqual(db.prepare(peopleQuery()).all().map(r => [r.id, r.person_count]), [['a', 3], ['b', 2]]);
   db.close();
 });
 test('rejects truncated data and invalid coordinates or counts', () => {
@@ -32,7 +37,7 @@ test('rejects truncated data and invalid coordinates or counts', () => {
 test('point stays exact and sphere size increases across counts', () => {
   assert.deepEqual(placeCluster(place).center,[-55,5]);
   const radii = [1, 10, 100, 1000, 1000000].map(person_count => placeCluster({...place,type:'historical-address',person_count}).radiusMeters);
-  assert.ok(radii.every((r,i) => r >= 2 && r <= 8 && (i === 0 || r > radii[i-1])));
+  assert.ok(radii.every((r,i) => r >= 4 && r <= 30 && (i === 0 || r > radii[i-1])));
 });
 test('very large counts cannot overflow a known polygon', () => {
   const c = placeCluster({...place,person_count:1e9},square);
@@ -58,4 +63,22 @@ test('concave and disjoint polygons use interior points', () => {
 test('street records may have coordinates and a stable ID without a URI', () => {
   const street={...place,type:'street',uri:null};
   assert.deepEqual(parsePeoplePage({ok:true,truncated:false,rows:[street]}),[street]);
+});
+
+test('popular places require more than 50,000 linked records', () => {
+  assert.equal(isPopularPlace({ person_count: 50000 }), false);
+  assert.equal(isPopularPlace({ person_count: 50001 }), true);
+});
+
+test('addresses and streets with the same count use the same point scale', () => {
+  const address = placeCluster({...place, type: 'historical-address', person_count: 88127});
+  const street = placeCluster({...place, type: 'street', person_count: 88127});
+  assert.equal(address.radiusMeters, street.radiusMeters);
+  assert.ok(address.radiusMeters > 8 && address.radiusMeters <= 30);
+});
+
+test('connection pairs use only distinct visible places and do not invent a route', async () => {
+  const { connectionPairs } = await import('../app/lib/people-connections.ts');
+  assert.deepEqual(connectionPairs(['a', 'a', 'missing', 'b', 'c'], new Set(['a', 'b', 'c'])), [['a', 'b'], ['a', 'c']]);
+  assert.deepEqual(connectionPairs(['a'], new Set(['a'])), []);
 });

@@ -92,8 +92,8 @@ export function placeCluster(place: PeoplePlace, geometry?: PolygonGeometry): Pe
   const footprint = geometry ? interiorFootprint(geometry) : null;
   if (geometry && !footprint) return null; // Do not invent placement for unusable polygons.
   // Logarithmic scaling distinguishes counts within a bounded physical footprint.
-  const limit = Math.min(footprint?.radiusMeters ?? Infinity, place.type === 'historical-address' ? 8 : 150);
-  const minimum = Math.min(place.type === 'historical-address' ? 2 : 12, limit);
+  const limit = Math.min(footprint?.radiusMeters ?? Infinity, 30);
+  const minimum = Math.min(4, limit);
   const fraction = Math.min(1, Math.log1p(place.person_count) / Math.log1p(1_000_000));
   const radius = minimum + (limit - minimum) * fraction;
   return {

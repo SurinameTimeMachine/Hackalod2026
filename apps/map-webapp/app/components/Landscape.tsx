@@ -1,13 +1,17 @@
 'use client';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
+import dynamic from 'next/dynamic';
 import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { addPlantations } from '../lib/map-plantations';
 import { landscapeStyle } from '../lib/map-style';
 import { getHomeView } from '../lib/map-views';
-import type { PeopleCluster, PeopleResponse } from '../lib/people-data';
+import { isPopularPlace, type PeopleCluster, type PeopleResponse } from '../lib/people-data';
 import PeopleSearch, { type PersonSelection } from './PeopleSearch';
+import TimeSlider, { type YearRange } from './TimeSlider';
+
+const PlaceWall = dynamic(() => import('./PlaceWall'), { ssr: false });
 
 maplibregl.setWorkerUrl(
   new URL(
@@ -22,11 +26,19 @@ export default function Landscape() {
   const [status, setStatus] = useState('Loading landscape…');
   const [peopleStatus, setPeopleStatus] = useState('Loading people…');
   const [peopleFailed, setPeopleFailed] = useState(false);
+  const [popularOnly, setPopularOnly] = useState(false);
+  const popularOnlyRef = useRef(false);
   const [clusters, setClusters] = useState<PeopleCluster[]>([]);
+  const [wallPlace, setWallPlace] = useState<PeopleCluster | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<PeopleCluster | null>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<PeopleCluster[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonSelection | null>(null);
-  const layerRef = useRef<{ select: (ids: string[]) => void } | null>(null);
+  const layerRef = useRef<{ select: (ids: string[]) => void; setPopularOnly: (value: boolean) => void; setData: (data: PeopleCluster[]) => void; setConnections: (ids: string[]) => void; hitTest: (point: [number, number]) => PeopleCluster[] } | null>(null);
   const clustersRef = useRef<PeopleCluster[]>([]);
+  const allClusters = useRef<PeopleCluster[]>([]);
+  const timeRequest = useRef<AbortController | null>(null);
+  const [appliedYears, setAppliedYears] = useState<YearRange>(null);
+  const [timeKey, setTimeKey] = useState(0);
   const retryPeople = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -75,14 +87,12 @@ export default function Landscape() {
         const peopleLayer = createPeopleLayer(data.clusters);
         map.addLayer(peopleLayer.layer);
         layerRef.current = peopleLayer;
+        peopleLayer.setPopularOnly(popularOnlyRef.current);
+        allClusters.current = data.clusters;
         clustersRef.current = data.clusters;
         setClusters(data.clusters);
         peopleLayerAdded = true;
-        setPeopleStatus(
-          data.clusters.length
-            ? `All dates · ${data.clusters.length.toLocaleString()} places · spheres show person records, not simultaneous residents${data.omitted ? ` · ${data.omitted} places could not be positioned` : ''}`
-            : 'No geolocated person records available.',
-        );
+        setPeopleStatus('');
       } catch (error) {
         if (controller.signal.aborted) return;
         console.error('People layer:', error);
@@ -123,19 +133,17 @@ export default function Landscape() {
     });
 
     map.on('click', (event) => {
-      let closest: PeopleCluster | null = null;
-      let distance = 24;
-      for (const cluster of clustersRef.current) {
-        const point = map.project(cluster.center);
-        const d = Math.hypot(point.x - event.point.x, point.y - event.point.y);
-        if (d < distance) { closest = cluster; distance = d; }
-      }
-      if (closest) {
-        layerRef.current?.select([closest.id]);
-        updateSelectionIndicators(map, [closest]);
+      const hits = layerRef.current?.hitTest([event.point.x, event.point.y]) ?? [];
+      if (hits.length === 1) {
+        const place = hits[0];
+        layerRef.current?.select([place.id]);
+        updateSelectionIndicators(map, [place]);
+        setNearbyPlaces([]);
         setSelectedPerson(null);
-        setSelectedPlace(closest);
-        if (map.getLayer('person-connections')) map.setLayoutProperty('person-connections', 'visibility', 'none');
+        setSelectedPlace(place);
+        layerRef.current?.setConnections([]);
+      } else if (hits.length > 1) {
+        setNearbyPlaces(hits);
       }
     });
 
@@ -148,6 +156,8 @@ export default function Landscape() {
 
     return () => {
       controller.abort();
+      timeRequest.current?.abort();
+      allClusters.current = [];
       retryPeople.current = null;
       layerRef.current = null;
       clustersRef.current = [];
@@ -161,32 +171,41 @@ export default function Landscape() {
     source?.setData({ type: 'FeatureCollection', features: places.map(place => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: place.center } })) });
   }
 
+  function updatePopularOnly(value: boolean) {
+    popularOnlyRef.current = value;
+    setPopularOnly(value);
+    layerRef.current?.setPopularOnly(value);
+  }
+
+  function togglePopularOnly() {
+    clearSelection();
+    updatePopularOnly(!popularOnlyRef.current);
+  }
+
   function showPlace(place: PeopleCluster) {
+    setNearbyPlaces([]);
+    if (popularOnlyRef.current && !isPopularPlace(place)) updatePopularOnly(false);
     setSelectedPerson(null);
     setSelectedPlace(place);
     layerRef.current?.select([place.id]);
     const map = mapRef.current;
     if (map) updateSelectionIndicators(map, [place]);
-    if (map?.getLayer('person-connections')) map.setLayoutProperty('person-connections', 'visibility', 'none');
+    layerRef.current?.setConnections([]);
     map?.flyTo({ center: place.center, zoom: Math.max(map.getZoom(), 13), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
   }
 
   function showPerson(selection: PersonSelection) {
     setSelectedPlace(null);
     setSelectedPerson(selection);
-    const selected = clusters.filter(c => selection.ids.includes(c.id));
+    const year = selection.person.event_year;
+    const inRange = !appliedYears || (year !== null && year >= appliedYears[0] && year <= appliedYears[1]);
+    const selected = inRange ? clusters.filter(c => selection.ids.includes(c.id)) : [];
+    if (popularOnlyRef.current && selected.some(c => !isPopularPlace(c))) updatePopularOnly(false);
     layerRef.current?.select(selected.map(p => p.id));
     const map = mapRef.current;
     if (!map) return;
     updateSelectionIndicators(map, selected);
-    // Straight lines are visual associations, not reconstructed routes.
-    const data = { type: 'FeatureCollection' as const, features: selected.slice(1).map(place => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [selected[0].center, place.center] } })) };
-    const source = map.getSource('person-connections') as maplibregl.GeoJSONSource | undefined;
-    if (source) { source.setData(data); map.setLayoutProperty('person-connections', 'visibility', 'visible'); }
-    else {
-      map.addSource('person-connections', { type: 'geojson', data });
-      map.addLayer({ id: 'person-connections', type: 'line', source: 'person-connections', paint: { 'line-color': '#ffe497', 'line-width': 2, 'line-opacity': 0.85, 'line-blur': 1 } });
-    }
+    layerRef.current?.setConnections(selected.map(place => place.id));
     if (selected.length === 1) map.flyTo({ center: selected[0].center, zoom: Math.max(map.getZoom(), 12), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
     if (selected.length > 1) {
       const bounds = selected.reduce((b, place) => b.extend(place.center), new maplibregl.LngLatBounds(selected[0].center, selected[0].center));
@@ -195,14 +214,47 @@ export default function Landscape() {
   }
 
   function clearSelection() {
-    setSelectedPlace(null); setSelectedPerson(null);
+    setSelectedPlace(null); setSelectedPerson(null); setNearbyPlaces([]);
     layerRef.current?.select([]);
     if (mapRef.current) updateSelectionIndicators(mapRef.current, []);
-    if (mapRef.current?.getLayer('person-connections')) mapRef.current.setLayoutProperty('person-connections', 'visibility', 'none');
+    layerRef.current?.setConnections([]);
+  }
+
+  async function applyTime(range: YearRange) {
+    timeRequest.current?.abort();
+    const controller = new AbortController();
+    timeRequest.current = controller;
+    try {
+      let data = allClusters.current;
+      if (range) {
+        const response = await fetch(`/api/people-clusters?from=${range[0]}&to=${range[1]}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(40000)]) });
+        if (!response.ok) throw new Error('Could not load the selected years');
+        data = ((await response.json()) as PeopleResponse).clusters;
+      }
+      if (controller.signal.aborted || !layerRef.current) return false;
+      clearSelection();
+      layerRef.current.setData(data);
+      clustersRef.current = data;
+      setClusters(data);
+      setAppliedYears(range);
+      return true;
+    } catch (error) {
+      if (!controller.signal.aborted) console.error('Time selection:', error);
+      return false;
+    }
   }
 
   function resetView() {
+    timeRequest.current?.abort();
+    if (allClusters.current.length) {
+      clustersRef.current = allClusters.current;
+      setClusters(allClusters.current);
+      layerRef.current?.setData(allClusters.current);
+    }
+    setAppliedYears(null);
+    setTimeKey(value => value + 1);
     clearSelection();
+    updatePopularOnly(false);
     mapRef.current?.flyTo({
       ...getHomeView(window.innerWidth < 768),
       duration: !window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -226,6 +278,7 @@ export default function Landscape() {
         style={{ position: 'absolute', inset: 0 }}
       />
 
+      <div className="map-toolbar">
       <button
         type="button"
         className="map-home"
@@ -248,38 +301,39 @@ export default function Landscape() {
         Home
       </button>
 
-      <PeopleSearch clusters={clusters} onPlace={showPlace} onPerson={showPerson} />
-      {(selectedPlace || selectedPerson) && <section className="selection-panel" aria-label="Selection">
-        <button type="button" onClick={clearSelection} aria-label="Close selection">Close</button>
-        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString()} person records associated with this place across all dates.</p><p>The wall of names is coming later.</p></>}
-        {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Unnamed person'}</h2><p>Record {selectedPerson.person.person_id} · {selectedPerson.person.source_dataset}{selectedPerson.person.event_year ? ` · ${selectedPerson.person.event_year}` : ''}</p><p>{clusters.filter(c => selectedPerson.ids.includes(c.id)).length} mapped places linked to this record. Lines connect recorded places; they do not show a travel route.</p>{selectedPerson.limited && <p>Some links may be missing because the API limits results.</p>}</>}
-      </section>}
-
-      <div className="people-status" role="status">
-        <p>{peopleStatus}</p>
-        {peopleFailed && (
-          <button type="button" onClick={() => retryPeople.current?.()}>
-            Retry people
-          </button>
-        )}
+      <button type="button" className="popular-toggle" aria-pressed={popularOnly} onClick={togglePopularOnly}>
+        Popular places <span>over 50,000</span>
+      </button>
       </div>
 
-      {status && (
-        <p
-          role="status"
-          style={{
-            position: 'absolute',
-            top: 'calc(80px + env(safe-area-inset-top, 0px))',
-            left: 16,
-            right: 60,
-            color: '#eee8d9',
-            fontSize: 13,
-            pointerEvents: 'none',
-          }}
-        >
-          {status}
-        </p>
-      )}
+      <PeopleSearch clusters={clusters} onPlace={showPlace} onPerson={showPerson} />
+      <div className="map-panel-stack">
+      {status && <div className="map-status" role="status">{status}</div>}
+      {peopleStatus && <div className="people-status" role="status">
+        <p>{peopleStatus}</p>
+        {peopleFailed && <button type="button" onClick={() => retryPeople.current?.()}>Retry people</button>}
+      </div>}
+      <TimeSlider key={timeKey} onApply={applyTime} />
+      {nearbyPlaces.length > 0 && <section className="nearby-places" aria-label="Choose a place">
+        <div className="search-results-heading"><strong>Choose a place</strong><button type="button" onClick={() => setNearbyPlaces([])}>Close</button></div>
+        {nearbyPlaces.length > 30 && <button type="button" className="nearby-place" onClick={() => {
+          const map = mapRef.current;
+          if (!map) return;
+          const bounds = nearbyPlaces.reduce((b, place) => b.extend(place.center), new maplibregl.LngLatBounds(nearbyPlaces[0].center, nearbyPlaces[0].center));
+          map.fitBounds(bounds, { padding: 80, maxZoom: 14, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1000 });
+          setNearbyPlaces([]);
+        }}>Zoom in to see more places</button>}
+        {nearbyPlaces.slice(0, 30).map(place => <button type="button" className="nearby-place" key={place.id} onClick={() => showPlace(place)}>{place.label} <small>{place.person_count.toLocaleString()}</small></button>)}
+      </section>}
+      {(selectedPlace || selectedPerson) && <section className="selection-panel" aria-label="Selection">
+        <button type="button" onClick={clearSelection} aria-label="Close selection">Close</button>
+        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString()} person records · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'All dates'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0} onClick={() => setWallPlace(selectedPlace)}>Open wall of names</button></>}
+        {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Unnamed person'}</h2><p>Record {selectedPerson.person.person_id} · {selectedPerson.person.source_dataset}{selectedPerson.person.event_year ? ` · ${selectedPerson.person.event_year}` : ''}</p>{selectedPerson.limited && <p>Some links may be missing because the API limits results.</p>}</>}
+      </section>}
+
+      </div>
+      {wallPlace && <PlaceWall place={wallPlace} years={appliedYears} onClose={() => setWallPlace(null)} />}
+
     </main>
   );
 }
