@@ -1,4 +1,4 @@
-# doel: converteer een CSV met overlijdensaktes naar PiCo (Persons in Context)
+# doel: converteer een CSV met geboorte-aktes naar PiCo (Persons in Context)
 # modelreferentie: https://personsincontext.org/model/  (picom = https://personsincontext.org/model#)
 # modelreferentie: Mourits e.a., enslaved-PiCo, to be published
 
@@ -18,7 +18,7 @@ OUTPUT_FILE = "birth_certificates.json"
 OUTPUT_FORMAT = "json-ld"
 SHACL_FILE = "pico_shacl.ttl"
 USE_PNV = True
-BASE_URI = "https://surinametijdmachine.org/"
+BASE_URI = "https://surinametijdmachine.org"
 DATASET_ID = "civil-birth"
 
 #source description
