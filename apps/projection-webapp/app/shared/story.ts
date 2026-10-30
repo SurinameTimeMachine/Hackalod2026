@@ -36,6 +36,7 @@ export type Suggestion = {
   mention: string;
   type: 'person' | 'place' | 'date' | 'occupation' | 'relation' | 'organisation' | 'other';
   about: string | null; // "subject", "narrator" or another person's name
+  is_subject: boolean; // this person is the scanned person themselves
   kind: 'relation' | 'fact' | 'place' | 'date' | null;
   relation_type: string | null;
   related_key: string | null;

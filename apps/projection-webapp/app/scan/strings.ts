@@ -73,6 +73,7 @@ export const DICT = {
   notStoredNote: 'Herkend in je verhaal, maar het gaat niet over deze persoon. Het blijft onderdeel van je verhaal.',
   retry: 'Probeer opnieuw',
   narrator: 'de verteller',
+  self: 'de persoon zelf',
 };
 
 export const TYPE: Record<string, string> = {

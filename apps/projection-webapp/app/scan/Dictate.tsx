@@ -35,6 +35,7 @@ function spans(text: string, list: ResolvedSuggestion[]) {
 }
 
 function describe(s: ResolvedSuggestion, subject: string, chosenLabel: string | null) {
+  if (s.is_subject) return `${DICT.self} · ${chosenLabel ?? subject}`;
   if (!s.kind) {
     const about = !s.about || s.about === 'subject' ? subject : s.about === 'narrator' ? DICT.narrator : s.about;
     return [TYPE[s.type] ?? s.type, `over ${about}`, chosenLabel, DICT.notStored].filter(Boolean).join(' · ');
@@ -69,6 +70,7 @@ function columns(s: ResolvedSuggestion, personKey: string, r: Review) {
 }
 
 function badge(s: ResolvedSuggestion, r: Review): [string, string] {
+  if (s.is_subject) return ['b-link', BADGE.linked];
   if (!s.kind) return ['b-wait', BADGE.only];
   if (r.status === 'removed') return ['b-wait', DICT.removed];
   if (s.possibly_living) return ['b-warn', 'mogelijk levend'];
@@ -245,7 +247,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
             </code>
           ))}
         </div>
-        {!selected.kind && <span className="foot-note">{DICT.notStoredNote}</span>}
+        {!selected.kind && !selected.is_subject && <span className="foot-note">{DICT.notStoredNote}</span>}
         {selected.kind && selected.possibly_living && <span className="foot-note">{DICT.living}</span>}
         {(selected.options.length > 0 || selected.linked) && (
           <div className="opts">

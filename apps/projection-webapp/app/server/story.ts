@@ -116,11 +116,12 @@ const EXTRACT_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['mention', 'type', 'about', 'kind', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living'],
+        required: ['mention', 'type', 'about', 'is_subject', 'kind', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living'],
         properties: {
           mention: { type: 'string', description: 'The exact words in the transcript, copied character for character' },
           type: { type: 'string', enum: TYPES },
           about: nullable('string', { description: 'Who this concerns: "subject", "narrator", or the name of another person' }),
+          is_subject: { type: 'boolean', description: 'This person entity is the subject themselves' },
           kind: nullable('string', { enum: ['relation', 'fact', 'place', 'date', null] }),
           relation_type: nullable('string', { enum: [...RELATIONS, null] }),
           related_key: nullable('string'),
@@ -139,7 +140,7 @@ const EXTRACT_SCHEMA = {
 
 const EXTRACT_SYSTEM = `You read a visitor's spoken story (Dutch, sometimes Sranan; transcribed, so spelling may be off) about a person from the Suriname archives (the subject).
 
-Step 1, recognise: list EVERY entity in the transcript, in order of appearance: each person name (also the narrator's relatives), place (country, district, town, street, plantation, building), date or year, occupation, kinship word ("oma", "broer", "vader"), and organisation. One entry per distinct entity (its first mention). Never skip one because it is not about the subject or not in the archive. Set type, and about = "subject", "narrator" or the name of the other person it concerns.
+Step 1, recognise: list EVERY entity in the transcript, in order of appearance: each person name (also the narrator's relatives), place (country, district, town, street, plantation, building), date or year, occupation, kinship word ("oma", "broer", "vader"), and organisation. One entry per distinct entity (its first mention). Never skip one because it is not about the subject or not in the archive. Set type, and about = "subject", "narrator" or the name of the other person it concerns (for a person or kinship word: whose relative they are). is_subject = true only for a person entity that is the subject themselves (same person, possibly named differently, e.g. "mijn grootmoeder Johanna" when Johanna is the subject); else false.
 
 Step 2, place it in the dataset: if the entity can be stored as an addition about the subject, set kind and its columns of the contributions table; otherwise kind = null (it is still listed).
 - kind "relation": a person related to the subject. relation_type = how that person relates to the subject (parent = they are the subject's parent, etc.). related_key = a key from the candidate people list only if clearly the same person, else null. name_raw = the name as told (null if unnamed, e.g. "zijn vader"). value = anything told about that person, in a few words.
@@ -182,10 +183,18 @@ export async function extract(key: string, transcript: string, model?: string): 
       const r: ResolvedSuggestion = { ...s, id: `s${i}`, category: CATEGORY[s.type] ?? 'oth', options: [], linked: null, linkedLabel: null };
       // Places, facts and dates only become rows when they are about the
       // subject; the model's own `about` decides, not its `kind`.
-      if (r.kind && r.kind !== 'relation' && r.about && r.about !== 'subject') r.kind = null;
-      // A person can only be a relation; the narrator's own family is not one.
+      // Only what concerns the subject becomes a row: someone else's relatives,
+      // places and dates stay recognised-only. A person can only be a
+      // relation, and the subject is never their own relative.
+      if (r.about && r.about !== 'subject') r.kind = null;
       if (r.type === 'person' && r.kind !== 'relation') r.kind = null;
-      if (r.about === 'narrator') r.kind = null;
+      if (r.is_subject) {
+        r.kind = null;
+        r.linked = key;
+        r.linkedLabel = ctx?.name ?? null;
+        r.category = 'per';
+        return r;
+      }
       if (r.type === 'other' && KINSHIP.test(r.mention)) {
         r.type = 'relation';
         r.category = 'rel';
