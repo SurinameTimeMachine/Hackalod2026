@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "projection-webapp",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/projection-webapp", "dev"],
+      "port": 3001
+    }
+  ]
+}
