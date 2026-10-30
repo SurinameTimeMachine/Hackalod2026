@@ -9,6 +9,22 @@ export async function apiGet<T>(path: string, params: Record<string, string | nu
   return res.json();
 }
 
+// Live queries for the constellation, cached by URL. The promise itself is
+// stored, so a repeat click costs nothing and parallel clicks share a request.
+// Failed requests are dropped from the cache so they can be retried.
+const cache = new Map<string, Promise<unknown>>();
+
+export function cachedGet<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
+  const key = `${path}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`;
+  let p = cache.get(key) as Promise<T> | undefined;
+  if (!p) {
+    p = apiGet<T>(path, params);
+    cache.set(key, p);
+    p.catch(() => cache.delete(key));
+  }
+  return p;
+}
+
 export async function snapshot<T>(file: string): Promise<T> {
   const res = await fetch(`/data/${file}`);
   if (!res.ok) throw new Error(`${res.status} ${file}`);
@@ -36,3 +52,57 @@ export type Tie = { record?: TieRecord } & (
 );
 
 export type PatientEdge = { a: number; b: number; ties: Tie[] };
+
+// Rows of the canned queries used by the constellation.
+export type PatientStartRow = {
+  soort: 'patient' | 'vermelding' | 'koppeling';
+  id: number;
+  person_id: number | null;
+  certificate_id: number | null;
+  naam: string | null;
+  dataset: string | null;
+  jaar: string | number | null;
+  resultaat: string | null;
+  rol: string | null;
+  methode: string | null;
+  toelichting: string | number | null;
+};
+
+export type PersonRow = {
+  person_id: number;
+  certificate_id: number;
+  source_dataset: string;
+  full_name: string | null;
+  role: string | null;
+  event_year: number | null;
+  record_type: string | null;
+  record_date: string | null;
+  record_event_date: string | null;
+};
+
+export type RelationRow = {
+  relation_type: string;
+  confidence: string;
+  detail: string | null;
+  certificate_id: number;
+  direction: 'in' | 'out';
+  other_id: number;
+  other_name: string | null;
+  other_role: string | null;
+  other_dataset: string | null;
+  other_year: number | null;
+};
+
+export type RecordPersonRow = { person_id: number; full_name: string | null; role: string | null };
+
+export type SameNameRow = {
+  person_id: number;
+  full_name: string | null;
+  role: string | null;
+  source_dataset: string | null;
+  year: number | null;
+  via: string | null;
+};
+
+export type Vermelding = { patient_id: number; person_id: number | null };
+export type Koppeling = { patient_id: number; doel_person_id: number | null; resultaat: string };

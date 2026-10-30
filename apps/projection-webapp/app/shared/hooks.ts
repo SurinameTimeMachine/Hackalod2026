@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { apiGet, snapshot, type Patient, type PatientEdge } from './api';
+import { apiGet, snapshot, type Koppeling, type Patient, type PatientEdge, type Vermelding } from './api';
 
 export type Source = 'loading' | 'api' | 'snapshot' | 'failed';
 
@@ -37,4 +37,32 @@ export function usePatientEdges() {
       .catch(() => setEdges([]));
   }, []);
   return edges;
+}
+
+// person_id -> patient_id for every attestation that is certainly a patient,
+// so a patient met inside someone else's constellation lights up their own
+// stamp instead of appearing twice. Two small tables, loaded once.
+export function usePatientIndex() {
+  const [index, setIndex] = useState<Map<number, number>>(() => new Map());
+  useEffect(() => {
+    Promise.all([
+      apiGet<Vermelding[]>('mh1921_vermeldingen', { _size: 'max' }),
+      apiGet<Koppeling[]>('mh1921_koppelingen', { _size: 'max' }),
+    ])
+      .then(([vs, ks]) => {
+        const m = new Map<number, number>();
+        const shared = new Set<number>();
+        for (const v of vs) if (v.person_id) m.set(v.person_id, v.patient_id);
+        for (const k of ks) {
+          if (!k.doel_person_id || k.resultaat !== 'zeker') continue;
+          const prev = m.get(k.doel_person_id);
+          if (prev !== undefined && prev !== k.patient_id) shared.add(k.doel_person_id);
+          else m.set(k.doel_person_id, k.patient_id);
+        }
+        for (const id of shared) m.delete(id); // matched to two patients: ambiguous
+        setIndex(m);
+      })
+      .catch(() => {}); // offline: patients are then shown as plain names
+  }, []);
+  return index;
 }

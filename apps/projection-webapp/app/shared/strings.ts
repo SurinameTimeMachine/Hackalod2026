@@ -11,10 +11,17 @@ export function subtitle(p: Patient) {
   return `was here · 1921${born}`;
 }
 
-export const NO_TIES = 'no known ties to other names on this wall';
+export const NO_TIES = 'no further records known yet';
+export const ARCHIVE_OFFLINE = 'archive offline · showing what is known';
+export const SAME_PERSON = 'possibly the same person';
 
 const DATASETS: Record<string, string> = {
+  '02-death': 'death certificates',
   '03-birth': 'birth records',
+  '04-ward-registers': 'ward registers',
+  '05-slave-emancipation': 'slave & emancipation registers',
+  '06-almanakken': 'almanacs',
+  '11-madeisu': 'Madeisu contracts',
   '09-volkstelling-1921': 'census 1921',
   '10-volkstelling-1950': 'census 1950',
   '12-migratie-datasets': 'migration registers',
@@ -24,7 +31,7 @@ const dataset = (d: string | null) => (d ? (DATASETS[d] ?? d) : 'archive');
 
 const RECORD_TYPES: Record<string, string> = {
   contract_record: 'contract register',
-  erkenningen: 'recognition record',
+  erkenningen: 'acknowledgement deed',
   census_entry: 'census entry',
   census_1921_household: 'census 1921',
   birth_certificate: 'birth certificate',
@@ -44,20 +51,17 @@ export const isCertain = (t: Tie) =>
 
 // Why two names on the wall are connected. `a` < `b` are patient ids.
 export function tieReason(t: Tie, a: number, b: number, nameOf: (id: number) => string) {
+  const type = t.record?.type ?? null;
+  const year = t.record?.year ?? null;
   switch (t.kind) {
     case 'relation': {
-      const unsure = t.confidence === 'certain' ? '' : ' (probable)';
       const [from, to] = t.from === a ? [a, b] : [b, a];
-      if (t.type === 'spouse') return `spouses${unsure}`;
-      if (t.type === 'parent-child') return `${nameOf(from)} parent of ${nameOf(to)}${unsure}`;
-      return `${nameOf(from)} was ${t.type} for ${nameOf(to)}${unsure}`;
+      return relationReason(t.type, nameOf(from), nameOf(to), null, t.confidence, type, year, t.dataset);
     }
-    case 'same-record': {
-      const [ra, rb] = t.roles;
-      return ra && rb ? `on the same record: ${ra} and ${rb}` : 'on the same record';
-    }
+    case 'same-record':
+      return sameRecordReason(nameOf(b), t.roles[1], nameOf(a), t.roles[0], type, year, t.dataset);
     case 'same-match':
-      return 'possibly the same person';
+      return SAME_PERSON;
   }
 }
 
@@ -70,3 +74,173 @@ export function tieReference(t: Tie) {
   const ref = parts.join(' · ');
   return t.kind === 'same-match' ? `both linked to ${ref}` : ref;
 }
+
+// --- Live constellation wording ------------------------------------------
+
+const short = (name: string) => (name.length > 28 ? `${name.slice(0, 27)}…` : name);
+const join = (...parts: (string | number | null | undefined)[]) => parts.filter((x) => x != null && x !== '').join(' · ');
+
+const recordType = (t: string | null) => (t ? (RECORD_TYPES[t] ?? t.replace(/_/g, ' ')) : null);
+
+// Small caption under a constellation name: who they are on their record.
+export function nodeCaption(role: string | null, ds: string | null, year: string | number | null) {
+  return join(role, ds ? dataset(ds) : null, year);
+}
+
+export function recordReference(ds: string | null, type: string | null, when: string | number | null, cert: number | null) {
+  return join(ds ? dataset(ds) : null, recordType(type), when, cert ? `#${cert}` : null);
+}
+
+// --- Sentences for the lines ----------------------------------------------
+// Plain sentences built only from the record type and the two people's roles
+// (or the `relations` type). Names, not her/him: the records rarely give sex,
+// and the line already sits between the two names.
+
+type Kind = 'recognition' | 'birth' | 'death' | 'marriage' | 'census' | 'contract' | 'other';
+
+function kindOf(type: string | null): Kind {
+  const t = (type ?? '').toLowerCase();
+  if (t.startsWith('erkenning')) return 'recognition';
+  if (t.includes('birth') || t.includes('geboorte')) return 'birth';
+  if (t.includes('death') || t.includes('overlijden')) return 'death';
+  if (t.includes('marriage') || t.includes('huwelijk')) return 'marriage';
+  if (t.includes('census')) return 'census';
+  if (t.includes('contract')) return 'contract';
+  return 'other';
+}
+
+const ROLE: Record<string, string> = {
+  kind: 'child',
+  comparant: 'declarant',
+  aangever: 'declarant',
+  getuige: 'witness',
+  moeder: 'mother',
+  vader: 'father',
+  ouder: 'parent',
+  overledene: 'deceased',
+  bruid: 'bride',
+  bruidegom: 'groom',
+};
+const role = (r: string | null) => {
+  const x = (r ?? '').toLowerCase().replace(/[-_ ]?\d+$/, '');
+  return ROLE[x] ?? x;
+};
+// The person a civil record is about.
+const SUBJECT = new Set(['child', 'deceased', 'bride', 'groom']);
+
+const inYear = (y: string | number | null | undefined) => (y ? ` in ${y}` : '');
+const censusName = (ds: string | null) =>
+  ds === '09-volkstelling-1921' ? 'the 1921 census' : ds === '10-volkstelling-1950' ? 'the 1950 census' : 'a census';
+
+const ACT: Record<Kind, string> = {
+  recognition: 'the acknowledgement of',
+  birth: 'the birth registration of',
+  death: 'the death registration of',
+  marriage: 'the marriage of',
+  census: 'the census entry of',
+  contract: 'the contract of',
+  other: 'the record of',
+};
+
+function declared(a: string, b: string, kind: Kind, y: string) {
+  if (kind === 'recognition') return `${a} legally acknowledged ${b}${y}`;
+  if (kind === 'birth') return `${a} registered the birth of ${b}${y}`;
+  if (kind === 'death') return `${a} reported the death of ${b}${y}`;
+  return `${a} made the declaration about ${b}${y}`;
+}
+
+const witnessed = (a: string, b: string, kind: Kind, y: string) => `${a} witnessed ${ACT[kind]} ${b}${y}`;
+
+// A `relations` row: `from` is the parent, declarant, witness … of `to`.
+export function relationReason(
+  type: string,
+  fromName: string,
+  toName: string,
+  fromRole: string | null,
+  confidence: string,
+  recordType: string | null = null,
+  year: string | number | null = null,
+  ds: string | null = null,
+) {
+  const [a, b] = [short(fromName), short(toName)];
+  const kind = kindOf(recordType ?? (ds === '12-migratie-datasets' ? 'contract' : null));
+  const y = kind === 'census' ? '' : inYear(year);
+  const probably = confidence === 'certain' ? '' : ' (probably)';
+  const r = role(fromRole);
+  let text: string;
+  if (type === 'same-person') return SAME_PERSON;
+  if (type === 'parent-child') text = r === 'mother' || r === 'father' ? `${a} was the ${r} of ${b}` : `${a} was a parent of ${b}`;
+  else if (type === 'spouse') text = `${a} was the spouse of ${b}`;
+  else if (type === 'declarant') text = declared(a, b, kind, y);
+  else if (type === 'witness') text = witnessed(a, b, kind, y);
+  else text = `${a} — ${type.replace(/-/g, ' ')} — ${b}`;
+  return text + probably;
+}
+
+// Two people on one record without a `relations` row between them: say how,
+// from their roles. `other` is the name the line leads to.
+export function sameRecordReason(
+  otherName: string,
+  otherRole: string | null,
+  selfName: string,
+  selfRole: string | null,
+  recordType: string | null,
+  year: string | number | null,
+  ds: string | null,
+) {
+  const [o, s] = [short(otherName), short(selfName)];
+  const [ro, rs] = [role(otherRole), role(selfRole)];
+  const kind = kindOf(recordType);
+  const y = inYear(year);
+
+  if (kind === 'census') {
+    const census = censusName(ds);
+    if ((ro === 'father' || ro === 'mother') && rs !== 'father' && rs !== 'mother') return `${o} is named as the ${ro} of ${s} in ${census}`;
+    if ((rs === 'father' || rs === 'mother') && ro !== 'father' && ro !== 'mother') return `${s} is named as the ${rs} of ${o} in ${census}`;
+    if (ro === rs && (ro === 'father' || ro === 'mother')) return `${o} and ${s} are both named as parents in ${census}`;
+    if ((ro === 'father' && rs === 'mother') || (ro === 'mother' && rs === 'father')) return `${o} and ${s} are named as the parents in one entry of ${census}`;
+    return `${o} and ${s} were listed together in ${census}`;
+  }
+  if (kind === 'contract' && ro === 'migrant' && rs === 'migrant') return `${o} and ${s} were registered together as migrants${y}`;
+
+  // Witness and the person the record is about.
+  if (ro === 'witness' && SUBJECT.has(rs)) return witnessed(o, s, kind, y);
+  if (rs === 'witness' && SUBJECT.has(ro)) return witnessed(s, o, kind, y);
+  // Witness and the declarant.
+  if (ro === 'witness' && rs === 'declarant')
+    return kind === 'recognition' ? `${o} witnessed ${s} acknowledging a child${y}` : `${o} was a witness to the declaration by ${s}${y}`;
+  if (rs === 'witness' && ro === 'declarant')
+    return kind === 'recognition' ? `${s} witnessed ${o} acknowledging a child${y}` : `${s} was a witness to the declaration by ${o}${y}`;
+  if (ro === 'witness' && rs === 'witness') return `${o} and ${s} were both witnesses to ${ACT[kind].replace(/ of$/, '')}${y}`;
+  // Declarant and the person the record is about.
+  if (ro === 'declarant' && SUBJECT.has(rs)) return declared(o, s, kind, y);
+  if (rs === 'declarant' && SUBJECT.has(ro)) return declared(s, o, kind, y);
+  if (ro === 'declarant' && rs === 'declarant')
+    return kind === 'recognition' ? `${o} and ${s} acknowledged a child together${y}` : `${o} and ${s} made the declaration together${y}`;
+  // Two people the same record is about.
+  if (ro === 'child' && rs === 'child')
+    return kind === 'recognition' ? `${o} and ${s} were acknowledged together on one deed${y}` : `${o} and ${s} are named as children on one record${y}`;
+  if ((ro === 'bride' && rs === 'groom') || (ro === 'groom' && rs === 'bride')) return `${o} and ${s} married${y}`;
+
+  const what = recordType ? (RECORD_TYPES[recordType] ?? recordType.replace(/_/g, ' ')) : 'record';
+  return ro && rs ? `${o} (${ro}) and ${s} (${rs}) appear on the same ${what}${y}` : `${o} and ${s} appear on the same ${what}${y}`;
+}
+
+const RESULT: Record<string, string> = { waarschijnlijk: 'probable match', 'meerdere kandidaten': 'one of several candidates' };
+
+export function possiblyPatient(resultaat: string | null, rol: string | null, ds: string | null, year: string | number | null) {
+  return {
+    reason: `possibly this patient (${(resultaat && RESULT[resultaat]) ?? resultaat ?? 'uncertain'})`,
+    reference: join(ds ? dataset(ds) : null, rol, year),
+  };
+}
+
+export function sameNameReference(ds: string | null, role: string | null, year: number | null) {
+  return `same name in ${join(ds ? dataset(ds) : null, role, year)}`;
+}
+
+// A collapsed group of a busy person's records, e.g. "witness · 214 records".
+export function summaryName(group: string, count: number, truncated: boolean) {
+  return `${group.replace(/-/g, ' ')} · ${count}${truncated ? '+' : ''} more`;
+}
+export const SUMMARY_CAPTION = 'click to show more';
