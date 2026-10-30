@@ -137,13 +137,6 @@ export default function Landscape() {
       void loadPeople();
     };
 
-    map.addControl(
-      new maplibregl.NavigationControl({
-        visualizePitch: true,
-      }),
-      'bottom-right',
-    );
-
     map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
     map.on('load', () => {
@@ -333,8 +326,11 @@ export default function Landscape() {
         >
           <path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8" />
         </svg>
-        Home
       </button>
+
+      <button type="button" className="map-tool" aria-label="Zoom in" title="Zoom in" onClick={() => mapRef.current?.zoomIn()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
+      <button type="button" className="map-tool" aria-label="Zoom out" title="Zoom out" onClick={() => mapRef.current?.zoomOut()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14" /></svg></button>
+      <button type="button" className="map-tool" aria-label="Reset north" title="Reset north" onClick={() => mapRef.current?.resetNorth()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 7 14l5-2 5 2-5-11Z" /><path d="M12 12v9" /></svg></button>
 
       <button type="button" className="popular-toggle" aria-pressed={popularOnly} onClick={togglePopularOnly}>
         Popular places <span>over 50,000</span>
