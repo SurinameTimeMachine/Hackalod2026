@@ -75,8 +75,8 @@ export default function PeopleSearch({ clusters, onPlace, onPerson }: Props) {
       <div className="search-results-heading"><strong>Places</strong><button type="button" onClick={() => setOpen(false)} aria-label="Close search results">Close</button></div>
       {placeState === '' && <p>Searching places…</p>}
       {placeState === 'error' && <p>Place search unavailable. Try changing your search.</p>}
-      {placeState === 'done' && !places.length && <p>No matching recorded places found.</p>}
-      {places.map(place => {
+      {placeState === 'done' && !places.some(place => typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)) && <p>No mapped places found.</p>}
+      {places.filter(place => typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)).map(place => {
         const cluster = clusters.find(c => c.id === place.gazetteer_id);
         const hasCoordinates = typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng);
         return <button type="button" key={place.place_norm} disabled={!hasCoordinates} onClick={() => {

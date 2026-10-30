@@ -7,12 +7,13 @@ import { placeCluster, type PolygonGeometry } from '../../lib/people-placement';
 
 const API = 'https://hackalod.sbco.design/api/suriname_person_search.json';
 const links: Record<string, { placeId: string; lat: number; lng: number }> = linksData;
-let cached: { expires: number; value: PeopleResponse } | undefined;
-let pending: Promise<PeopleResponse> | undefined;
+const cached = new Map<string, { expires: number; value: PeopleResponse }>();
+const pending = new Map<string, Promise<PeopleResponse>>();
 
-async function loadClusters(): Promise<PeopleResponse> {
+async function loadClusters(years?: [number, number]): Promise<PeopleResponse> {
   const url = new URL(API);
-  url.searchParams.set('sql', peoplePayloadQuery());
+  url.searchParams.set('sql', peoplePayloadQuery(!!years));
+  if (years) { url.searchParams.set('year_from', String(years[0])); url.searchParams.set('year_to', String(years[1])); }
   url.searchParams.set('_shape', 'objects');
   const response = await fetch(url, { signal: AbortSignal.timeout(30000), cache: 'no-store' });
   if (!response.ok) throw new Error(`People API HTTP ${response.status}`);
@@ -35,15 +36,30 @@ async function loadClusters(): Promise<PeopleResponse> {
   return { clusters, omitted, fetchedAt: new Date().toISOString() };
 }
 
-export async function GET() {
-  await connection(); // Fetch at request time, never during build/prerender.
+export async function GET(request: Request) {
+  await connection();
+  const params = new URL(request.url).searchParams;
+  const from = params.get('from'), to = params.get('to');
+  let years: [number, number] | undefined;
+  if (from !== null || to !== null) {
+    if (!from || !to || !/^\d{1,4}$/.test(from) || !/^\d{1,4}$/.test(to) || Number(from) < 1 || Number(from) > Number(to)) return Response.json({ error: 'Invalid year range' }, { status: 400 });
+    years = [Number(from), Number(to)];
+  }
+  const key = years ? years.join('-') : 'all';
   try {
-    if (cached && cached.expires > Date.now()) return Response.json(cached.value);
-    pending ??= loadClusters().then(value => {
-      cached = { expires: Date.now() + 300000, value };
-      return value;
-    }).finally(() => { pending = undefined; });
-    return Response.json(await pending);
+    const entry = cached.get(key);
+    if (entry && entry.expires > Date.now()) return Response.json(entry.value);
+    let task = pending.get(key);
+    if (!task) {
+      task = loadClusters(years).then(value => {
+        // Bound the server memory used by exploratory time ranges.
+        if (cached.size >= 20) cached.delete(cached.keys().next().value!);
+        cached.set(key, { expires: Date.now() + 300000, value });
+        return value;
+      }).finally(() => { pending.delete(key); });
+      pending.set(key, task);
+    }
+    return Response.json(await task);
   } catch (error) {
     console.error('People clusters:', error);
     return Response.json({ error: 'People could not load. The landscape is still available.' }, { status: 502 });

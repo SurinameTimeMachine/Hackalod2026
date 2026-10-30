@@ -23,7 +23,7 @@ export type PeopleResponse = {
 
 // Count attestations, not names. A person_id can occur at several places,
 // but repeated spellings/locations on the same certificate count only once.
-export function peopleQuery() {
+export function peopleQuery(useTimeRange = false) {
   return `WITH linked AS (
     SELECT DISTINCT g.gazetteer_id, l.certificate_id
     FROM place_geo g
@@ -33,6 +33,7 @@ export function peopleQuery() {
   ), counts AS (
     SELECT l.gazetteer_id, COUNT(DISTINCT p.person_id) AS person_count
     FROM linked l JOIN persons p ON p.certificate_id = l.certificate_id
+    ${useTimeRange ? 'WHERE p.event_year BETWEEN :year_from AND :year_to' : ''}
     GROUP BY l.gazetteer_id
   )
   SELECT z.id, z.uri, z.prefLabel AS label, z.type, z.lat, z.lng, c.person_count
@@ -61,8 +62,8 @@ export function parsePeoplePage(value: unknown): PeoplePlace[] {
 
 // One aggregate response avoids Datasette's 1,000-row cap and repeated full
 // joins for pagination. The count verifies that the entire payload arrived.
-export function peoplePayloadQuery() {
-  return `WITH points AS (${peopleQuery()})
+export function peoplePayloadQuery(useTimeRange = false) {
+  return `WITH points AS (${peopleQuery(useTimeRange)})
     SELECT COUNT(*) AS place_count, json_group_array(json_object(
       'id', id, 'uri', uri, 'label', label, 'type', type,
       'lat', lat, 'lng', lng, 'person_count', person_count
@@ -80,4 +81,10 @@ export function parsePeoplePayload(value: unknown): PeoplePlace[] {
     throw new Error('People API count or unique place IDs do not match');
   }
   return rows;
+}
+
+// Popularity refers to linked person records, not unique people or simultaneous presence.
+export const POPULAR_PLACE_THRESHOLD = 50_000;
+export function isPopularPlace(place: Pick<PeopleCluster, 'person_count'>) {
+  return place.person_count > POPULAR_PLACE_THRESHOLD;
 }

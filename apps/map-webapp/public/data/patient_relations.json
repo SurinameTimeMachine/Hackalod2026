@@ -1,0 +1,180 @@
+{
+ "generated": "2026-10-30T19:37:59.081Z",
+ "source": "https://hackalod.sbco.design/api/suriname_person_search",
+ "edges": [
+  {
+   "a": 39,
+   "b": 387,
+   "ties": [
+    {
+     "kind": "same-match",
+     "person_id": 1713847,
+     "dataset": "12-migratie-datasets",
+     "record": {
+      "certificate_id": 657855,
+      "type": "contract_record",
+      "year": 1914,
+      "date": "1914-06-04"
+     }
+    }
+   ]
+  },
+  {
+   "a": 100,
+   "b": 142,
+   "ties": [
+    {
+     "kind": "same-match",
+     "person_id": 1750244,
+     "dataset": "12-migratie-datasets",
+     "record": {
+      "certificate_id": 694252,
+      "type": "contract_record",
+      "year": 1920,
+      "date": "1920-02-11"
+     }
+    }
+   ]
+  },
+  {
+   "a": 120,
+   "b": 121,
+   "ties": [
+    {
+     "kind": "relation",
+     "from": 120,
+     "type": "declarant",
+     "detail": "declarant",
+     "confidence": "certain",
+     "certificate_id": 707115,
+     "dataset": "13-civil",
+     "record": {
+      "certificate_id": 707115,
+      "type": "erkenningen",
+      "year": 1921,
+      "date": null
+     }
+    },
+    {
+     "kind": "same-record",
+     "certificate_id": 707115,
+     "dataset": "13-civil",
+     "roles": [
+      "declarant",
+      "child"
+     ],
+     "record": {
+      "certificate_id": 707115,
+      "type": "erkenningen",
+      "year": 1921,
+      "date": null
+     }
+    }
+   ]
+  },
+  {
+   "a": 125,
+   "b": 126,
+   "ties": [
+    {
+     "kind": "same-match",
+     "person_id": 1750210,
+     "dataset": "12-migratie-datasets",
+     "record": {
+      "certificate_id": 694218,
+      "type": "contract_record",
+      "year": 1920,
+      "date": "1920-03-27"
+     }
+    }
+   ]
+  },
+  {
+   "a": 144,
+   "b": 195,
+   "ties": [
+    {
+     "kind": "same-match",
+     "person_id": 1744789,
+     "dataset": "12-migratie-datasets",
+     "record": {
+      "certificate_id": 688797,
+      "type": "contract_record",
+      "year": 1917,
+      "date": "1917-04-28"
+     }
+    }
+   ]
+  },
+  {
+   "a": 251,
+   "b": 252,
+   "ties": [
+    {
+     "kind": "same-match",
+     "person_id": 1748595,
+     "dataset": "12-migratie-datasets",
+     "record": {
+      "certificate_id": 692603,
+      "type": "contract_record",
+      "year": 1919,
+      "date": "1919-05-20"
+     }
+    }
+   ]
+  },
+  {
+   "a": 300,
+   "b": 301,
+   "ties": [
+    {
+     "kind": "same-match",
+     "person_id": 1570606,
+     "dataset": "10-volkstelling-1950",
+     "record": {
+      "certificate_id": 597538,
+      "type": "census_entry",
+      "year": 1950,
+      "date": null
+     }
+    }
+   ]
+  },
+  {
+   "a": 458,
+   "b": 460,
+   "ties": [
+    {
+     "kind": "relation",
+     "from": 460,
+     "type": "declarant",
+     "detail": "declarant",
+     "confidence": "certain",
+     "certificate_id": 706832,
+     "dataset": "13-civil",
+     "record": {
+      "certificate_id": 706832,
+      "type": "erkenningen",
+      "year": 1921,
+      "date": null
+     }
+    },
+    {
+     "kind": "same-record",
+     "certificate_id": 706832,
+     "dataset": "13-civil",
+     "roles": [
+      "child",
+      "declarant"
+     ],
+     "record": {
+      "certificate_id": 706832,
+      "type": "erkenningen",
+      "year": 1921,
+      "date": null
+     }
+    }
+   ]
+  }
+ ]
+}
