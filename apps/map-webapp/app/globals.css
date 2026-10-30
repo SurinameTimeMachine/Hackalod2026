@@ -63,3 +63,42 @@ body {
   top: env(safe-area-inset-top, 0px);
   right: env(safe-area-inset-right, 0px);
 }
+
+.people-status {
+  position: absolute;
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #193331e8;
+  color: #eee8d9;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.people-status button {
+  min-height: 44px;
+  padding: 0 12px;
+  margin-top: 4px;
+  border: 1px solid #607970;
+  border-radius: 6px;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.people-search { position: absolute; top: calc(76px + env(safe-area-inset-top, 0px)); left: 16px; width: min(360px, calc(100% - 80px)); color: #eee8d9; }
+.people-search label { display: block; font-size: 12px; padding: 2px 4px; text-shadow: 0 1px 3px #000; }
+.people-search input { width: 100%; min-height: 48px; padding: 0 12px; border: 1px solid #607970; border-radius: 8px; background: #193331; color: #eee8d9; font-size: 16px; }
+.search-results, .selection-panel { background: #193331f5; color: #eee8d9; border: 1px solid #607970; border-radius: 8px; padding: 12px; box-shadow: 0 4px 18px #0006; }
+.search-results { max-height: min(50dvh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+.search-results-heading { display: flex; justify-content: space-between; align-items: center; }
+.search-results button:not(.search-results-heading button) { display: block; text-align: left; width: 100%; min-height: 48px; padding: 8px; border-bottom: 1px solid #607970; }
+.search-results small { display: block; opacity: .8; }
+.search-results p { padding: 8px; font-size: 13px; }
+.selection-panel { position: absolute; right: 16px; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); left: 16px; max-width: 420px; font-size: 14px; }
+.selection-panel h2 { font-size: 18px; font-weight: 600; }
+.selection-panel button, .search-results-heading button { float: right; min-height: 44px; padding: 0 10px; }
