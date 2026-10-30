@@ -25,26 +25,41 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.map-actions {
+.map-home {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  right: 60px;
-  display: flex;
-  flex-wrap: wrap;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-}
-
-.map-actions button {
-  min-height: 44px;
-  padding: 0 12px;
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 14px;
   background: #193331;
   color: #eee8d9;
   border: 1px solid #607970;
   border-radius: 8px;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
-.maplibregl-popup-close-button {
-  color: #eee8d9;
+.map-home:focus-visible {
+  outline: 2px solid #eee8d9;
+  outline-offset: 3px;
+}
+
+.map-home:active {
+  background: #284b43;
+}
+
+/* Keep the remaining zoom and compass controls comfortable to tap. */
+.maplibregl-map .maplibregl-ctrl-group button {
+  width: 44px;
+  height: 44px;
+}
+
+.maplibregl-map .maplibregl-ctrl-top-right {
+  top: env(safe-area-inset-top, 0px);
+  right: env(safe-area-inset-right, 0px);
 }
