@@ -65,6 +65,24 @@ export const DICT = {
   micDenied: 'Geen toegang tot de microfoon. Je kunt je verhaal ook typen.',
   failed: 'Er ging iets mis bij het verwerken. Probeer het nog eens.',
   living: 'mogelijk nog in leven: wordt niet opgeslagen',
+  edit: 'Bewerk',
+  reprocess: 'Opnieuw herkennen',
+  cancel: 'Annuleren',
+  editHint: 'Verbeter de spelling en tik op "Opnieuw herkennen".',
+  notStored: 'niet in de dataset',
+  notStoredNote: 'Herkend in je verhaal, maar het gaat niet over deze persoon. Het blijft onderdeel van je verhaal.',
+  retry: 'Probeer opnieuw',
+  narrator: 'de verteller',
+};
+
+export const TYPE: Record<string, string> = {
+  person: 'persoon',
+  place: 'plaats',
+  date: 'datum',
+  occupation: 'beroep',
+  relation: 'familie',
+  organisation: 'organisatie',
+  other: 'overig',
 };
 
 export const CATEGORY: Record<string, string> = {
@@ -100,6 +118,7 @@ export const BADGE = {
   linked: 'gekoppeld',
   choose: 'kies',
   new: 'nieuw',
+  only: 'herkend',
 };
 
 export const DATASETS: Record<string, string> = {

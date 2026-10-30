@@ -103,21 +103,25 @@ const BLOOD = new Set(['parent', 'child', 'sibling', 'grandparent', 'grandchild'
 const FIELDS = ['occupation', 'birth_year', 'death_year', 'religion', 'address_text'];
 const nullable = (t: string, extra: object = {}) => ({ type: [t, 'null'], ...extra });
 
+const TYPES = ['person', 'place', 'date', 'occupation', 'relation', 'organisation', 'other'];
+
 const EXTRACT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'suggestions'],
+  required: ['summary', 'entities'],
   properties: {
     summary: { type: 'string' },
-    suggestions: {
+    entities: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['kind', 'mention', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living'],
+        required: ['mention', 'type', 'about', 'kind', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living'],
         properties: {
-          kind: { type: 'string', enum: ['relation', 'fact', 'place', 'date'] },
-          mention: { type: 'string', description: 'The exact words in the transcript that name this thing, copied character for character' },
+          mention: { type: 'string', description: 'The exact words in the transcript, copied character for character' },
+          type: { type: 'string', enum: TYPES },
+          about: nullable('string', { description: 'Who this concerns: "subject", "narrator", or the name of another person' }),
+          kind: nullable('string', { enum: ['relation', 'fact', 'place', 'date', null] }),
           relation_type: nullable('string', { enum: [...RELATIONS, null] }),
           related_key: nullable('string'),
           name_raw: nullable('string'),
@@ -125,7 +129,7 @@ const EXTRACT_SCHEMA = {
           value: nullable('string'),
           place_raw: nullable('string'),
           year: nullable('integer'),
-          quote: { type: 'string', description: 'The short sentence from the transcript this comes from, copied exactly' },
+          quote: { type: 'string', description: 'The sentence from the transcript it comes from, copied exactly' },
           possibly_living: { type: 'boolean' },
         },
       },
@@ -133,24 +137,30 @@ const EXTRACT_SCHEMA = {
   },
 };
 
-const EXTRACT_SYSTEM = `You turn a visitor's spoken story (Dutch, sometimes Sranan) about a person from the Suriname archives into suggested additions for a dataset.
-Each suggestion maps onto these columns of the contributions table:
-- kind "relation": a person related to the subject. relation_type = how that person relates to the subject (parent = they are the subject's parent, child = they are the subject's child, etc.). related_key = a key from the candidate people list if it is clearly the same person, otherwise null and name_raw = the name as told (or null if no name was given, e.g. "his father").
-- kind "fact": a fact about the subject. field = one of ${FIELDS.join(', ')}; value = the value as told (a year as digits).
-- kind "place": a place connected to the subject (lived, worked, born, buried). place_raw = the place as told; value = what happened there in a few words.
-- kind "date": a dated event. year = the year; value = the event in a few words.
-"fact", "place" and "date" are only about the subject. Anything told about another person (where they lived, their work, their dates) goes in that person's relation suggestion as value, in a few words; never as a separate place/fact/date.
-Rules: only what is actually said, never infer. Every suggestion needs "mention" (the exact words naming it, copied from the transcript) and "quote" (the sentence it comes from, copied exactly). Set possibly_living true for any person who may still be alive (e.g. the narrator's parents or siblings, anyone born after 1930). The narrator themselves is not a suggestion. Fields that do not apply are null. summary: one sentence in Dutch.`;
+const EXTRACT_SYSTEM = `You read a visitor's spoken story (Dutch, sometimes Sranan; transcribed, so spelling may be off) about a person from the Suriname archives (the subject).
 
-function category(s: Suggestion): ResolvedSuggestion['category'] {
-  if (s.kind === 'relation') return s.name_raw || s.related_key ? 'per' : 'rel';
-  if (s.kind === 'place') return 'pla';
-  if (s.kind === 'date') return 'dat';
-  if (s.field === 'occupation') return 'rol';
-  if (s.field === 'birth_year' || s.field === 'death_year') return 'dat';
-  if (s.field === 'address_text') return 'pla';
-  return 'oth';
-}
+Step 1, recognise: list EVERY entity in the transcript, in order of appearance: each person name (also the narrator's relatives), place (country, district, town, street, plantation, building), date or year, occupation, kinship word ("oma", "broer", "vader"), and organisation. One entry per distinct entity (its first mention). Never skip one because it is not about the subject or not in the archive. Set type, and about = "subject", "narrator" or the name of the other person it concerns.
+
+Step 2, place it in the dataset: if the entity can be stored as an addition about the subject, set kind and its columns of the contributions table; otherwise kind = null (it is still listed).
+- kind "relation": a person related to the subject. relation_type = how that person relates to the subject (parent = they are the subject's parent, etc.). related_key = a key from the candidate people list only if clearly the same person, else null. name_raw = the name as told (null if unnamed, e.g. "zijn vader"). value = anything told about that person, in a few words.
+- kind "fact": about the subject. field = one of ${FIELDS.join(', ')}; value = as told (years as digits).
+- kind "place": a place in the subject's life. place_raw = as told; value = what happened there.
+- kind "date": a dated event in the subject's life. year; value = the event.
+A kinship word gets kind null (its person carries the relation). Kinship is relative to whoever it is said of: "mijn oma" is the narrator's grandmother, not the subject's; a narrator's relative becomes kind "relation" only if the story says how they relate to the subject. Places, dates and occupations of other people get kind null.
+
+Rules: only what is said, never infer. "mention" is copied exactly from the transcript; "quote" is the sentence it is in, copied exactly. For person entities set name_raw to the name as told and possibly_living true if they may still be alive (the narrator's parents or siblings, anyone born after 1930). Columns that do not apply are null. summary: one sentence in Dutch.`;
+
+const KINSHIP = /\b(oma|opa|grootmoeder|grootvader|over\w*|moeder|vader|ma|pa|zus|zuster|broer|oom|tante|neef|nicht|zoon|dochter|kind|man|vrouw|echtgeno\w*|kleinkind|kleinzoon|kleindochter|familie)\b/i;
+
+const CATEGORY: Record<string, ResolvedSuggestion['category']> = {
+  person: 'per',
+  place: 'pla',
+  date: 'dat',
+  occupation: 'rol',
+  relation: 'rel',
+  organisation: 'oth',
+  other: 'oth',
+};
 
 export async function extract(key: string, transcript: string, model?: string): Promise<ExtractResult> {
   const ctx = await buildContext(key).catch(() => null);
@@ -164,25 +174,37 @@ export async function extract(key: string, transcript: string, model?: string): 
     .filter(Boolean)
     .join('\n\n');
 
-  const out = await chatJson<{ summary: string; suggestions: Suggestion[] }>({ model, name: 'story', schema: EXTRACT_SCHEMA, system: EXTRACT_SYSTEM, user });
+  const out = await chatJson<{ summary: string; entities: Suggestion[] }>({ model, name: 'story', schema: EXTRACT_SCHEMA, system: EXTRACT_SYSTEM, user });
   const known = new Map(people.map((p) => [p.key, p.name]));
 
   const suggestions = await Promise.all(
-    out.suggestions.map(async (s, i): Promise<ResolvedSuggestion> => {
-      const r: ResolvedSuggestion = { ...s, id: `s${i}`, category: category(s), options: [], linked: null, linkedLabel: null };
+    out.entities.map(async (s, i): Promise<ResolvedSuggestion> => {
+      const r: ResolvedSuggestion = { ...s, id: `s${i}`, category: CATEGORY[s.type] ?? 'oth', options: [], linked: null, linkedLabel: null };
+      // Places, facts and dates only become rows when they are about the
+      // subject; the model's own `about` decides, not its `kind`.
+      if (r.kind && r.kind !== 'relation' && r.about && r.about !== 'subject') r.kind = null;
+      // A person can only be a relation; the narrator's own family is not one.
+      if (r.type === 'person' && r.kind !== 'relation') r.kind = null;
+      if (r.about === 'narrator') r.kind = null;
+      if (r.type === 'other' && KINSHIP.test(r.mention)) {
+        r.type = 'relation';
+        r.category = 'rel';
+      }
       if (s.related_key && !known.has(s.related_key)) r.related_key = null; // only keys we offered
       if (r.related_key) {
         r.linked = r.related_key;
         r.linkedLabel = known.get(r.related_key)!;
-      } else if (s.kind === 'relation' && s.name_raw) {
+      } else if (s.type === 'person') {
         // "his brother Carl": blood relatives usually share the surname.
-        const firstOnly = !s.name_raw.trim().includes(' ') && BLOOD.has(s.relation_type ?? '') && ctx?.surname;
-        r.options = await searchPeople(firstOnly ? `${s.name_raw} ${ctx.surname}` : s.name_raw, ctx?.birthYear).catch(() => []);
+        const name = (s.name_raw ?? s.mention).trim();
+        const firstOnly = s.kind === 'relation' && !name.includes(' ') && BLOOD.has(s.relation_type ?? '') && ctx?.surname;
+        r.options = await searchPeople(firstOnly ? `${name} ${ctx.surname}` : name, ctx?.birthYear).catch(() => []);
       }
-      const place = s.place_raw ?? (s.field === 'address_text' ? s.value : null);
+      const place = s.type === 'place' ? (s.place_raw ?? s.mention) : s.field === 'address_text' ? s.value : null;
       if (place) {
         r.options = await searchPlaces(place).catch(() => []);
-        if (r.options[0]) {
+        // Only auto-link a place that becomes a row; the rest are just shown.
+        if (s.kind && r.options[0]) {
           r.linked = r.options[0].id;
           r.linkedLabel = r.options[0].label;
         }

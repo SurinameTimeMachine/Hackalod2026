@@ -4,9 +4,9 @@
 // underlined in its colour. Bottom half: where each part lands in the
 // contributions dataset, with archive matches to confirm or correct.
 // Nothing is saved yet; that is the consent + /contribute step.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Candidate, ExtractResult, PersonContext, ResolvedSuggestion } from '../shared/story';
-import { APP_NAME, BADGE, CATEGORY, DICT, FIELD, RELATION } from './strings';
+import { APP_NAME, BADGE, CATEGORY, DICT, FIELD, RELATION, TYPE } from './strings';
 import { Mic } from './icons';
 import { MAX_SECONDS, useRecorder } from './useRecorder';
 
@@ -35,6 +35,10 @@ function spans(text: string, list: ResolvedSuggestion[]) {
 }
 
 function describe(s: ResolvedSuggestion, subject: string, chosenLabel: string | null) {
+  if (!s.kind) {
+    const about = !s.about || s.about === 'subject' ? subject : s.about === 'narrator' ? DICT.narrator : s.about;
+    return [TYPE[s.type] ?? s.type, `over ${about}`, chosenLabel, DICT.notStored].filter(Boolean).join(' · ');
+  }
   if (s.kind === 'relation') {
     const who = chosenLabel ?? s.name_raw ?? s.mention;
     return `${who} · ${RELATION[s.relation_type ?? 'other'] ?? RELATION.other} ${subject}`;
@@ -46,6 +50,7 @@ function describe(s: ResolvedSuggestion, subject: string, chosenLabel: string | 
 
 // The contributions row this suggestion would become (columns that are set).
 function columns(s: ResolvedSuggestion, personKey: string, r: Review) {
+  if (!s.kind) return [];
   const isPlace = !!(s.place_raw || s.field === 'address_text');
   const pick = r.choice;
   const row: [string, string | number | null][] = [
@@ -64,6 +69,7 @@ function columns(s: ResolvedSuggestion, personKey: string, r: Review) {
 }
 
 function badge(s: ResolvedSuggestion, r: Review): [string, string] {
+  if (!s.kind) return ['b-wait', BADGE.only];
   if (r.status === 'removed') return ['b-wait', DICT.removed];
   if (s.possibly_living) return ['b-warn', 'mogelijk levend'];
   if (r.status === 'ok') return ['b-you', DICT.confirmed];
@@ -82,6 +88,8 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
   const [sel, setSel] = useState<string | null>(null);
   const [tab, setTab] = useState<'found' | 'data'>('found');
   const [toast, setToast] = useState<string | null>(null);
+  const [failed, setFailed] = useState<'transcribe' | 'extract' | null>(null);
+  const lastAudio = useRef<Blob | null>(null);
 
   const say = (msg: string) => {
     setToast(msg);
@@ -92,6 +100,9 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
     async (text: string) => {
       setTranscript(text);
       setPhase('extracting');
+      setFailed(null);
+      setData(null);
+      setSel(null);
       try {
         const res = await fetch('/story/extract', {
           method: 'POST',
@@ -100,13 +111,13 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
         });
         if (!res.ok) throw new Error(String(res.status));
         const out: ExtractResult = await res.json();
-        setReview(Object.fromEntries(out.suggestions.map((s) => [s.id, { status: s.possibly_living ? 'removed' : 'open', choice: s.linked }])));
+        setReview(Object.fromEntries(out.suggestions.map((s) => [s.id, { status: s.kind && s.possibly_living ? 'removed' : 'open', choice: s.linked }])));
         setRevealed(0);
         setData(out);
         setPhase('done');
       } catch {
         setPhase('done');
-        say(DICT.failed);
+        setFailed('extract');
       }
     },
     [person.key],
@@ -115,6 +126,8 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
   const onAudio = useCallback(
     async (audio: Blob) => {
       setPhase('transcribing');
+      setFailed(null);
+      lastAudio.current = audio;
       const form = new FormData();
       form.append('audio', audio, 'story');
       form.append('key', person.key);
@@ -126,7 +139,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
         process(text);
       } catch {
         setPhase('idle');
-        say(DICT.failed);
+        setFailed('transcribe');
       }
     },
     [person.key, process],
@@ -148,7 +161,16 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
     setData(null);
     setSel(null);
     setTab('found');
+    setFailed(null);
   };
+
+  // Correct the transcript by typing, then recognise again.
+  const edit = () => {
+    setTyped(transcript);
+    setSel(null);
+    setPhase('typing');
+  };
+  const retry = () => (failed === 'transcribe' && lastAudio.current ? onAudio(lastAudio.current) : process(transcript));
 
   const toggleRecord = async () => {
     if (rec.recording) return rec.stop();
@@ -166,7 +188,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
   const order = useMemo(() => new Map(list.map((s, i) => [s.id, i])), [list]);
   const marks = useMemo(() => spans(transcript, list), [transcript, list]);
   const shown = list.filter((s) => (order.get(s.id) ?? 0) < revealed);
-  const kept = shown.filter((s) => review[s.id]?.status !== 'removed');
+  const kept = shown.filter((s) => s.kind && review[s.id]?.status !== 'removed');
   const labelOf = (s: ResolvedSuggestion) => {
     const c = review[s.id]?.choice;
     return c ? (s.options.find((o) => o.id === c)?.label ?? s.linkedLabel) : null;
@@ -187,7 +209,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
       if (m.start > at) parts.push(transcript.slice(at, m.start));
       const lit = (order.get(s.id) ?? 0) < revealed;
       const r = review[s.id];
-      const cls = ['ent', `k-${s.category}`, lit && (r?.choice || r?.status === 'ok' || !s.options.length) ? 'linked' : '', r?.status === 'removed' ? 'gone' : '', sel === s.id ? 'sel' : '']
+      const cls = ['ent', `k-${s.category}`, lit && (!s.kind || r?.choice || r?.status === 'ok' || !s.options.length) ? 'linked' : '', r?.status === 'removed' ? 'gone' : '', sel === s.id ? 'sel' : '']
         .filter(Boolean)
         .join(' ');
       parts.push(
@@ -207,12 +229,12 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
   if (selected) {
     const r = review[selected.id];
     const [b, bl] = badge(selected, r);
-    const isPerson = selected.kind === 'relation';
+    const isPerson = selected.type === 'person';
     panel = (
       <div className="det">
         <span className="ty">
           <span className={`dot c-${selected.category}`} />
-          {CATEGORY[selected.category]} · <span className={`badge ${b}`}>{bl}</span>
+          {TYPE[selected.type] ?? CATEGORY[selected.category]} · <span className={`badge ${b}`}>{bl}</span>
         </span>
         <span className="nm">{selected.mention}</span>
         <span className="quote">“{selected.quote}”</span>
@@ -223,10 +245,11 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
             </code>
           ))}
         </div>
-        {selected.possibly_living && <span className="foot-note">{DICT.living}</span>}
+        {!selected.kind && <span className="foot-note">{DICT.notStoredNote}</span>}
+        {selected.kind && selected.possibly_living && <span className="foot-note">{DICT.living}</span>}
         {(selected.options.length > 0 || selected.linked) && (
           <div className="opts">
-            <span className="ttl">{DICT.choose}</span>
+            <span className="ttl">{selected.kind ? DICT.choose : 'In het archief'}</span>
             {selected.linked && !selected.options.some((o) => o.id === selected.linked) && (
               <button type="button" className={`opt${r.choice === selected.linked ? ' on' : ''}`} onClick={() => update(selected.id, { choice: selected.linked })}>
                 <span>
@@ -251,7 +274,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
             </button>
           </div>
         )}
-        <div className="acts">
+        {selected.kind && <div className="acts">
           <button
             type="button"
             className="btn primary"
@@ -272,7 +295,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
           >
             {r.status === 'removed' ? 'Terugzetten' : DICT.remove}
           </button>
-        </div>
+        </div>}
         <button type="button" className="textbtn" onClick={() => setSel(null)} style={{ textAlign: 'left', padding: '8px 0', fontSize: 13 }}>
           {DICT.back}
         </button>
@@ -295,7 +318,16 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
         );
       })
     ) : (
-      <div className="empty">{phase === 'extracting' ? DICT.extracting : DICT.foundEmpty}</div>
+      <div className="empty">
+        {failed ? DICT.failed : phase === 'extracting' ? DICT.extracting : data ? 'Niets herkend in dit verhaal.' : DICT.foundEmpty}
+        {failed && (
+          <div>
+            <button type="button" className="textbtn" onClick={retry}>
+              {DICT.retry}
+            </button>
+          </div>
+        )}
+      </div>
     );
   } else {
     panel = data ? (
@@ -343,7 +375,9 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
 
   const busy = phase === 'transcribing' || phase === 'extracting';
   const status =
-    phase === 'recording'
+    phase === 'typing' && transcript
+      ? DICT.editHint
+      : phase === 'recording'
       ? DICT.listening
       : phase === 'transcribing'
         ? DICT.transcribing
@@ -373,6 +407,11 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
       <div className="transcript">
         <div className="t-head">
           <span className="t-label">{DICT.label}</span>
+          {transcript && phase === 'done' && (
+            <button type="button" className="textbtn" style={{ padding: 0, fontSize: 12.5 }} onClick={edit}>
+              {DICT.edit}
+            </button>
+          )}
           <span className={`t-clock${rec.recording ? ' on' : ''}`}>
             {rec.recording ? `● ${clock(rec.seconds)} / ${clock(MAX_SECONDS)}` : rec.seconds ? clock(rec.seconds) : ''}
           </span>
@@ -404,7 +443,7 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
       <div className="recbar">
         {phase === 'typing' ? (
           <button type="button" className="btn primary" disabled={typed.trim().length < 10} onClick={() => process(typed.trim())}>
-            {DICT.typeGo}
+            {transcript ? DICT.reprocess : DICT.typeGo}
           </button>
         ) : (
           <button
@@ -446,10 +485,17 @@ export default function Dictate({ person, context, onBack }: { person: Candidate
               {DICT.typeInstead}
             </button>
           )}
-          {(transcript || phase === 'typing') && !busy && (
-            <button type="button" className="textbtn" onClick={reset}>
-              {DICT.again}
+          {phase === 'typing' && transcript ? (
+            <button type="button" className="textbtn" onClick={() => setPhase('done')}>
+              {DICT.cancel}
             </button>
+          ) : (
+            (transcript || phase === 'typing') &&
+            !busy && (
+              <button type="button" className="textbtn" onClick={reset}>
+                {DICT.again}
+              </button>
+            )
           )}
         </div>
       </div>

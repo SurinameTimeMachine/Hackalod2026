@@ -28,12 +28,15 @@ export type PersonContext = {
   places: string[];
 };
 
-// One thing the model heard in the story, already mapped onto the columns of
-// the contributions dataset. `mention` is the exact words in the transcript
-// (for highlighting), `quote` the sentence it came from.
+// One thing recognised in the story (NER), and where it lands in the
+// contributions dataset if it can: `kind` null means recognised but not
+// stored. `mention` is the exact words in the transcript (for highlighting),
+// `quote` the sentence it came from.
 export type Suggestion = {
-  kind: 'relation' | 'fact' | 'place' | 'date';
   mention: string;
+  type: 'person' | 'place' | 'date' | 'occupation' | 'relation' | 'organisation' | 'other';
+  about: string | null; // "subject", "narrator" or another person's name
+  kind: 'relation' | 'fact' | 'place' | 'date' | null;
   relation_type: string | null;
   related_key: string | null;
   name_raw: string | null;
