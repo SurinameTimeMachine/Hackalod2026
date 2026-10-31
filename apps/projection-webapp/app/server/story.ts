@@ -1,6 +1,6 @@
 // The story pipeline: which name was scanned, and what a told story says,
 // mapped onto the columns of the contributions dataset.
-import type { Candidate, ExtractResult, LifeFacts, PersonContext, ResolvedSuggestion, ScanResult, SubjectCheck, Suggestion } from '../shared/story';
+import type { Candidate, ExtractResult, LifeFacts, PersonContext, ResolvedSuggestion, ScanResult, StoryRelation, SubjectCheck, Suggestion } from '../shared/story';
 import { buildContext, lifeOfKey, searchPeople, searchPlaces } from './archive';
 import { activeStamps } from './display';
 import { fits } from './lifetime';
@@ -122,7 +122,7 @@ const LIFE_SCHEMA = {
 const EXTRACT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'subject_life', 'entities'],
+  required: ['summary', 'subject_life', 'entities', 'relations'],
   properties: {
     summary: { type: 'string' },
     subject_life: LIFE_SCHEMA,
@@ -131,14 +131,13 @@ const EXTRACT_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['mention', 'type', 'about', 'is_subject', 'kind', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living', 'life', 'narrator_relation'],
+        required: ['mention', 'type', 'about', 'is_subject', 'kind', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living', 'life'],
         properties: {
           mention: { type: 'string', description: 'The exact words in the transcript, copied character for character' },
           type: { type: 'string', enum: TYPES },
           about: nullable('string', { description: 'Who this concerns: "subject", "narrator", or the name of another person' }),
           is_subject: { type: 'boolean', description: 'This person entity is the subject themselves' },
-          kind: nullable('string', { enum: ['relation', 'fact', 'place', 'date', null] }),
-          relation_type: nullable('string', { enum: [...RELATIONS, null] }),
+          kind: nullable('string', { enum: ['fact', 'place', 'date', null] }),
           related_key: nullable('string'),
           name_raw: nullable('string'),
           field: nullable('string', { enum: [...FIELDS, null] }),
@@ -148,7 +147,20 @@ const EXTRACT_SCHEMA = {
           quote: { type: 'string', description: 'The sentence from the transcript it comes from, copied exactly' },
           possibly_living: { type: 'boolean' },
           life: LIFE_SCHEMA,
-          narrator_relation: nullable('string', { enum: [...RELATIONS, null], description: "How this person is related to the narrator, if the story says so" }),
+        },
+      },
+    },
+    relations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['from', 'to', 'type', 'quote'],
+        properties: {
+          from: { type: 'string', description: '"subject", "narrator", or a person entity\'s mention, copied exactly' },
+          to: { type: 'string', description: 'same as from' },
+          type: { type: 'string', enum: RELATIONS, description: 'What `to` is of `from`' },
+          quote: { type: 'string' },
         },
       },
     },
@@ -157,18 +169,18 @@ const EXTRACT_SCHEMA = {
 
 const EXTRACT_SYSTEM = `You read a visitor's spoken story (Dutch, sometimes Sranan; transcribed, so spelling may be off) about a person from the Suriname archives (the subject).
 
-Step 1, recognise: list EVERY entity in the transcript, in order of appearance: each person name (also the narrator's relatives), place (country, district, town, street, plantation, building), date or year, occupation, kinship word ("oma", "broer", "vader"), and organisation. One entry per distinct entity (its first mention). Never skip one because it is not about the subject or not in the archive. Set type, and about = "subject", "narrator" or the name of the other person it concerns (for a person or kinship word: whose relative they are). is_subject = true only for a person entity that is the subject themselves (same person, possibly named differently, e.g. "mijn grootmoeder Johanna" when Johanna is the subject); else false.
+Step 1, recognise: list EVERY entity in the transcript, in order of appearance: each person, place (country, district, town, street, plantation, building), date or year, occupation, and organisation. People: a relative referred to only by kinship ("zijn vader", "zijn moeder", "háár grootmoeder", "mijn oma" when no name follows) IS a person entity (type person, name_raw null, mention = those words), so they can have relations. A kinship word directly followed by that person's name ("mijn grootvader" in "mijn grootvader heette Ramlal") is a separate entity of type relation. One entry per distinct entity (its first mention). Never skip one because it is not about the subject or not in the archive. Set type, and about = "subject", "narrator" or the name of the other person it concerns (for a person or kinship word: whose relative they are). is_subject = true only for a person entity that is the subject themselves (same person, possibly named differently, e.g. "mijn grootmoeder Johanna" when Johanna is the subject); else false.
 
 Step 2, place it in the dataset: if the entity can be stored as an addition about the subject, set kind and its columns of the contributions table; otherwise kind = null (it is still listed).
-- kind "relation": a person related to the subject. relation_type = how that person relates to the subject (parent = they are the subject's parent, etc.). related_key = a key from the candidate people list only if clearly the same person, else null. name_raw = the name as told (null if unnamed, e.g. "zijn vader"). value = anything told about that person, in a few words.
+- persons never get a kind: their family ties go in "relations" (step 3). related_key = a key from the candidate people list only if clearly the same person, else null. name_raw = the name as told (null if unnamed). value = anything told about that person, in a few words.
 - kind "fact": about the subject. field = one of ${FIELDS.join(', ')}; value = as told (years as digits).
 - kind "place": a place in the subject's life. place_raw = as told; value = what happened there.
 - kind "date": a dated event in the subject's life. year; value = the event.
-A kinship word gets kind null (its person carries the relation). Kinship is relative to whoever it is said of: "mijn oma" is the narrator's grandmother, not the subject's; a narrator's relative becomes kind "relation" only if the story says how they relate to the subject. Places, dates and occupations of other people get kind null.
+A kinship word right before a named person ("mijn grootvader" in "mijn grootvader heette Ramlal") is its own entity of type relation with kind null. Places, dates and occupations of other people get kind null.
+
+Step 3, relations: list every family or social tie the story states between two people, including the subject and the narrator, as {from, to, type, quote}. from and to are "subject", "narrator", or a person entity's mention copied exactly. type is what "to" is of "from". Examples: "G.W. had twee kinderen, Anna en Kees" → {from: "subject", to: "Anna", type: "child"}, {from: "subject", to: "Kees", type: "child"}; "Anna kreeg een dochter, Maria" → {from: "Anna", to: "Maria", type: "child"}; "mijn grootvader heette Ramlal Doerga" → {from: "narrator", to: "Ramlal Doerga", type: "grandparent"}; "zijn vader kwam uit Calcutta" (his = Ramlal) → {from: "Ramlal Doerga", to: "zijn vader", type: "parent"}. Kinship is relative to whoever it is said of: "mijn oma" is the narrator's grandmother, not the subject's; "háár grootmoeder" is oma's. Only ties that are said, never derived ones (do not add grandparent ties that follow from two parent ties).
 
 Rules: only what is said, never infer. "mention" is copied exactly from the transcript; "quote" is the sentence it is in, copied exactly. For person entities set name_raw to the name as told and possibly_living true if they may still be alive (the narrator's parents or siblings, anyone born after 1930). Columns that do not apply are null. value and summary are written in Dutch; call people by their name, never "the subject" or "de subject".
-
-Narrator: for person entities set narrator_relation = how that person is related to the narrator when the story says so ("mijn grootmoeder Johanna" → grandparent, "mijn vader" → parent, also for the subject); null when not said or when the kinship is someone else's ("háár grootmoeder" is oma's grandmother, not the narrator's).
 
 Lifetimes: "life" (on every person entity; all null for other types) and "subject_life" (the subject) hold only what the transcript itself says, never what is known from the archive: born / died years, alive_in = one year they were alive (worked, married, arrived …; "rond 1908" → 1908), place = where they lived. Use null when not said; never guess from generations.`;
 
@@ -185,13 +197,104 @@ const KIN_TYPE: [RegExp, string][] = [
   [/^(man|vrouw)$/, 'spouse'],
   [/^(zoon|dochter)$/, 'child'],
 ];
+// The kinship word the narrator used for a named person ("grootvader").
+const narratorKinWord = (quote: string, name: string): string | null =>
+  new RegExp(`\\b(?:mijn|onze)\\s+(${NARRATOR_KIN})\\s+(?:heette\\s+|was\\s+|,\\s*)?${escapeRe(name.trim().split(/\s+/)[0])}`, 'i').exec(quote)?.[1].toLowerCase() ?? null;
 const narratorKin = (quote: string, name: string): string | null => {
-  const m = new RegExp(`\\b(?:mijn|onze)\\s+(${NARRATOR_KIN})\\s+(?:heette\\s+|was\\s+|,\\s*)?${escapeRe(name.trim().split(/\s+/)[0])}`, 'i').exec(quote);
-  if (!m) return null;
-  return KIN_TYPE.find(([re]) => re.test(m[1].toLowerCase()))?.[1] ?? 'other';
+  const word = narratorKinWord(quote, name);
+  return word ? (KIN_TYPE.find(([re]) => re.test(word))?.[1] ?? 'other') : null;
 };
-const narratorsRelative = (quote: string, name: string) =>
-  new RegExp(`\\b(?:mijn|onze)\\s+${NARRATOR_KIN}\\s+(?:heette\\s+|was\\s+|,\\s*)?${escapeRe(name.trim().split(/\s+/)[0])}`, 'i').test(quote);
+// Same kinship, other words: "oma" is the "grootmoeder" named earlier.
+const KIN_CLASS: [RegExp, string][] = [
+  [/^(oma|\w*grootmoeder)$/, 'grandmother'],
+  [/^(opa|\w*grootvader)$/, 'grandfather'],
+  [/^(moeder|ma|mama|mams)$/, 'mother'],
+  [/^(vader|pa|papa|paps)$/, 'father'],
+];
+const kinClass = (word: string | null) => (word ? (KIN_CLASS.find(([re]) => re.test(word))?.[1] ?? null) : null);
+
+// --- Relations between the people of a story ---------------------------------
+
+type RawRelation = { from: string; to: string; type: string; quote: string };
+
+// Stored one way only: elder → younger ("to is child of from"), partners and
+// siblings in a fixed order, so "A parent of B" and "B child of A" are one tie.
+const FLIP: Record<string, string> = { parent: 'child', grandparent: 'grandchild' };
+function canonical(r: StoryRelation): StoryRelation {
+  if (FLIP[r.type]) return { ...r, from: r.to, to: r.from, type: FLIP[r.type] };
+  if ((r.type === 'spouse' || r.type === 'sibling' || r.type === 'friend') && r.from > r.to) return { ...r, from: r.to, to: r.from };
+  return r;
+}
+
+// What `who` is of `other`, read from the canonical ties ("parent", "child" …).
+const UNFLIP: Record<string, string> = { child: 'parent', grandchild: 'grandparent' };
+function tieOf(relations: StoryRelation[], who: string, other: string): string | null {
+  for (const r of relations) {
+    if (r.from === other && r.to === who) return r.type;
+    if (r.from === who && r.to === other) return UNFLIP[r.type] ?? r.type;
+  }
+  return null;
+}
+
+// The model names people by their mention; turn that into entity ids
+// ("s3"), "subject" or "narrator". Ties nobody can be found for are dropped.
+function resolveRelations(entities: Suggestion[], raw: RawRelation[], isSelf: (x: string) => boolean): StoryRelation[] {
+  const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const people = entities.map((e, i) => ({ e, id: `s${i}` })).filter(({ e }) => e.type === 'person');
+  // "Volgens oma …" after "mijn grootmoeder Johanna": a bare kinship word is
+  // the narrator's relative named earlier with that kinship, if only one fits.
+  const alias = new Map<string, string>();
+  const named = people.flatMap(({ e, id }) => {
+    const cls = kinClass(narratorKinWord(e.quote, e.name_raw ?? e.mention) ?? fold(e.mention).match(/^(?:mijn|onze)\s+(\S+)\s+\S/)?.[1] ?? null);
+    return cls && e.name_raw !== null ? [{ id: e.is_subject ? 'subject' : id, cls }] : [];
+  });
+  for (const { e, id } of people) {
+    if (e.name_raw !== null || e.is_subject) continue;
+    const cls = kinClass(fold(e.mention).replace(/^(mijn|onze)\s+/, ''));
+    const fits = named.filter((n) => n.cls === cls);
+    if (cls && fits.length === 1) {
+      alias.set(id, fits[0].id);
+      e.type = 'relation'; // shown as a kinship word for that person, not a person of its own
+    }
+  }
+  const ref = (x: string): string | null => {
+    const r = refOnce(x);
+    return r && alias.has(r) ? alias.get(r)! : r;
+  };
+  const refOnce = (x: string): string | null => {
+    const f = fold(x);
+    if (f === 'subject') return 'subject';
+    if (f === 'narrator' || f === 'verteller') return 'narrator';
+    const hit =
+      people.find(({ e }) => fold(e.mention) === f || (e.name_raw && fold(e.name_raw) === f)) ??
+      people.find(({ e }) => fold(e.mention).includes(f) || f.includes(fold(e.mention)));
+    if (hit) return hit.e.is_subject ? 'subject' : hit.id;
+    return isSelf(x) ? 'subject' : null;
+  };
+
+  const out = new Map<string, StoryRelation>();
+  const add = (r: StoryRelation) => {
+    const c = canonical(r);
+    const k = `${c.from}|${c.to}`;
+    if (c.from !== c.to && !out.has(k) && !out.has(`${c.to}|${c.from}`)) out.set(k, c);
+  };
+  for (const r of raw) {
+    const from = ref(r.from);
+    const to = ref(r.to);
+    if (from && to && RELATIONS.includes(r.type)) add({ id: '', from, to, type: r.type, quote: r.quote });
+  }
+  // "mijn grootvader heette Ramlal" says it in so many words: the narrator's
+  // relative, never the subject's (unless the story says so separately).
+  for (const { e, id } of people) {
+    const kin = narratorKin(e.quote, e.name_raw ?? e.mention);
+    if (!kin || e.is_subject || e.type !== 'person') continue;
+    if (alias.has(id)) continue;
+    const misread = canonical({ id: '', from: 'subject', to: id, type: kin, quote: '' });
+    out.delete(`${misread.from}|${misread.to}`);
+    add({ id: '', from: 'narrator', to: id, type: kin, quote: e.quote });
+  }
+  return [...out.values()].map((r, i) => ({ ...r, id: `r${i}` }));
+}
 
 const CATEGORY: Record<string, ResolvedSuggestion['category']> = {
   person: 'per',
@@ -237,7 +340,7 @@ export async function extract(key: string, transcript: string, opts: { name?: st
     .filter(Boolean)
     .join('\n\n');
 
-  const out = await chatJson<{ summary: string; subject_life: LifeFacts; entities: Suggestion[] }>({ model, name: 'story', schema: EXTRACT_SCHEMA, system: EXTRACT_SYSTEM, user });
+  const out = await chatJson<{ summary: string; subject_life: LifeFacts; entities: Suggestion[]; relations: RawRelation[] }>({ model, name: 'story', schema: EXTRACT_SCHEMA, system: EXTRACT_SYSTEM, user });
   // The model sometimes writes the subject's name instead of "subject".
   const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   const selfNames = [subjectName, ...out.entities.filter((e) => e.is_subject).flatMap((e) => [e.name_raw ?? '', e.mention])].map(fold).filter((x) => x.length > 2);
@@ -252,6 +355,14 @@ export async function extract(key: string, transcript: string, opts: { name?: st
     });
   };
   for (const e of out.entities) if (e.about && e.about !== 'subject' && e.about !== 'narrator' && isSelf(e.about)) e.about = 'subject';
+  const relations = resolveRelations(out.entities, out.relations, isSelf);
+  // Per person, their tie to the subject and to the narrator (for the list,
+  // the archive search and the save screen).
+  out.entities.forEach((e, i) => {
+    const id = e.is_subject ? 'subject' : `s${i}`;
+    e.relation_type = e.is_subject ? null : tieOf(relations, id, 'subject');
+    e.narrator_relation = tieOf(relations, id, 'narrator');
+  });
   const keyed = new Map(people.map((p) => [p.key, p.name]));
 
   const suggestions = await Promise.all(
@@ -265,10 +376,7 @@ export async function extract(key: string, transcript: string, opts: { name?: st
       if (r.about && r.about !== 'subject') r.kind = null;
       // An occupation of the subject always has a column of its own.
       else if (r.type === 'occupation' && !r.kind) Object.assign(r, { kind: 'fact', field: 'occupation', value: r.value ?? r.mention });
-      if (r.type === 'person' && r.kind !== 'relation') r.kind = null;
-      if (r.kind === 'relation' && narratorsRelative(r.quote, r.name_raw ?? r.mention)) r.kind = null;
-      // "mijn grootvader heette Ramlal": the narrator's relation, said in so many words.
-      if (r.type === 'person' && !r.narrator_relation) r.narrator_relation = narratorKin(r.quote, r.name_raw ?? r.mention);
+      if (r.type === 'person') r.kind = null; // their ties are in `relations`
       if (r.is_subject) {
         r.kind = null;
         r.linked = key.startsWith('name:') ? null : key;
@@ -287,7 +395,7 @@ export async function extract(key: string, transcript: string, opts: { name?: st
       } else if (s.type === 'person') {
         // "his brother Carl": blood relatives usually share the surname.
         const name = (s.name_raw ?? s.mention).trim();
-        const firstOnly = s.kind === 'relation' && !name.includes(' ') && BLOOD.has(s.relation_type ?? '') && ctx?.surname;
+        const firstOnly = !name.includes(' ') && BLOOD.has(s.relation_type ?? '') && ctx?.surname;
         // Only records that can be this person, given what the story says.
         const found = await searchPeople(firstOnly ? `${name} ${ctx.surname}` : name, ctx?.birthYear).catch(() => []);
         r.options = found.filter((o) => fits({ born: o.born ?? null, died: o.died ?? null }, s.life)).slice(0, MAX_OPTIONS);
@@ -314,5 +422,5 @@ export async function extract(key: string, transcript: string, opts: { name?: st
     place: out.subject_life.place ?? self?.place ?? null,
   };
   const subject = await checkSubject(key, subjectName, !!opts.certain, life);
-  return { summary: out.summary, suggestions, subject };
+  return { summary: out.summary, suggestions, subject, relations };
 }

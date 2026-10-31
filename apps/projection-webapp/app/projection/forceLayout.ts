@@ -5,6 +5,7 @@
 // children, grandparents two, partners and siblings on the same row), and no
 // two names (or a name and a line's sentence) overlap.
 import { forceLink, forceManyBody, forceSimulation, type ForceLink, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force';
+import { WALL_FRAME, type Frame } from './frame';
 import { rng } from './stampStyle';
 import { WALL } from './wallLayout';
 
@@ -44,6 +45,10 @@ export class TreeLayout {
   private row = new Map<string, number>(); // generation relative to the root, up is positive
   private step = GENERATION;
   private middle = 0; // the row drawn at the wall's vertical centre
+  // The tree is laid out on a 1920×1080 wall of its own, then placed and
+  // scaled into the frame it opened in. Boxes come in, positions go out, in
+  // world units.
+  private frame: Frame = WALL_FRAME;
 
   constructor(onSettle: () => void) {
     this.onSettle = onSettle;
@@ -76,20 +81,30 @@ export class TreeLayout {
 
   pos(key: string): Point | undefined {
     const n = this.nodes.get(key);
+    const f = this.frame;
+    return n && n.x !== undefined ? { x: f.x + n.x * f.scale, y: f.y + n.y! * f.scale } : undefined;
+  }
+
+  private local(key: string): Point | undefined {
+    const n = this.nodes.get(key);
     return n && n.x !== undefined ? { x: n.x, y: n.y! } : undefined;
   }
 
   // Bring the simulation in line with what is shown. Reheats only when names
   // or lines were added; a changed box (focus moved) gets a gentle nudge.
-  sync(root: string, boxes: Map<string, Box>, edges: TreeEdge[]) {
+  // `frame` is only read when a new tree starts.
+  sync(root: string, boxes: Map<string, Box>, edges: TreeEdge[], frame: Frame = WALL_FRAME) {
     if (root !== this.root) {
       this.nodes.clear();
       this.root = root;
+      this.frame = frame;
     }
     for (const k of [...this.nodes.keys()]) if (!boxes.has(k)) this.nodes.delete(k);
     const fresh: N[] = [];
     let resized = false;
-    for (const [key, box] of boxes) {
+    const k = this.frame.scale;
+    for (const [key, world] of boxes) {
+      const box = k === 1 ? world : { hw: world.hw / k, up: world.up / k, down: world.down / k };
       const n = this.nodes.get(key);
       if (!n) {
         const m: N = { key, box };
@@ -109,9 +124,9 @@ export class TreeLayout {
           Object.assign(n, { x: 0, y: 0 });
           continue;
         }
-        const e = edges.find((e) => (e.from === n.key && this.pos(e.to)) || (e.to === n.key && this.pos(e.from)));
+        const e = edges.find((e) => (e.from === n.key && this.local(e.to)) || (e.to === n.key && this.local(e.from)));
         if (!e && pass < 3) continue;
-        const p = (e && this.pos(e.from === n.key ? e.to : e.from)) ?? { x: 0, y: 0 };
+        const p = (e && this.local(e.from === n.key ? e.to : e.from)) ?? { x: 0, y: 0 };
         const a = rng(hash(n.key))() * Math.PI * 2;
         Object.assign(n, { x: p.x + Math.cos(a) * 20, y: p.y + Math.sin(a) * 20 });
       }

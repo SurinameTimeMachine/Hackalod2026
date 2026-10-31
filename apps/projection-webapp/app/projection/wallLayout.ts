@@ -3,7 +3,8 @@
 // edge instead of a hard rectangle. Fonts are measured for real.
 import { comboCandidates, FONTS, rng, variation, type Combo } from './stampStyle';
 
-export const WALL = { width: 1920, height: 1080, margin: 48 };
+export type Bounds = { width: number; height: number; margin: number };
+export const WALL: Bounds = { width: 1920, height: 1080, margin: 48 };
 const FILL = 0.25; // share of the wall covered by (padded) text boxes; lower = airier
 const PAD_X = 0.7; // min clearance around a name, in em
 const PAD_Y = 0.55;
@@ -82,10 +83,10 @@ class Grid {
 const overlaps = (a: Omit<Box, 'combo' | 'cx' | 'cy'>, b: Box) =>
   a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 
-function scatter(items: Item[], size: number, measure: Measure): StampLayout[] | null {
+function scatter(items: Item[], size: number, measure: Measure, wall: Bounds): StampLayout[] | null {
   const r = rng(1921);
-  const hw = WALL.width / 2 - WALL.margin;
-  const hh = WALL.height / 2 - WALL.margin;
+  const hw = wall.width / 2 - wall.margin;
+  const hh = wall.height / 2 - wall.margin;
   const grid = new Grid(size * 4);
   const out: StampLayout[] = [];
 
@@ -164,7 +165,8 @@ function scatter(items: Item[], size: number, measure: Measure): StampLayout[] |
   return out;
 }
 
-export function layoutWall(items: Item[], measure: Measure): StampLayout[] {
+// `wall`: the area to fill, centred on the origin (a larger wall gets larger names).
+export function layoutWall(items: Item[], measure: Measure, wall: Bounds = WALL): StampLayout[] {
   // Longest names first: they are the hardest to fit.
   const ordered = shuffle(items, 1921)
     .map((it) => ({ it, w: measure(it.text, comboCandidates(it.id)[0].font) }))
@@ -172,14 +174,14 @@ export function layoutWall(items: Item[], measure: Measure): StampLayout[] {
     .map((x) => x.it);
 
   // Font size from the target fill, shrinking until every name finds a spot.
-  const area = (WALL.width - 2 * WALL.margin) * (WALL.height - 2 * WALL.margin);
+  const area = (wall.width - 2 * wall.margin) * (wall.height - 2 * wall.margin);
   const emArea = ordered.reduce(
     (sum, it) => sum + (measure(it.text, comboCandidates(it.id)[0].font) + PAD_X * 2) * (1 + PAD_Y * 2),
     0,
   );
   let size = Math.sqrt((area * FILL) / emArea);
   for (let i = 0; i < 12; i++, size *= 0.94) {
-    const out = scatter(ordered, size, measure);
+    const out = scatter(ordered, size, measure, wall);
     if (out) return out;
   }
   throw new Error('wall layout: names do not fit');

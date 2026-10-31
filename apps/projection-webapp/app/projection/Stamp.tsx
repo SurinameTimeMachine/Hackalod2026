@@ -1,7 +1,8 @@
 import { Text } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { useRef } from 'react';
+import { useContext, useRef, type RefObject } from 'react';
 import type { Group } from 'three';
+import { FrameContext, type Emphasis } from './frame';
 import { CAPTION_FONT, FONTS, INKS } from './stampStyle';
 import { WALL, type StampLayout } from './wallLayout';
 
@@ -16,6 +17,7 @@ export const captionSize = (s: StampLayout) => Math.max(s.size * 0.45, 6);
 export const captionTop = (s: StampLayout) => -s.size * 0.75;
 export const headlineBottom = (s: StampLayout) => s.size * 0.75;
 const FADE = 600; // ms
+const EMPHASIS_SCALE = 0.15; // a name being pointed at grows by up to this much
 
 type Props = {
   stamp: StampLayout;
@@ -26,12 +28,15 @@ type Props = {
   origin?: { x: number; y: number }; // glide in from here (the name it came from)
   at?: () => { x: number; y: number } | undefined; // live position (family tree), read every frame
   shown?: (x: number, y: number) => void; // where it is drawn this frame, for the lines
+  emphasis?: RefObject<Emphasis>; // brightens while `emphasis.key === emKey`
+  emKey?: string;
   onClick: () => void;
 };
 
 // One name: flat solid text on black, no frame. Opacity and scale ease
 // towards the target for the current state.
-export default function Stamp({ stamp, state, caption, headline, pulse, origin, at, shown, onClick }: Props) {
+export default function Stamp({ stamp, state, caption, headline, pulse, origin, at, shown, emphasis, emKey, onClick }: Props) {
+  const frame = useContext(FrameContext);
   const group = useRef<Group>(null);
   const name = useRef<{ fillOpacity: number } | null>(null);
   const target = state === 'dimmed' ? DIMMED : state === 'idle' ? stamp.opacity : 1;
@@ -51,10 +56,12 @@ export default function Stamp({ stamp, state, caption, headline, pulse, origin, 
     }
     const k = 1 - Math.exp((-dt * 1000 * 4) / FADE);
     const breathe = pulse ? 0.55 + 0.45 * (0.5 + 0.5 * Math.cos(clock.elapsedTime * 4)) : 1;
-    if (name.current) name.current.fillOpacity += (target * breathe - name.current.fillOpacity) * k;
+    const em = emKey !== undefined && emphasis?.current.key === emKey ? emphasis.current.amount : 0;
+    const opacity = target * breathe;
+    if (name.current) name.current.fillOpacity += (opacity + (1 - opacity) * em - name.current.fillOpacity) * k;
     const g = group.current;
     if (!g) return;
-    g.scale.setScalar(g.scale.x + (targetScale - g.scale.x) * k);
+    g.scale.setScalar(g.scale.x + (targetScale * (1 + EMPHASIS_SCALE * em) - g.scale.x) * k);
     const to = at?.() ?? stamp;
     g.position.x += (to.x - g.position.x) * k;
     g.position.y += (to.y - g.position.y) * k;
@@ -67,8 +74,8 @@ export default function Stamp({ stamp, state, caption, headline, pulse, origin, 
   const capSize = captionSize(stamp);
   const scale = LIT_SCALE.selected;
   const captionHalf = caption ? (Math.max(...caption.split('\n').map((l) => l.length)) * capSize * 0.6 * scale) / 2 : 0;
-  const edge = WALL.width / 2 - WALL.margin / 2;
-  const captionDx = (Math.min(Math.max(stamp.x, -edge + captionHalf), edge - captionHalf) - stamp.x) / scale;
+  const edge = (WALL.width / 2 - WALL.margin / 2) * frame.scale;
+  const captionDx = (Math.min(Math.max(stamp.x, frame.x - edge + captionHalf), frame.x + edge - captionHalf) - stamp.x) / scale;
 
   const click = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();

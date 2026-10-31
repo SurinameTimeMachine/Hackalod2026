@@ -39,7 +39,7 @@ export type Suggestion = {
   about: string | null; // "subject", "narrator" or another person's name
   is_subject: boolean; // this person is the scanned person themselves
   kind: 'relation' | 'fact' | 'place' | 'date' | null;
-  relation_type: string | null;
+  relation_type: string | null; // for persons: what they are of the subject (from `relations`)
   related_key: string | null;
   name_raw: string | null;
   field: string | null;
@@ -73,7 +73,12 @@ export type ResolvedSuggestion = Suggestion & {
 // not fit the story (or none was chosen): ask, with the records that do fit.
 export type SubjectCheck = { status: 'ok' | 'check' | 'none'; reason: string | null; options: MatchOption[] };
 
-export type ExtractResult = { summary: string; suggestions: ResolvedSuggestion[]; subject: SubjectCheck };
+// A tie between two people of a story: `to` is `type` of `from`. Ends are
+// entity ids ("s3"), "subject" or "narrator". Stored one way: elder → younger
+// (child / grandchild), so parent/grandparent never occur here.
+export type StoryRelation = { id: string; from: string; to: string; type: string; quote: string };
+
+export type ExtractResult = { summary: string; suggestions: ResolvedSuggestion[]; subject: SubjectCheck; relations: StoryRelation[] };
 
 // --- Saving (POST /contribute) ------------------------------------------------
 
@@ -108,6 +113,7 @@ export type StoryEntity = {
   row: ContributionRow | null; // what goes into the dataset, if anything
   row_id?: string | null; // set by the server
   narrator_relation: string | null; // how this person is related to the narrator ("mijn oma")
+  key?: string; // set by the server: the person's key (patient:/person: or told:<story>/<entity>)
 };
 
 // Who told the story.
@@ -120,6 +126,7 @@ export type ContributeRequest = {
   summary: string;
   entities: StoryEntity[];
   narrator: Narrator;
+  relations: StoryRelation[];
   consent: { publish: boolean; ai: boolean };
 };
 
@@ -132,6 +139,7 @@ export type SavedStory = {
   summary: string;
   entities: StoryEntity[];
   narrator: Narrator & { key: string };
+  relations: (StoryRelation & { row_id: string; from_key: string; to_key: string })[];
   created_at: string;
   reviewed: 0 | 1;
 };
@@ -152,7 +160,7 @@ export type ToldEdge = {
   // How a family tree draws it: which end is a generation (or two) up, or
   // side by side. Absent for friends / unknown.
   up?: string; // key of the elder end
-  generations?: 1 | 2;
+  generations?: 1 | 2 | 3;
   level?: boolean;
   story_id: string;
   narrator: string;

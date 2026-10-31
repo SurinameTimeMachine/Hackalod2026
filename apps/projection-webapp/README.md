@@ -58,6 +58,22 @@ Not yet: the projection side of those signals (see that file), showing saved sto
 
 **On a real phone** you need HTTPS for the camera and microphone: `brew install cloudflared`, run `pnpm dev`, then `pnpm dev:phone` and open the printed `https://….trycloudflare.com/scan` URL.
 
+## Searchlight mode (`/projection?mode=searchlight`, `/tracker`)
+
+A phone taped to the beamer turns the projection into a flashlight: the names stay fixed on the real wall and turning the beamer reveals another part of a virtual wall 3×2 beams large (names about 2.5× larger). Holding the beam on a name for 1.5 s selects it; holding it on empty wall for 3 s with a tree open steps back. The brief is `README_Searchlight.md` at the repository root.
+
+1. Run `pnpm dev` and `pnpm dev:phone`. On the phone (rotation lock on, auto-lock off), open `https://….trycloudflare.com/tracker` and tap **Start** (iOS asks for motion access; it needs HTTPS).
+2. Open `/projection?mode=searchlight` on the beamer's laptop, or press **S** on `/projection` to switch between static and searchlight.
+3. Point the beamer straight at the wall and tap **Calibrate** on the phone (or press **C**). The first pose also calibrates.
+
+Keys (searchlight only): **C** calibrate, **T** test grid (crosses every half beam), **V** soft beam edge, **[ ]** hFov ±0.5°, **; '** lens shift ±0.02, **- =** filter min cutoff, **9 0** filter beta, **P** save to localStorage and print the config JSON to the console (copy it into `searchlight/config.ts`), **D** debug overlay. Without a phone: drag with the mouse or use the arrow keys; `?sim=1` sweeps the beam slowly.
+
+Calibrating on site: tape a mark on one cross of the test grid and turn the beamer. The cross runs ahead of the turn → hFov too large (`[`); it lags → too small (`]`). Vertical mismatch while horizontal is right → lens shift (`;` `'`).
+
+Poses go from the phone over `POST /pose` and reach projections through `GET /pose` (server-sent events), like `/signals`: this Next.js app has no websocket server. Poses are relayed only to `/pose` listeners and never logged or stored. The projection acks twice a second, so the phone shows the latency to the wall. With several phones, the projection follows the one that started last.
+
+Code: `app/projection/searchlight/` (loaded only in searchlight mode), `app/tracker/` (no three.js), `app/pose/route.ts` + `app/server/pose.ts`. The shared wall code only gained optional inputs: `layoutWall(…, bounds)`, a frame for where a tree opens (`frame.ts`), and an emphasis ref that brightens the name being pointed at.
+
 ## Data
 
 - **The wall** comes live from `/api/suriname_person_search/mh1921_patienten.json`. In dev, `next.config.ts` proxies `/api/*` to `https://hackalod.sbco.design`; in production Caddy serves it on the same origin. If the API is down, the app falls back to `public/data/mh1921_patienten.json`.
