@@ -4,7 +4,7 @@
 // Written at sensor rate and read every frame, so it lives outside React;
 // `subscribe` is only for the few things that change what is rendered.
 import { Euler, Quaternion } from 'three';
-import { BEAM, loadConfig, saveConfig, wallBounds, type SearchlightConfig } from './config';
+import { BEAM, loadConfig, saveConfig, TARGET, wallBounds, type SearchlightConfig } from './config';
 import { deviceQuat } from './deviceQuat';
 import { OneEuro } from './oneEuro';
 import type { PoseMessage } from '../../shared/pose';
@@ -18,6 +18,7 @@ const ACK_EVERY = 500; // ms
 export const distance = (c: SearchlightConfig) => BEAM.width / 2 / Math.tan((c.hFov * DEG) / 2);
 
 const wrap = (deg: number, near: number) => deg + 360 * Math.round((near - deg) / 360);
+const round = (v: number, step: number) => Math.round(v / step) * step;
 
 export class Searchlight {
   config: SearchlightConfig = loadConfig();
@@ -163,6 +164,43 @@ export class Searchlight {
 
   setSim(on: boolean) {
     this.sim = on;
+  }
+
+  // Measure instead of guess: calibrated straight at the wall, tape on the
+  // target cross a quarter beam beside (or above/below) the centre, turned
+  // until the centre of the image is on the tape. The angle turned and the
+  // tape's place on the wall give the field of view (a sideways turn) or
+  // the lens shift (a tilt). `aspect`: width / height of the image.
+  fit(aspect: number): string {
+    const c = this.config;
+    const yaw = Math.abs(this.aim.yaw) * DEG;
+    const pitch = this.aim.pitch * DEG;
+    if (Math.max(yaw, Math.abs(pitch)) < 3 * DEG) return 'turn to the tape first (at least 3°)';
+    if (yaw >= Math.abs(pitch)) {
+      // The centre ray hits D·tan(yaw), with D = (beam width / 2) / tan(hFov / 2).
+      const hFov = round(2 * Math.atan(((BEAM.width / 2) * Math.tan(yaw)) / TARGET.x) / DEG, 0.1);
+      this.adjust({ hFov });
+      return `hFov ${hFov}° (turned ${(yaw / DEG).toFixed(1)}°)`;
+    }
+    // The centre ray leaves the lens at α0 above its axis (tan α0 = 2·shift·tanV)
+    // and, tilted by the pitch, hits D·(tan(pitch + α0) − tan α0) above the centre.
+    const tanH = Math.tan((c.hFov * DEG) / 2);
+    const tanV = tanH / aspect;
+    const d = BEAM.width / 2 / tanH;
+    const want = Math.sign(pitch) * TARGET.y;
+    let best = { shift: c.lensShiftY, err: Infinity };
+    for (let shift = -1; shift <= 2; shift += 0.001) {
+      const a0 = Math.atan(2 * shift * tanV);
+      if (Math.abs(pitch + a0) >= Math.PI / 2 - 0.01) continue;
+      const err = Math.abs(d * (Math.tan(pitch + a0) - Math.tan(a0)) - want);
+      if (err < best.err) best = { shift, err };
+    }
+    // No lens shift explains this tilt: the crosshair is not on the tape, or
+    // the field of view is not fitted yet (fit it first, with a sideways turn).
+    if (best.err > TARGET.y * 0.05) return 'no lens shift fits this tilt: fit hFov first, then tilt onto the tape';
+    const lensShiftY = round(best.shift, 0.01);
+    this.adjust({ lensShiftY });
+    return `lensShiftY ${lensShiftY} (tilted ${(pitch / DEG).toFixed(1)}°)`;
   }
 
   // Live calibration (§7 of the brief) and display toggles.

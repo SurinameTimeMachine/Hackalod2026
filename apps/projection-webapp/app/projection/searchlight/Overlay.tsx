@@ -24,7 +24,7 @@ const KEYS: Record<string, (c: SearchlightConfig) => Partial<SearchlightConfig>>
   '0': (c) => ({ beta: round(c.beta + 0.005, 0.001) }),
 };
 
-function useInputs(sl: Searchlight) {
+function useInputs(sl: Searchlight, note: (text: string) => void) {
   useEffect(() => sl.connect(), [sl]);
 
   useEffect(() => {
@@ -36,6 +36,9 @@ function useInputs(sl: Searchlight) {
       if (COARSE[e.code]) sl.adjust(COARSE[e.code](c, e.shiftKey ? 10 : 1));
       else if (KEYS[k]) sl.adjust(KEYS[k](c));
       else if (k === 'c') sl.calibrate();
+      else if (k === 'f') note(sl.fit(window.innerWidth / window.innerHeight));
+      else if (k === ',') sl.adjust({ beamOuter: Math.max(c.beamOuter - 5, 15), beamInner: Math.max(c.beamOuter - 5 - 25, 0) });
+      else if (k === '.') sl.adjust({ beamOuter: Math.min(c.beamOuter + 5, 120), beamInner: Math.min(c.beamOuter + 5 - 25, 95) });
       else if (k === 't') {
         sl.show.pattern = !sl.show.pattern;
         sl.changed();
@@ -52,7 +55,7 @@ function useInputs(sl: Searchlight) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [sl]);
+  }, [sl, note]);
 }
 
 // Only darkens, so black stays black.
@@ -63,9 +66,21 @@ function BeamEdge({ inner, outer }: { inner: number; outer: number }) {
         position: 'fixed',
         inset: 0,
         pointerEvents: 'none',
-        background: `radial-gradient(ellipse at center, transparent ${inner}%, #000 ${outer}%)`,
+        background: `radial-gradient(circle at center, transparent ${inner}%, #000 ${outer}%)`,
       }}
     />
+  );
+}
+
+// The middle of the image, for F: turn until it sits on the tape. Fixed to
+// the image, not the wall, so only shown with the test grid.
+function Crosshair() {
+  const arm = { position: 'fixed', background: '#ff5a3c', pointerEvents: 'none' } as const;
+  return (
+    <>
+      <div style={{ ...arm, left: 'calc(50% - 30px)', top: 'calc(50% - 1px)', width: 60, height: 2 }} />
+      <div style={{ ...arm, left: 'calc(50% - 1px)', top: 'calc(50% - 30px)', width: 2, height: 60 }} />
+    </>
   );
 }
 
@@ -86,7 +101,7 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
     `manual yaw ${sl.manual.yaw.toFixed(1)}°  pitch ${sl.manual.pitch.toFixed(1)}°`,
     `hFov ${c.hFov}° [ ] (Shift ×10)   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0`,
     `beam at x ${Math.round(sl.beam.x)}  y ${Math.round(sl.beam.y)}`,
-    `C calibrate  T pattern  V edge  P save  S static`,
+    `C calibrate  T pattern  F fit to tape  V edge  , . beam size  P save  S static`,
     JSON.stringify(c),
   ];
   return (
@@ -98,10 +113,19 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
 
 export default function Overlay({ sl, debug }: { sl: Searchlight; debug: boolean }) {
   useSyncExternalStore(sl.subscribe, sl.getVersion);
-  useInputs(sl);
+  // What F found, shown for a few seconds (it is projected).
+  const [fitNote, setFitNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!fitNote) return;
+    const t = setTimeout(() => setFitNote(null), 4000);
+    return () => clearTimeout(t);
+  }, [fitNote]);
+  useInputs(sl, setFitNote);
   return (
     <>
       {sl.show.edge && <BeamEdge inner={sl.config.beamInner} outer={sl.config.beamOuter} />}
+      {sl.show.pattern && <Crosshair />}
+      {fitNote && <div className="offline" style={{ color: '#e6dcc6', fontSize: 16 }}>{fitNote}</div>}
       {debug && <DebugOverlay sl={sl} />}
     </>
   );
