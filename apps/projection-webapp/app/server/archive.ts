@@ -154,3 +154,12 @@ export async function lifeOfKey(key: string): Promise<Life | null> {
   const [me] = await get<Row[]>('ui_person', { id: k.id, key: '' });
   return me ? lifeOf(str(me.role), num(me.event_year), str(me.source_dataset), num(me.age_numeric)) : null;
 }
+
+// The archive's stable id for a person: key (survives archive rebuilds), for
+// linking contributions. Null for anything that is not person:<id>.
+export async function obsKeyOf(key: string | null): Promise<string | null> {
+  const k = key ? parseKey(key) : null;
+  if (k?.kind !== 'person') return null;
+  const [me] = await get<Row[]>('ui_person', { id: k.id, key: '' }).catch(() => []);
+  return str(me?.obs_key);
+}

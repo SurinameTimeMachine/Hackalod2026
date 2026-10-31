@@ -42,7 +42,7 @@ A visitor photographs a name on the wall, confirms the person, and tells what th
 5. **Follow-up questions**: names with several archive candidates get a **?**. Questions are built in code from what separates the candidates (era, place, then a pick); "Help zoeken" walks through them. Archive search results are never picked for the visitor, and a pick that does not fit the story is checked again afterwards.
 6. **Save**: "Vertel over jezelf" (name, relation to the person, a short text, typed or spoken) plus consent, then `POST /contribute`. The narrator becomes a person of their own (`name:<uuid>`), related to the subject.
 
-**Saved stories** are stored as JSON lines in `data/contributions.jsonl` (gitignored, on the machine that runs the app) until the Datasette write is live. Per story: one `story` row with the full transcript and its `entities` (character offsets `start`/`end`, type, archive `link`, `row_id` of the dataset row it produced), one row per entity placed in the dataset, a `narrator` row and the narrator's `relation` row. Read them with:
+**Saved stories** go to the Datasette `contributions` database (`https://hackalod.sbco.design/api/contributions`, override with `CONTRIBUTIONS_BASE`) through its public write queries. Per story: one row in `stories` (full transcript, narrator), its entities in `story_entities` (character offsets `start`/`end`, type, archive `link`, `contribution_uid` of the dataset row it produced), and in `contributions` one row per entity placed in the dataset, a `narrator` row, the narrator's `relation` row and one `relation` row per tie the story told. `person_id` / `patient_id` / `obs_key` are filled in from the keys, so rows join the archive. A save Datasette refuses is kept in `data/failed.jsonl` (gitignored). Read them with:
 
 - `GET /story/all`: every story, newest first
 - `GET /story/for?key=patient:111`: stories about a person, or naming them as a linked entity
@@ -52,7 +52,7 @@ A dashboard can render a story clickable by cutting `transcript` at the entity o
 
 **Live signals to the wall:** `GET /signals` (server-sent events) carries `select` (a phone starts telling about a person) and `story-saved` (with exactly what the story added: told relatives, the storyteller, the new relations). `GET /story/graph?key=` gives everything stories added around a person. How the projection should show it: `STORIES_IN_CONSTELLATION.md`.
 
-Not yet: the projection side of those signals (see that file), showing saved stories on the phone, and a replay of the jsonl into Datasette.
+Not yet: showing saved stories on the phone.
 
 **Setup.** Put `OPENAI_API_KEY` in `.env` at the repo root (see `.env.example`); `next.config.ts` loads it. The key is only used server-side (`app/server/openai.ts`). Models are set in `app/server/config.ts`: `gpt-5.4-mini` for scan and extraction, `gpt-4o-transcribe` for speech. In dev, append `?model=` to a `/story/*` request to try another model.
 
