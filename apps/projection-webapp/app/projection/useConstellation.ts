@@ -21,6 +21,7 @@ import {
   toldCaption,
   toldReason,
   toldReference,
+  toldRole,
 } from '../shared/strings';
 import {
   expandPatient,
@@ -126,6 +127,15 @@ function mergeTold(g: Graph, told: ToldGraph, ctx: Context, fresh: boolean): Nod
       reason: toldReason(g.nodes.get(from)!.name, g.nodes.get(to)!.name, e.relation_type),
       reference: toldReference(e.narrator),
     });
+  }
+  // A new told name says who they are: "grandchild of …", from the first
+  // line that reads "this person is <relation> of …".
+  for (const key of made) {
+    const node = g.nodes.get(key)!;
+    if (node.kind !== 'told' && node.kind !== 'narrator') continue;
+    const e = told.edges.find((e) => toNodeKey(g, e.to, ctx) === key);
+    const of = e && g.nodes.get(toNodeKey(g, e.from, ctx) ?? '');
+    if (of) node.caption = `${toldRole(e.relation_type, of.name)}\n${node.caption}`;
   }
   for (const n of told.notes) {
     const key = toNodeKey(g, n.key, ctx);

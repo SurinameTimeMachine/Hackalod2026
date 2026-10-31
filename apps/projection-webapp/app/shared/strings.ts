@@ -102,6 +102,20 @@ export function toldReason(fromName: string, toName: string, relationType: strin
 }
 
 export const toldReference = (narrator: string) => `told by ${narrator} · not yet checked`;
+
+// Who a told person is, for their caption: "grandchild of Atmo 1425/WW".
+const TOLD_ROLE: Record<string, string> = {
+  parent: 'parent',
+  child: 'child',
+  sibling: 'sibling',
+  spouse: 'spouse',
+  grandparent: 'grandparent',
+  grandchild: 'grandchild',
+  friend: 'friend',
+  colleague: 'colleague',
+};
+export const toldRole = (relationType: string, ofName: string) =>
+  TOLD_RELATION[relationType] ? `${TOLD_ROLE[relationType]} of ${short(ofName)}` : `related to ${short(ofName)}`;
 export const toldCaption = (narrator: string) => `told by ${narrator}`;
 export const narratorCaption = (time?: string) => (time ? `told a story · ${time}` : 'told a story');
 export const newStory = (narrator: string) => `new story by ${narrator}`;
