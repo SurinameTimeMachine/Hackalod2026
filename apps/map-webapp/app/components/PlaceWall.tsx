@@ -19,9 +19,9 @@ import { specialPlaceForId } from '../lib/special-places';
 const HospitalProjection = dynamic(() => import('./wall/ProjectionPage'), { ssr: false });
 
 type Person = { person_id: number; full_name: string | null; role: string | null; source_dataset: string; event_year: number | null };
-type WallProps = { place: PeopleCluster; onClose: () => void; years: YearRange; onPerson: (selection: PersonSelection) => void; visible: boolean };
+type WallProps = { patientId?: number; place: PeopleCluster; onClose: () => void; years: YearRange; onPerson: (selection: PersonSelection) => void; visible: boolean };
 export default function PlaceWall(props: WallProps) {
-  return props.place.id === 'stm-1885-address-0327' && !props.years ? <HospitalWall onClose={props.onClose} onPerson={props.onPerson} visible={props.visible} /> : <GeneralWall {...props} />;
+  return props.place.id === 'stm-1885-address-0327' && !props.years ? <HospitalWall patientId={props.patientId} onClose={props.onClose} onPerson={props.onPerson} visible={props.visible} /> : <GeneralWall {...props} />;
 }
 
 function WallDialog({ titleId, onClose, visible, children }: { titleId: string; onClose: () => void; visible: boolean; children: ReactNode }) {
@@ -40,10 +40,10 @@ function WallDialog({ titleId, onClose, visible, children }: { titleId: string; 
   return <dialog ref={dialogRef} className="wall-overlay" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }}>{children}</dialog>;
 }
 
-function HospitalWall({ onClose, onPerson, visible }: Pick<WallProps, 'onClose' | 'onPerson' | 'visible'>) {
+function HospitalWall({ onClose, onPerson, visible, patientId }: Pick<WallProps, 'onClose' | 'onPerson' | 'visible' | 'patientId'>) {
   return <WallDialog titleId="hospital-wall-title" onClose={onClose} visible={visible}>
     <header className="wall-header"><h2 id="hospital-wall-title">’s Lands Hospitaal <span>· 1921</span></h2><button type="button" autoFocus onClick={onClose} aria-label="Namenmuur sluiten">Sluiten <span aria-hidden="true">×</span></button></header>
-    <div className="wall-canvas"><HospitalProjection onPerson={onPerson} /></div>
+    <div className="wall-canvas"><HospitalProjection onPerson={onPerson} patientId={patientId} /></div>
   </WallDialog>;
 }
 

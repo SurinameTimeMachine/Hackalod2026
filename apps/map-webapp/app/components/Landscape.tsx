@@ -37,6 +37,7 @@ export default function Landscape() {
   const [selectedPlace, setSelectedPlace] = useState<PeopleCluster | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<PeopleCluster[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonSelection | null>(null);
+  const [wallPatientId, setWallPatientId] = useState<number | undefined>();
   const [walkerIndex, setWalkerIndex] = useState<number | null>(null);
   const [hospitalPeople, setHospitalPeople] = useState<{ patient_id: number; achternaam: string; initialen_of_contractnr: string; geboortejaar: string }[]>([]);
   const [desktop, setDesktop] = useState(false);
@@ -475,7 +476,7 @@ export default function Landscape() {
       </section>}
       {(selectedPlace || selectedPerson) && !(hospitalFocused && walkerIndex !== null) && <section className="selection-panel" aria-label="Selectie">
         <button type="button" onClick={clearSelection} aria-label="Selectie sluiten">Sluiten</button>
-        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0 && !specialPlaceForId(selectedPlace.id)} onClick={() => { setWallPlace(selectedPlace); setWallVisible(true); }}>Open namenmuur</button></>}
+        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0 && !specialPlaceForId(selectedPlace.id)} onClick={() => { setWallPatientId(undefined); setWallPlace(selectedPlace); setWallVisible(true); }}>Open namenmuur</button></>}
         {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Naam onbekend'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Buiten de gekozen jaren.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} plaatsen op de kaart</p>}{selectedPerson.limited && <p>Sommige koppelingen ontbreken mogelijk.</p>}</>}
         {selectedPerson && wallPlace && !wallVisible && <button type="button" className="return-wall" onClick={() => setWallVisible(true)}>← Terug naar namenmuur</button>}
       </section>}
@@ -486,7 +487,7 @@ export default function Landscape() {
         <button type="button" className="mobile-time-toggle" aria-expanded={timeOpen} aria-controls="time-controls" onClick={() => setTimeOpen(value => !value)}>{timeOpen ? 'Tijd sluiten' : 'Tijd'}</button>
         <div id="time-controls" className="time-controls"><TimeSlider key={timeKey} onApply={applyTime} onCancel={() => timeRequest.current?.abort()} /></div>
       </div>
-      {wallPlace && <PlaceWall place={wallPlace} years={appliedYears} visible={wallVisible} onClose={() => { setWallVisible(false); setWallPlace(null); }} onPerson={selection => { setWallVisible(false); showPerson(selection); }} />}
+      {wallPlace && <PlaceWall patientId={wallPatientId} place={wallPlace} years={appliedYears} visible={wallVisible} onClose={() => { setWallVisible(false); setWallPlace(null); setWallPatientId(undefined); }} onPerson={selection => { setWallVisible(false); showPerson(selection); }} />}
 
     </main>
   );

@@ -26,7 +26,7 @@ async function loadFonts() {
   );
 }
 
-export default function ProjectionPage({ onPerson }: { onPerson: (selection: PersonSelection) => void }) {
+export default function ProjectionPage({ onPerson, patientId }: { onPerson: (selection: PersonSelection) => void; patientId?: number }) {
   const mobile = useMobileWall();
   const { patients, source } = usePatients();
   const { edges } = usePatientEdges();
@@ -36,7 +36,7 @@ export default function ProjectionPage({ onPerson }: { onPerson: (selection: Per
   const [fontsReady, setFontsReady] = useState(false);
   // ?patient=<id> opens the wall with that name selected (demo story).
   const [selectedId, setSelectedId] = useState<number | null>(() => {
-    const id = Number(new URLSearchParams(window.location.search).get('patient'));
+    const id = patientId ?? Number(new URLSearchParams(window.location.search).get('patient'));
     return Number.isInteger(id) && id > 0 ? id : null;
   });
   const [debug, setDebug] = useState(false);
