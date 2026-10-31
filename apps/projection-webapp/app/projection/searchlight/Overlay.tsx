@@ -20,8 +20,10 @@ const COARSE: Record<string, (c: SearchlightConfig, n: number) => Partial<Search
 const KEYS: Record<string, (c: SearchlightConfig) => Partial<SearchlightConfig>> = {
   '-': (c) => ({ minCutoff: round(Math.max(c.minCutoff - 0.1, 0.05), 0.05) }),
   '=': (c) => ({ minCutoff: round(c.minCutoff + 0.1, 0.05) }),
-  '9': (c) => ({ beta: round(Math.max(c.beta - 0.005, 0), 0.001) }),
-  '0': (c) => ({ beta: round(c.beta + 0.005, 0.001) }),
+  '9': (c) => ({ beta: round(Math.max(c.beta - 0.05, 0), 0.01) }),
+  '0': (c) => ({ beta: round(c.beta + 0.05, 0.01) }),
+  '7': (c) => ({ predictMs: Math.max(c.predictMs - 10, 0) }),
+  '8': (c) => ({ predictMs: Math.min(c.predictMs + 10, 250) }),
 };
 
 function useInputs(sl: Searchlight, note: (text: string) => void) {
@@ -108,7 +110,7 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
     `tracker: ${sl.lastPoseAt ? (lost ? 'LOST (frozen)' : `${Math.round(sl.poseRate)} Hz, age ${Math.round(age!)} ms`) : 'none yet'}`,
     `yaw ${sl.aim.yaw.toFixed(1)}°  pitch ${sl.aim.pitch.toFixed(1)}°  roll ${sl.aim.roll.toFixed(1)}°  speed ${sl.aim.speed.toFixed(0)}°/s`,
     `manual yaw ${sl.manual.yaw.toFixed(1)}°  pitch ${sl.manual.pitch.toFixed(1)}°`,
-    `hFov ${c.hFov}° [ ] (Shift ×10)   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0`,
+    `hFov ${c.hFov}° [ ] (Shift ×10)   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0   predict ${c.predictMs} ms 7 8`,
     `beam at x ${Math.round(sl.beam.x)}  y ${Math.round(sl.beam.y)}   radius ${c.beamRadius}% , .   names ×${c.wallScale} n m`,
     `C calibrate  T pattern  F fit to tape  V beam  , . beam size  n m name size  P save  S static`,
     JSON.stringify(c),

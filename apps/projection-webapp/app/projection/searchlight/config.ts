@@ -14,7 +14,7 @@ export type SearchlightConfig = {
   minCutoff: number; // One Euro filter, Hz
   beta: number; // One Euro filter: how fast the cutoff opens up with speed
   dCutoff: number; // Hz, for the speed estimate
-  predictMs: number; // extrapolate by this much (0 = off)
+  predictMs: number; // extrapolate the turn by this much, to hide network delay (0 = off)
   beamEdge: boolean;
   beamRadius: number; // round beam, % of half the image height (100: touches top and bottom)
   trackerLost: number; // ms without poses before the last one is frozen
@@ -29,9 +29,9 @@ export const DEFAULTS: SearchlightConfig = {
   ignoreRoll: true,
   invertYaw: false,
   invertPitch: false,
-  minCutoff: 1.0,
-  beta: 0.02,
-  dCutoff: 1.0,
+  minCutoff: 1.0, // calm when the beamer stands still…
+  beta: 0.3, // …but opens up fast when it turns (deg/s): little lag in motion
+  dCutoff: 2.0,
   predictMs: 0,
   beamEdge: true,
   beamRadius: 100,
@@ -40,18 +40,25 @@ export const DEFAULTS: SearchlightConfig = {
 };
 
 const STORE = 'searchlight-config';
+// Saves before version 2 carry the old, sluggish filter: keep their
+// calibration but not their filter.
+const VERSION = 2;
+const FILTER = ['minCutoff', 'beta', 'dCutoff', 'predictMs'] as const;
 
 export function loadConfig(): SearchlightConfig {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORE) ?? 'null');
-    if (saved && typeof saved === 'object') return { ...DEFAULTS, ...saved, wallBeams: { ...DEFAULTS.wallBeams, ...saved.wallBeams } };
+    const { v, ...saved } = JSON.parse(localStorage.getItem(STORE) ?? 'null') ?? {};
+    if (saved && typeof saved === 'object') {
+      if (v !== VERSION) for (const k of FILTER) delete saved[k];
+      return { ...DEFAULTS, ...saved, wallBeams: { ...DEFAULTS.wallBeams, ...saved.wallBeams } };
+    }
   } catch {}
   return { ...DEFAULTS, wallBeams: { ...DEFAULTS.wallBeams } };
 }
 
 export function saveConfig(c: SearchlightConfig) {
   try {
-    localStorage.setItem(STORE, JSON.stringify(c));
+    localStorage.setItem(STORE, JSON.stringify({ ...c, v: VERSION }));
   } catch {}
   console.log('searchlightConfig', JSON.stringify(c, null, 2));
 }
