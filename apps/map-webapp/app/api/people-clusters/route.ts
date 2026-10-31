@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { connection } from 'next/server';
 import linksData from '../../lib/data/plantation-gazetteer.json';
-import { parsePeoplePayload, peoplePayloadQuery, type PeopleResponse } from '../../lib/people-data';
+import { parsePeoplePayload, peoplePayloadQuery, peoplePayloadQueryFast, type PeopleResponse } from '../../lib/people-data';
 import { placeCluster, type PolygonGeometry } from '../../lib/people-placement';
 
 const API = 'https://hackalod.sbco.design/api/suriname_person_search.json';
@@ -11,13 +11,22 @@ const cached = new Map<string, { expires: number; value: PeopleResponse }>();
 const pending = new Map<string, Promise<PeopleResponse>>();
 
 async function loadClusters(years?: [number, number]): Promise<PeopleResponse> {
-  const url = new URL(API);
-  url.searchParams.set('sql', peoplePayloadQuery(!!years));
-  if (years) { url.searchParams.set('year_from', String(years[0])); url.searchParams.set('year_to', String(years[1])); }
-  url.searchParams.set('_shape', 'objects');
-  const response = await fetch(url, { signal: AbortSignal.timeout(30000), cache: 'no-store' });
-  if (!response.ok) throw new Error(`People API HTTP ${response.status}`);
-  const people = parsePeoplePayload(await response.json());
+  const query = async (sql: string, timeout: number) => {
+    const url = new URL(API);
+    url.searchParams.set('sql', sql);
+    if (years) { url.searchParams.set('year_from', String(years[0])); url.searchParams.set('year_to', String(years[1])); }
+    url.searchParams.set('_shape', 'objects');
+    const response = await fetch(url, { signal: AbortSignal.timeout(timeout), cache: 'no-store' });
+    if (!response.ok) throw new Error(`People API HTTP ${response.status}`);
+    return parsePeoplePayload(await response.json());
+  };
+  // Without a time range, read the precomputed counts (instant); fall back to the live
+  // aggregate (~20 s) when the archive database does not have map_place_counts yet.
+  let people;
+  if (!years) {
+    try { people = await query(peoplePayloadQueryFast(), 15000); } catch { people = undefined; }
+  }
+  people ??= await query(peoplePayloadQuery(!!years), 65000);
 
   const collection = JSON.parse(await readFile(path.join(process.cwd(), 'public/data/plantations-1930.geojson'), 'utf8')) as {
     features: { properties: { placeId: string }; geometry: PolygonGeometry }[];
