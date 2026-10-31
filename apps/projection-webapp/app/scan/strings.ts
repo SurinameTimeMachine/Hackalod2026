@@ -230,4 +230,5 @@ export const THANKS = {
   title: (name: string) => `Dank je, ${name}!`,
   body: (subject: string) => `Je verhaal is opgeslagen bij ${end(subject)} Het staat nu in de aanvullingen, als "nog niet gecontroleerd".`,
   again: 'Scan nog een naam',
+  wall: 'Kijk naar de muur: wat je vertelde verschijnt nu in de sterrenbeelden, en jij staat er zelf bij.',
 };

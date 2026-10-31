@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { ContributeRequest, SavedStory, StoryEntity } from '../shared/story';
+import type { ContributeRequest, SavedStory, StoryEntity, ToldEdge, ToldGraph, ToldNode } from '../shared/story';
 import { LIMITS } from './config';
 
 const DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
@@ -29,7 +29,7 @@ export function validate(body: unknown): ContributeRequest | string {
   return b as ContributeRequest;
 }
 
-export async function save(req: ContributeRequest): Promise<SavedStory> {
+export async function save(req: ContributeRequest): Promise<{ story: SavedStory; added: ToldGraph }> {
   const now = new Date().toISOString();
   const storyId = randomUUID();
   const narratorKey = `name:${randomUUID()}`;
@@ -128,7 +128,78 @@ export async function save(req: ContributeRequest): Promise<SavedStory> {
 
   await mkdir(DIR, { recursive: true });
   await appendFile(FILE, [storyRow, ...rows].map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8');
-  return story;
+  return { story, added: graphOf(story, rows) };
+}
+
+// --- What stories add to a constellation ------------------------------------
+
+// `to` is `type` of `from`: which end a family tree draws higher, and by how
+// many generations; partners and siblings side by side.
+function shape(type: string, from: string, to: string): Pick<ToldEdge, 'up' | 'generations' | 'level'> {
+  if (type === 'parent') return { up: to, generations: 1 };
+  if (type === 'grandparent') return { up: to, generations: 2 };
+  if (type === 'child') return { up: from, generations: 1 };
+  if (type === 'grandchild') return { up: from, generations: 2 };
+  if (type === 'spouse' || type === 'sibling') return { level: true };
+  return {};
+}
+
+const isArchive = (key: string) => /^(patient|person):/.test(key);
+
+function graphOf(story: SavedStory, rows: Record[]): ToldGraph {
+  const names = new Map<string, string>([
+    [story.person_key, story.person_name],
+    [story.narrator.key, story.narrator.name],
+  ]);
+  for (const e of story.entities) if (e.link && e.link_label && isArchive(e.link)) names.set(e.link, e.link_label);
+
+  const nodes = new Map<string, ToldNode>();
+  const node = (key: string, name?: string | null) => {
+    if (nodes.has(key)) return;
+    const kind = key === story.narrator.key ? 'narrator' : isArchive(key) ? 'archive' : 'told';
+    nodes.set(key, { key, name: name ?? names.get(key) ?? '?', kind, story_id: story.id });
+  };
+  node(story.person_key);
+
+  const edges: ToldEdge[] = [];
+  const facts: string[] = [];
+  for (const r of rows) {
+    if (r.kind === 'narrator') node(r.person_key, r.name_raw as string);
+    if (r.kind === 'relation') {
+      // A relative told by name only gets a stable key of their own.
+      const to = (r.related_key as string | null) ?? `told:${r.id}`;
+      node(r.person_key);
+      node(to, (r.name_raw as string | null) ?? names.get(to));
+      const type = (r.relation_type as string | null) ?? 'other';
+      edges.push({ id: r.id, from: r.person_key, to, relation_type: type, ...shape(type, r.person_key, to), story_id: story.id, narrator: story.narrator.name, quote: (r.quote as string | null) ?? null });
+    }
+    if (r.person_key === story.person_key && (r.kind === 'fact' || r.kind === 'place' || r.kind === 'date')) {
+      const text = r.kind === 'date' ? [r.value, r.year].filter(Boolean).join(' ') : r.kind === 'place' ? (r.place_raw ?? r.place_norm ?? r.value) : r.value;
+      if (text) facts.push(String(text));
+    }
+  }
+  return { nodes: [...nodes.values()], edges, notes: facts.length ? [{ key: story.person_key, text: facts.join(' · '), story_id: story.id }] : [] };
+}
+
+// Everything saved stories added around a key: stories about them, naming
+// them, told by them, or with a relation row pointing at them.
+export async function graphFor(key: string): Promise<ToldGraph> {
+  const all = await readAll();
+  const touched = new Set(all.filter((r) => r.story_id && (r.person_key === key || r.related_key === key)).map((r) => r.story_id as string));
+  const stories = all.filter(
+    (r) =>
+      r.kind === 'story' &&
+      (r.person_key === key || touched.has(r.id) || (r.entities as StoryEntity[] | undefined)?.some((e) => e.link === key) || (r.narrator as { key?: string } | undefined)?.key === key),
+  );
+  const out: ToldGraph = { nodes: [], edges: [], notes: [] };
+  const seen = new Set<string>();
+  for (const s of stories) {
+    const g = graphOf(asStory(s), all.filter((r) => r.story_id === s.id));
+    for (const n of g.nodes) if (!seen.has(n.key) && seen.add(n.key)) out.nodes.push(n);
+    out.edges.push(...g.edges);
+    out.notes.push(...g.notes);
+  }
+  return out;
 }
 
 async function readAll(): Promise<Record[]> {

@@ -135,3 +135,36 @@ export type SavedStory = {
   created_at: string;
   reviewed: 0 | 1;
 };
+
+// --- What a story adds to the constellation (GET /story/graph, signals) ------
+
+// A person a saved story brings in: an archive record it is about or links to,
+// a relative told by name only (`told:<row id>`), or the storyteller.
+export type ToldNode = { key: string; name: string; kind: 'archive' | 'told' | 'narrator'; story_id: string };
+
+// One told relation: `to` is `relation_type` of `from` (e.g. to = narrator,
+// relation_type = grandchild: the narrator is from's grandchild).
+export type ToldEdge = {
+  id: string; // contribution row id
+  from: string;
+  to: string;
+  relation_type: string;
+  // How a family tree draws it: which end is a generation (or two) up, or
+  // side by side. Absent for friends / unknown.
+  up?: string; // key of the elder end
+  generations?: 1 | 2;
+  level?: boolean;
+  story_id: string;
+  narrator: string;
+  quote: string | null;
+};
+
+// Facts a story told about a person, for a caption ("verpleegster · 1967").
+export type ToldNote = { key: string; text: string; story_id: string };
+
+export type ToldGraph = { nodes: ToldNode[]; edges: ToldEdge[]; notes: ToldNote[] };
+
+// Server → screens (GET /signals, server-sent events).
+export type Signal =
+  | { type: 'select'; key: string; name: string | null }
+  | { type: 'story-saved'; key: string; name: string; story_id: string; narrator: string; added: ToldGraph };

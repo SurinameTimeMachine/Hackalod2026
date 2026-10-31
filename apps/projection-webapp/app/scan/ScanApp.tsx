@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { INK_NAMES, INKS } from '../projection/stampStyle';
 import type { DisplayStamp } from '../shared/display';
+import { selectOnScreens } from '../shared/signalClient';
 import type { Candidate, PersonContext, ScanResult } from '../shared/story';
 import Dictate from './Dictate';
 import { downscale } from './downscale';
@@ -246,7 +247,15 @@ export default function ScanApp() {
               )}
             </div>
             <div className="found-foot">
-              <button type="button" className="bigbtn red" onClick={() => setScreen('dict')}>
+              <button
+                type="button"
+                className="bigbtn red"
+                onClick={() => {
+                  // The wall opens this person's constellation while the story is told.
+                  selectOnScreens(chosen.key, chosen.text);
+                  setScreen('dict');
+                }}
+              >
                 <Mic />
                 {FOUND.start}
               </button>
@@ -274,6 +283,7 @@ export default function ScanApp() {
             }}
             onSubject={(c) => {
               setChosen(c);
+              selectOnScreens(c.key, c.text);
               if (c.key.startsWith('name:')) return;
               fetch(`/story/context?key=${encodeURIComponent(c.key)}`)
                 .then((r) => (r.ok ? r.json() : null))
@@ -288,6 +298,7 @@ export default function ScanApp() {
             <div className="found-body">
               <h2>{THANKS.title(narrator)}</h2>
               <p className="lede">{THANKS.body(chosen.text)}</p>
+              <p className="lede">{THANKS.wall}</p>
             </div>
             <div className="found-foot">
               <button type="button" className="bigbtn dark" onClick={() => setScreen('home')}>

@@ -50,7 +50,9 @@ A visitor photographs a name on the wall, confirms the person, and tells what th
 
 A dashboard can render a story clickable by cutting `transcript` at the entity offsets and linking each piece to `link` (archive) or `row_id` (addition). Types in `app/shared/story.ts` (`SavedStory`, `StoryEntity`).
 
-Not yet: `/select` lighting the name on the wall, showing saved stories on the phone and the wall, and a replay of the jsonl into Datasette.
+**Live signals to the wall:** `GET /signals` (server-sent events) carries `select` (a phone starts telling about a person) and `story-saved` (with exactly what the story added: told relatives, the storyteller, the new relations). `GET /story/graph?key=` gives everything stories added around a person. How the projection should show it: `STORIES_IN_CONSTELLATION.md`.
+
+Not yet: the projection side of those signals (see that file), showing saved stories on the phone, and a replay of the jsonl into Datasette.
 
 **Setup.** Put `OPENAI_API_KEY` in `.env` at the repo root (see `.env.example`); `next.config.ts` loads it. The key is only used server-side (`app/server/openai.ts`). Models are set in `app/server/config.ts`: `gpt-5.4-mini` for scan and extraction, `gpt-4o-transcribe` for speech. In dev, append `?model=` to a `/story/*` request to try another model.
 
