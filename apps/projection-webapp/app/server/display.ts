@@ -1,7 +1,7 @@
 // In-memory display registry: per screen, the names it currently shows.
 // Display state, not archive data, so nothing is persisted; a restart simply
 // waits for the next report (screens re-report every few minutes).
-import type { DisplayScreen, DisplayStamp } from '../shared/display';
+import type { DisplayGuess, DisplayScreen, DisplayStamp } from '../shared/display';
 
 const STALE = 15 * 60_000; // drop screens not heard from for 15 min
 const MAX_STAMPS = 2000;
@@ -36,6 +36,13 @@ function cleanStamp(s: unknown): DisplayStamp | null {
   };
 }
 
+function cleanGuess(q: unknown): DisplayGuess | null {
+  if (!q || typeof q !== 'object') return null;
+  const t = q as Record<string, unknown>;
+  if (!Array.isArray(t.keys) || t.keys.length !== 2 || !t.keys.every((k) => str(k)) || !str(t.question, 500)) return null;
+  return { keys: [t.keys[0], t.keys[1]], question: t.question as string, source: t.source === 'archive' ? 'archive' : 'name' };
+}
+
 // Validates and stores a report; returns an error message if it is unusable.
 export function report(body: unknown): DisplayScreen | string {
   if (!body || typeof body !== 'object') return 'expected a JSON object';
@@ -48,6 +55,7 @@ export function report(body: unknown): DisplayScreen | string {
     view: b.view === 'constellation' ? 'constellation' : 'wall',
     focus: str(b.focus) ? (b.focus as string) : null,
     stamps,
+    guesses: Array.isArray(b.guesses) ? b.guesses.slice(0, MAX_STAMPS).map(cleanGuess).filter((q): q is DisplayGuess => !!q) : [],
     updatedAt: new Date().toISOString(),
   };
   registry.set(entry.screen, entry);

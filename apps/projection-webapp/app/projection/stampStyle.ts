@@ -31,6 +31,10 @@ export const INKS = [
 // Names for the inks, as reported to the display registry and the phone.
 export const INK_NAMES = ['bone', 'red', 'ochre', 'slate', 'green', 'violet'];
 
+// People only a visitor's story knows (told relatives, the storyteller): all
+// in handwriting and one ink, so they read as told, not archived.
+export const TOLD_COMBO = { font: FONTS.findIndex((f) => f.name === 'caveat'), ink: 0 };
+
 export function rng(seed: number) {
   let a = seed >>> 0;
   return () => {

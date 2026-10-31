@@ -1,5 +1,7 @@
 // One place for where data comes from. Relative URLs: in production /api/* is
 // served by Caddy on the same origin, in dev next.config.ts proxies it.
+import type { ToldGraph } from './story';
+
 export const API_BASE = '/api/suriname_person_search';
 
 export async function apiGet<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
@@ -14,16 +16,50 @@ export async function apiGet<T>(path: string, params: Record<string, string | nu
 // Failed requests are dropped from the cache so they can be retried.
 const cache = new Map<string, Promise<unknown>>();
 
+// At most this many archive requests in flight: a growing family tree asks
+// for hundreds, and the API is one small server.
+const PARALLEL = 6;
+let active = 0;
+const waiting: (() => void)[] = [];
+async function limited<T>(work: () => Promise<T>): Promise<T> {
+  if (active >= PARALLEL) await new Promise<void>((go) => waiting.push(go));
+  active++;
+  try {
+    return await work();
+  } finally {
+    active--;
+    waiting.shift()?.();
+  }
+}
+
 export function cachedGet<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
   const key = `${path}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`;
   let p = cache.get(key) as Promise<T> | undefined;
   if (!p) {
-    p = apiGet<T>(path, params);
+    p = limited(() => apiGet<T>(path, params));
     cache.set(key, p);
     p.catch(() => cache.delete(key));
   }
   return p;
 }
+
+// What saved stories added around a shared key (GET /story/graph), cached per
+// key like the archive queries. Every new story can touch several keys, so a
+// `story-saved` signal drops the whole cache.
+const stories = new Map<string, Promise<ToldGraph>>();
+const NOTHING: ToldGraph = { nodes: [], edges: [], notes: [] };
+
+export function storyGraph(key: string): Promise<ToldGraph> {
+  let p = stories.get(key);
+  if (!p) {
+    p = fetch(`/story/graph?key=${encodeURIComponent(key)}`).then((r) => (r.ok ? (r.json() as Promise<ToldGraph>) : NOTHING));
+    stories.set(key, p);
+    p.catch(() => stories.delete(key));
+  }
+  return p.catch(() => NOTHING);
+}
+
+export const forgetStories = () => stories.clear();
 
 export async function snapshot<T>(file: string): Promise<T> {
   const res = await fetch(`/data/${file}`);

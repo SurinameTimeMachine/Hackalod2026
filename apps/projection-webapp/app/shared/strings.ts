@@ -82,6 +82,34 @@ const join = (...parts: (string | number | null | undefined)[]) => parts.filter(
 
 const recordType = (t: string | null) => (t ? (RECORD_TYPES[t] ?? t.replace(/_/g, ' ')) : null);
 
+// --- Stories told on the phone ---------------------------------------------
+// A told edge reads "`to` is `relationType` of `from`".
+
+const TOLD_RELATION: Record<string, string> = {
+  parent: 'a parent',
+  child: 'a child',
+  sibling: 'a sibling',
+  spouse: 'the spouse',
+  grandparent: 'a grandparent',
+  grandchild: 'a grandchild',
+  friend: 'a friend',
+  colleague: 'a colleague',
+};
+
+export function toldReason(fromName: string, toName: string, relationType: string) {
+  const r = TOLD_RELATION[relationType];
+  return r ? `${short(toName)} is ${r} of ${short(fromName)}` : `${short(toName)} is related to ${short(fromName)}`;
+}
+
+export const toldReference = (narrator: string) => `told by ${narrator} · not yet checked`;
+export const toldCaption = (narrator: string) => `told by ${narrator}`;
+export const narratorCaption = (time?: string) => (time ? `told a story · ${time}` : 'told a story');
+export const newStory = (narrator: string) => `new story by ${narrator}`;
+
+// For the phone: a guess the tree rests on, for a visitor to confirm.
+export const guessQuestion = (aName: string, aRecord: string, bName: string, bRecord: string) =>
+  `Is ${aName} (${aRecord}) the same person as ${bName} (${bRecord})?`;
+
 // Small caption under a constellation name: who they are on their record.
 export function nodeCaption(role: string | null, ds: string | null, year: string | number | null) {
   return join(role, ds ? dataset(ds) : null, year);
@@ -151,6 +179,12 @@ function declared(a: string, b: string, kind: Kind, y: string) {
 
 const witnessed = (a: string, b: string, kind: Kind, y: string) => `${a} witnessed ${ACT[kind]} ${b}${y}`;
 
+// Family in the constellation: kinship rows, and the declarant of an
+// acknowledgement deed, who is the parent acknowledging the child.
+const KIN = new Set(['parent-child', 'spouse', 'partner', 'sibling', 'foster', 'related']);
+export const isFamily = (type: string, recordType: string | null) =>
+  KIN.has(type) || (type === 'declarant' && kindOf(recordType) === 'recognition');
+
 // A `relations` row: `from` is the parent, declarant, witness … of `to`.
 export function relationReason(
   type: string,
@@ -171,6 +205,10 @@ export function relationReason(
   if (type === 'same-person') return SAME_PERSON;
   if (type === 'parent-child') text = r === 'mother' || r === 'father' ? `${a} was the ${r} of ${b}` : `${a} was a parent of ${b}`;
   else if (type === 'spouse') text = `${a} was the spouse of ${b}`;
+  else if (type === 'partner') text = `${a} was the partner of ${b}`;
+  else if (type === 'sibling') text = `${a} and ${b} were siblings`;
+  else if (type === 'foster') text = `${a} was a foster parent of ${b}`;
+  else if (type === 'related') text = `${a} was related to ${b}`;
   else if (type === 'declarant') text = declared(a, b, kind, y);
   else if (type === 'witness') text = witnessed(a, b, kind, y);
   else text = `${a} — ${type.replace(/-/g, ' ')} — ${b}`;
