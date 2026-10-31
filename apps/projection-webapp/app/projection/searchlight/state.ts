@@ -137,18 +137,39 @@ export class Searchlight {
   // The beamer faces where the phone's top edge points (phone flat on top,
   // top towards the wall), or where its back points if it stands upright;
   // `mountYaw` turns that by 90° steps for other mounts (O).
+  private phoneHeading() {
+    let f = new Vector3(0, 1, 0).applyQuaternion(this.zero!);
+    if (Math.abs(f.y) > 0.7) f = new Vector3(0, 0, -1).applyQuaternion(this.zero!);
+    return Math.atan2(-f.x, -f.z);
+  }
+
   private findHeading() {
     if (!this.zero) return;
-    let f = new Vector3(0, 1, 0).applyQuaternion(this.zero);
-    if (Math.abs(f.y) > 0.7) f = new Vector3(0, 0, -1).applyQuaternion(this.zero);
-    const h = Math.atan2(-f.x, -f.z) + this.config.mountYaw * DEG;
-    this.heading.setFromAxisAngle(new Vector3(0, 1, 0), h);
+    this.heading.setFromAxisAngle(new Vector3(0, 1, 0), this.phoneHeading() + this.config.mountYaw * DEG);
     this.headingInv.copy(this.heading).invert();
   }
 
-  turnMount() {
-    this.adjust({ mountYaw: (this.config.mountYaw + 90) % 360 });
+  // O. Calibrated, then tilted up: the axis the beamer tilted around is its
+  // right-hand side, which fixes its heading whatever way the phone is taped
+  // on. Without a tilt: turn the assumed mount by 90°.
+  turnMount(): string {
+    if (this.zero && this.trackerLive) {
+      const delta = new Quaternion().copy(this.raw).multiply(this.zeroInv);
+      if (delta.w < 0) delta.set(-delta.x, -delta.y, -delta.z, -delta.w);
+      const angle = 2 * Math.acos(Math.min(delta.w, 1));
+      const flat = Math.hypot(delta.x, delta.z) / Math.max(Math.sin(angle / 2), 1e-9);
+      if (angle > 5 * DEG && flat > 0.8) {
+        // Right-hand side of a beamer facing heading h: (cos h, 0, −sin h).
+        const h = Math.atan2(-delta.z, delta.x);
+        const mountYaw = Math.round((((h - this.phoneHeading()) / DEG) % 360 + 360) % 360);
+        this.adjust({ mountYaw });
+        this.findHeading();
+        return `mount ${mountYaw}°, from a ${(angle / DEG).toFixed(0)}° tilt up`;
+      }
+    }
+    this.adjust({ mountYaw: (Math.round(this.config.mountYaw / 90) * 90 + 90) % 360 });
     this.findHeading();
+    return `mount ${this.config.mountYaw}° (to fit it: C straight, tilt up, O)`;
   }
 
   // The beamer's rotation since calibration, in the world frame: q · qZero⁻¹,
