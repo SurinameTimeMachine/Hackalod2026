@@ -11,6 +11,18 @@ const people: Record<string, { name: string; year: number }> = {
   '629315': { name: 'Susanna Francina Maria van Zorgen', year: 1891 },
   '481266': { name: 'Catharina Elisabeth Baank', year: 1841 },
   '150549': { name: 'Petronella Lodevica Esther van Zorgen', year: 1889 },
+  // Geboren in het hospitaal
+  '712147': { name: 'Sjiew-Oe-Joen', year: 1908 },
+  '582445': { name: 'June-Tjauw Won-Ton-Tja', year: 1880 },
+  '582447': { name: 'Won-Ton-Tja', year: 1880 },
+  '264647': { name: 'Ho-Alan', year: 1906 },
+  '712145': { name: 'Elize Helena Rosalina Sjiew-Oe-Joen', year: 1908 },
+  '721832': { name: 'Celina Anna Marie Won-Ton-Tja', year: 1910 },
+  '733076': { name: 'Mathilde Harriette Won-Ton-Tja', year: 1911 },
+  '1431205': { name: 'C.R. Sjiew Oe Joen', year: 1921 },
+  '786932': { name: 'Emelie', year: 1920 },
+  '1451372': { name: 'F.E. Sjiew Oe Joen', year: 1921 },
+  '1450781': { name: 'M. Sjieuw Oe Joen', year: 1921 },
   // Vrij sinds 1836
   '831685': { name: 'Christiana Biervliet', year: 1839 },
   '478243': { name: 'Charles Hendrik Boschman', year: 1839 },
@@ -60,6 +72,11 @@ const places: Record<string, { label: string; lat: number; lng: number }> = {
   'stm-06248': { label: 'Groningen (Saramacca)', lat: 5.794432744286655, lng: -55.47509896683244 },
   'stm-01933': { label: 'De Drie Gebroeders', lat: 5.606249035384615, lng: -55.0678860276923 },
   'stm-01983': { label: 'Beekhuizen', lat: 5.792310880416665, lng: -55.18540075333333 },
+  'stm-street-jodenbreestraat': { label: 'Jodenbreestraat', lat: 5.826027531752319, lng: -55.15895533267346 },
+  'stm-street-saramaccastraat': { label: 'Saramaccastraat', lat: 5.82209232467541, lng: -55.16237213066962 },
+  'stm-01327': { label: 'Ephrata (Cottica)', lat: 5.859142118181818, lng: -54.75009921454545 },
+  'stm-01255': { label: 'Guadeloupe (Beneden-Commewijne)', lat: 5.911208559999999, lng: -55.02539713875001 },
+  'stm-01253': { label: 'Johan en Margaretha', lat: 5.925381068, lng: -55.036235166 },
   'stm-01948': { label: 'Kwatta', lat: 5.846638741666666, lng: -55.22653475750001 },
 };
 

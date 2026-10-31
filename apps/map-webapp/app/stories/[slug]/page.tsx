@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { StoryText } from '../links';
 
-type StoryImage = { file: string; width: number; height: number; caption: string; full?: string; displayWidth?: number };
+type StoryImage = { file: string; width: number; height: number; caption: string; full?: string; displayWidth?: number; href?: string };
 type ImageGroup = { layout: 'single' | 'portraits' | 'clippings'; items: StoryImage[] };
 const images: Record<string, { folder: string; hero: StoryImage; chapters: Record<string, ImageGroup[]> }> = {
   'gekomen-gebleven': {
@@ -37,24 +37,35 @@ const images: Record<string, { folder: string; hero: StoryImage; chapters: Recor
   },
   'klerk-marechaussee-boer': {
     folder: '04-klerk-marechaussee-boer',
-    hero: { file: '01-straatgezicht-middelburg.jpg', width: 1018, height: 632, caption: 'Straatgezicht in Middelburg, negentiende eeuw. Hier werd Johannes Pieter de Graaff op 14 mei 1845 geboren. Zeeuws Archief.' },
+    hero: { href: 'https://hdl.handle.net/21.12113/06B809D30F104853A7C5DBFDBB34DA6D', file: '01-straatgezicht-middelburg.jpg', width: 1018, height: 632, caption: 'Straatgezicht in Middelburg, negentiende eeuw. Hier werd Johannes Pieter de Graaff op 14 mei 1845 geboren. Zeeuws Archief.' },
     chapters: {
-      'Middelburg, 14 mei 1845': [{ layout: 'single', items: [{ file: '02-geboorteakte-middelburg-1845.jpg', width: 937, height: 742, displayWidth: 664, caption: 'Geboorteakte van Johannes Pieter de Graaff, Middelburg, 15 mei 1845 (nr. 222). Aangever was de verloskundige Jacobus Johannes Pieterse; de moeder wordt genoemd als weduwe van Boudewijn de Graaff. Zeeuws Archief.' }] }],
-      'Kantoorklerk op plantage Waterloo': [{ layout: 'single', items: [{ file: '03-plantage-waterloo.jpg', width: 600, height: 357, displayWidth: 600, caption: 'Prentbriefkaart “Plantage Waterloo, Suriname, S. Amerika”. Universitaire Bibliotheken Leiden (KITLV), item 808307.' }] }],
-      'Marechaussee aan de Saramacca': [{ layout: 'single', items: [{ file: '04-politiepost-rivier.jpg', width: 600, height: 357, displayWidth: 600, caption: 'Een politiepost aan de rivier. Een foto van marechaussees uit zijn tijd is niet gevonden. Universitaire Bibliotheken Leiden (KITLV), item 925082.' }] }],
-      'Weduwnaar en landbouwer': [{ layout: 'single', items: [{ file: '05-boeroe-echtpaar.jpg', width: 960, height: 769, displayWidth: 480, caption: 'Een boeroe-echtpaar voor hun houten huis. Dit zijn niet De Graaff en zijn vrouw, maar leden van een andere boerenfamilie. Tropenmuseum, objectnummer 60006571, via Wikimedia Commons.' }] }],
-      '24 juli 1907, Gravenstraat B 2': [{ layout: 'single', items: [{ file: '06-overlijdensakte-1907.jpg', width: 1100, height: 1679, displayWidth: 550, caption: 'Overlijdensakte van Johannes Pieter de Graaff, Paramaribo, 24 juli 1907 (folio 775). Aangever Joseph van de Winkel, administrateur van het Militair Hospitaal. Nationaal Archief Suriname 2.10.61, inv. 1117, scan 0174.' }] }],
+      'Middelburg, 14 mei 1845': [{ layout: 'single', items: [{ href: 'https://www.openarchieven.nl/zar:53A1BDAE-81A0-41B8-90AE-1146F5BDD60C', file: '02-geboorteakte-middelburg-1845.jpg', width: 937, height: 742, displayWidth: 664, caption: 'Geboorteakte van Johannes Pieter de Graaff, Middelburg, 15 mei 1845 (nr. 222). Aangever was de verloskundige Jacobus Johannes Pieterse; de moeder wordt genoemd als weduwe van Boudewijn de Graaff. Zeeuws Archief.' }] }],
+      'Kantoorklerk op plantage Waterloo': [{ layout: 'single', items: [{ href: 'http://hdl.handle.net/1887.1/item:808307', file: '03-plantage-waterloo.jpg', width: 600, height: 357, displayWidth: 600, caption: 'Prentbriefkaart “Plantage Waterloo, Suriname, S. Amerika”. Universitaire Bibliotheken Leiden (KITLV), item 808307.' }] }],
+      'Marechaussee aan de Saramacca': [{ layout: 'single', items: [{ href: 'http://hdl.handle.net/1887.1/item:925082', file: '04-politiepost-rivier.jpg', width: 600, height: 357, displayWidth: 600, caption: 'Een politiepost aan de rivier. Een foto van marechaussees uit zijn tijd is niet gevonden. Universitaire Bibliotheken Leiden (KITLV), item 925082.' }] }],
+      'Weduwnaar en landbouwer': [{ layout: 'single', items: [{ href: 'https://commons.wikimedia.org/wiki/File:Tropenmuseum_Royal_Tropical_Institute_Objectnumber_60006571_Boeren_kolonisatie_in_Suriname._Rijsd.jpg', file: '05-boeroe-echtpaar.jpg', width: 960, height: 769, displayWidth: 480, caption: 'Een boeroe-echtpaar voor hun houten huis. Dit zijn niet De Graaff en zijn vrouw, maar leden van een andere boerenfamilie. Tropenmuseum, objectnummer 60006571, via Wikimedia Commons.' }] }],
+      '24 juli 1907, Gravenstraat B 2': [{ layout: 'single', items: [{ href: 'https://www.nationaalarchief.nl/onderzoeken/archief/2.10.61/invnr/@1117/file/NL-HaNA_2.10.61_1117_0174', file: '06-overlijdensakte-1907.jpg', width: 1100, height: 1679, displayWidth: 550, caption: 'Overlijdensakte van Johannes Pieter de Graaff, Paramaribo, 24 juli 1907 (folio 775). Aangever Joseph van de Winkel, administrateur van het Militair Hospitaal. Nationaal Archief Suriname 2.10.61, inv. 1117, scan 0174.' }] }],
+    },
+  },
+  'geboren-in-het-hospitaal': {
+    folder: '05-geboren-in-het-hospitaal',
+    hero: { href: 'https://www.rijksmuseum.nl/nl/collectie/object/Jodenbreestraat-in-Paramaribo--ad00791191eab7a2ebd2391a9e786967', file: '01-jodenbreestraat.jpg', width: 1400, height: 839, caption: 'De Jodenbreestraat in Paramaribo, waar June-Tjauw Won-Ton-Tja in 1880 werd geboren. Rijksmuseum.' },
+    chapters: {
+      'Een huwelijk aan huis, 1907': [{ layout: 'single', items: [
+        { file: '02-huwelijksakte-1907-nr161.jpg', width: 1600, height: 1296, displayWidth: 664, caption: 'Huwelijksakte nr. 161, Paramaribo, september 1907. Omdat de bruid ziek was, werd het huwelijk gesloten in het huis aan de Saramaccastraat, letter E nummer 21.' },
+        { file: '03-huwelijksakte-1907-handtekeningen.jpg', width: 1600, height: 1282, displayWidth: 664, caption: 'Het slot van de akte, met de handtekening “J. T. Won Ton Tja”. De bruidegom en de vader van de bruid verklaarden niet te kunnen schrijven; de akte werd voor hen in het Chinees vertolkt.' },
+      ] }],
+      'Vijf kinderen': [{ layout: 'single', items: [{ href: 'https://commons.wikimedia.org/wiki/File:Het_zendingsdorp_Ephrata_aan_de_Cotticarivier,_Suriname._-_Collectie_stichting_Nationaal_Museum_van_Wereldculturen_-_TM-60007145.jpg', file: '04-ephrata-cottica.jpg', width: 800, height: 540, displayWidth: 664, caption: 'Het zendingsdorp Ephrata aan de Cotticarivier, waar Cornelis Richenel in 1914 werd geboren. Nationaal Museum van Wereldculturen, TM-60007145, via Wikimedia Commons.' }] }],
     },
   },
   'vrij-sinds-1836': {
     folder: '03-vrij-sinds-1836',
-    hero: { file: '01-zwartenhovenbrugstraat-1955.jpg', width: 1280, height: 730, caption: 'De Zwartenhovenbrugstraat in 1955. Het familiehuis stond hier op erf E 218. Foto: Nationaal Archief, bestanddeelnr. 252-4935, via Wikimedia Commons.' },
+    hero: { href: 'https://commons.wikimedia.org/wiki/File:De_Zwartenhovenbrugstraat_in_Paramaribo,_Bestanddeelnr_252-4935.jpg', file: '01-zwartenhovenbrugstraat-1955.jpg', width: 1280, height: 730, caption: 'De Zwartenhovenbrugstraat in 1955. Het familiehuis stond hier op erf E 218. Foto: Nationaal Archief, bestanddeelnr. 252-4935, via Wikimedia Commons.' },
     chapters: {
-      'Vrij geworden, 17 februari 1836': [{ layout: 'single', items: [{ file: '02-krant-vrijlating-1835.jpg', width: 447, height: 199, displayWidth: 447, caption: 'Het vrijlatingsverzoek voor “de Slaven Jantje, Doris, Charles en Christiana”, Surinaamsche Courant, 18 april 1835 (Delpher).' }] }],
-      'Een erf aan de Zwartenhovenbrugstraat': [{ layout: 'single', items: [{ file: '03-wijkregister-1839.jpg', width: 1600, height: 1059, displayWidth: 664, caption: 'Wijkregister 1839, Zwartenhovenbrugstraat. Christiana Biervliet is de op een na onderste naam; erboven staan Amelia van Leesten en leden van de familie Boschman. Nationaal Archief 1.05.08.01, inv. 663, scan 0451.' }] }],
+      'Vrij geworden, 17 februari 1836': [{ layout: 'single', items: [{ href: 'https://resolver.kb.nl/resolve?urn=ddd:010670226:mpeg21:a0002', file: '02-krant-vrijlating-1835.jpg', width: 447, height: 199, displayWidth: 447, caption: 'Het vrijlatingsverzoek voor “de Slaven Jantje, Doris, Charles en Christiana”, Surinaamsche Courant, 18 april 1835 (Delpher).' }] }],
+      'Een erf aan de Zwartenhovenbrugstraat': [{ layout: 'single', items: [{ href: 'https://www.nationaalarchief.nl/onderzoeken/archief/1.05.08.01/invnr/663/file/NL-HaNA_1.05.08.01_663_0451', file: '03-wijkregister-1839.jpg', width: 1600, height: 1059, displayWidth: 664, caption: 'Wijkregister 1839, Zwartenhovenbrugstraat. Christiana Biervliet is de op een na onderste naam; erboven staan Amelia van Leesten en leden van de familie Boschman. Nationaal Archief 1.05.08.01, inv. 663, scan 0451.' }] }],
       'Bezitters van mensen': [{ layout: 'single', items: [{ file: '04-slavenregister-folio-2203.jpg', width: 1600, height: 1219, displayWidth: 664, caption: 'Slavenregister, folio 2203: de minderjarige kinderen Van Leesten en Biervliet, onder wie Henriëtte Floortje Biervliet, als eigenaars van Jan, Charles, Lambertus, Adriaan en Marianna, op 3 april 1850 gekocht van C.H. Boschman. Van het emancipatieregister zijn geen scans.' }] }],
-      'Gouddelver tussen twee tochten': [{ layout: 'single', items: [{ file: '05-goudplacer-1905-1910.jpg', width: 1000, height: 1273, displayWidth: 500, caption: 'Goudwasserij op een placer en arbeiders die een spoorweg graven, Suriname, 1905–1910. Fotograaf onbekend. Rijksmuseum, NG-2009-131-23, publiek domein.' }] }],
-      'Twee keer in het hospitaal, 1921': [{ layout: 'single', items: [{ file: '06-overlijdensbericht-1922.jpg', width: 412, height: 334, displayWidth: 412, caption: 'Rubriek Overleden, De Surinamer, 22 januari 1922: “12 Jan. … Biervliet, Michel J. 51 j.” (Delpher).' }] }],
+      'Gouddelver tussen twee tochten': [{ layout: 'single', items: [{ href: 'https://www.rijksmuseum.nl/nl/collectie/object/NG-2009-131-23--cda4a4d3f781a9c83d1160f5c23cda70', file: '05-goudplacer-1905-1910.jpg', width: 1000, height: 1273, displayWidth: 500, caption: 'Goudwasserij op een placer en arbeiders die een spoorweg graven, Suriname, 1905–1910. Fotograaf onbekend. Rijksmuseum, NG-2009-131-23, publiek domein.' }] }],
+      'Twee keer in het hospitaal, 1921': [{ layout: 'single', items: [{ href: 'https://resolver.kb.nl/resolve?urn=ddd:011217294:mpeg21:a0047', file: '06-overlijdensbericht-1922.jpg', width: 412, height: 334, displayWidth: 412, caption: 'Rubriek Overleden, De Surinamer, 22 januari 1922: “12 Jan. … Biervliet, Michel J. 51 j.” (Delpher).' }] }],
     },
   },
 };
@@ -63,8 +74,9 @@ function StoryFigure({ image, folder, hero = false }: { image: StoryImage; folde
   const base = `/verhalen-beelden/${folder}/`;
   const picture = <Image src={`${base}${image.file}`} alt={image.caption} width={image.width} height={image.height} sizes={hero ? '(max-width: 767px) 100vw, 1000px' : '(max-width: 767px) 100vw, 664px'} />;
   return <figure className={`story-figure${hero ? ' story-figure-hero' : ''}`} style={image.displayWidth ? { maxWidth: image.displayWidth } : undefined}>
-    {image.full ? <a href={`${base}${image.full}`} target="_blank" rel="noreferrer" aria-label={`${image.caption} Bekijk de volledige krantenpagina`}>{picture}</a> : picture}
-    <figcaption>{image.caption}{image.full && <> <a href={`${base}${image.full}`} target="_blank" rel="noreferrer">Bekijk de volledige krantenpagina ↗</a></>}</figcaption>
+    {image.full ? <a href={`${base}${image.full}`} target="_blank" rel="noreferrer" aria-label={`${image.caption} Bekijk de volledige krantenpagina`}>{picture}</a>
+      : image.href ? <a href={image.href} target="_blank" rel="noreferrer" aria-label={`${image.caption} Bekijk de bron`}>{picture}</a> : picture}
+    <figcaption>{image.caption}{image.full && <> <a href={`${base}${image.full}`} target="_blank" rel="noreferrer">Bekijk de volledige krantenpagina ↗</a></>}{image.href && <> <a href={image.href} target="_blank" rel="noreferrer">Bekijk de bron ↗</a></>}</figcaption>
   </figure>;
 }
 
@@ -139,6 +151,34 @@ const stories = {
       ] },
     ],
     sources: 'Bronnen: Zeeuws Archief (geboorte 1845, overlijden vader 1845, huwelijk ouders 1831, overlijden moeder 1864), overlijdens- en geboorteakten Paramaribo (Nationaal Archief Suriname 2.10.61), huwelijksakten 1881 en 1893, erkenning 1918, volkstellingen 1921 en 1950. Redactie: Nisha Marapin en Thunnis van Oort.',
+  },
+  'geboren-in-het-hospitaal': {
+    category: 'Familiegeschiedenis · China – Paramaribo – Commewijne · 1869–1950',
+    title: <>Geboren in het <em>hospitaal</em></>,
+    subtitle: 'Het gezin van Sjiew-Oe-Joen en June-Tjauw Won-Ton-Tja',
+    introduction: 'In de volkstelling van 1921 staat een kind uit het gezin [Sjiew-Oe-Joen](p:712147) als patiënt in ’s Lands Hospitaal. Twee van de kinderen werden er geboren. Het verhaal van een Chinees-Surinaams gezin tussen de Jodenbreestraat, de plantages aan de Commewijne en het hospitaal aan de Gravenstraat.',
+    sections: [
+      { heading: 'Jodenbreestraat C 87, 25 juni 1880', text: [
+        '[June-Tjauw Won-Ton-Tja](p:582445) werd geboren op 25 juni 1880 in de [Jodenbreestraat](g:stm-street-jodenbreestraat), huis C 87, als kind van [Won-Ton-Tja](p:582447), winkelier, en [Ho-Alan](p:264647).',
+        'Ho-Alan was in China geboren. Zij overleed op 25 april 1906 in de Tweede Buitenwijk, nummer 90, zestig jaar oud.',
+      ] },
+      { heading: 'Een huwelijk aan huis, 1907', text: [
+        'Sjiew-Oe-Joen en June trouwden in september 1907 in [Paramaribo](g:stm-06330). Hij was 38 jaar en winkelier, geboren in China rond 1869 als zoon van Sjiew Ngie en Tjoeng-Shee. Een geboorteakte kon hij niet overleggen; hij bevestigde zijn verklaring onder ede.',
+        'June was ziek. Daarom kwam de ambtenaar naar het huis aan de [Saramaccastraat](g:stm-street-saramaccastraat), letter E nummer 21. Haar vader was erbij en gaf toestemming. Omdat de bruidegom en de vader geen Nederlands spraken, werd de akte voor hen in het Chinees vertolkt.',
+      ] },
+      { heading: 'Vijf kinderen', text: [
+        'Met June-Tjauw Won-Ton-Tja kreeg hij vijf kinderen: [Elize Helena Rosalina Sjiew-Oe-Joen](p:712145), geboren op 21 juni 1908 in Paramaribo; [Celina Anna Marie Won-Ton-Tja](p:721832), geboren op 26 januari 1910 in het [Militair Hospitaal](g:stm-1885-address-0327); [Mathilde Harriette Won-Ton-Tja](p:733076), geboren op 18 december 1911 in Paramaribo; [Cornelis Richenel Sjiew-Oe-Joen](p:1431205), geboren op 30 augustus 1914 in [Ephrata](g:stm-01327) aan de Cottica; en [Emelie](p:786932), geboren op 7 november 1920 in Paramaribo, ook in het Militair Hospitaal.',
+        'Bij beide geboorten in het hospitaal deed niet de vader aangifte, maar het hospitaal zelf: in 1910 de administrateur, in 1920 de chef, een officier van gezondheid.',
+      ] },
+      { heading: 'Een kind bij een ander gezin', text: [
+        'Opmerkelijk is dat het paar nog een kind had dat bij de volkstelling niet bij hen inwoonde, maar bij een ander paar, als “niet verwante bestedeling”: [Francis Eleonor Sjiew-Oe-Joen](p:1451372), geboren op 10 september 1916 op [Guadeloupe](g:stm-01255) in Beneden-Commewijne.',
+        'Francis is ook te vinden in de volkstelling van 1950. Zij is dan de echtgenote van Kees Dragt; het paar woont aan de Mauritsstraat 16.',
+      ] },
+      { heading: 'In het hospitaal, 1921', ending: true, text: [
+        'In de volkstelling van 1921 woont het gezin op plantage [Johan en Margaretha](g:stm-01253) aan de Commewijne. Op de lijst van ’s Lands Hospitaal staat dan een [M. Sjieuw Oe Joen](p:1450781), geboren in 1912: vrijwel zeker de tienjarige Mathilde Harriette, die ook thuis op de lijst staat.',
+      ] },
+    ],
+    sources: 'Bronnen: geboorteakten Paramaribo 1880, 1908, 1910, 1911 en 1920 en overlijdensakte 1906 (Nationaal Archief Suriname 2.10.61), huwelijksakte nr. 161 Paramaribo 1907, volkstelling 1921 (Nationaal Archief 2.10.19.01, inv. 54, scans 0656 en 0785), lijst van patiënten ’s Lands Hospitaal 1921, volkstelling 1950.',
   },
   'vrij-sinds-1836': {
     category: 'Familiegeschiedenis · Paramaribo · 1835–1922',

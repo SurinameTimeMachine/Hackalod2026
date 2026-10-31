@@ -30,3 +30,7 @@ bestand	weergavebreedte (px)	bestandsmaat (px)	bijschrift
 04-klerk-marechaussee-boer/04-politiepost-rivier.jpg	600	600×357 (bron kleiner dan 2x)	Politiepost aan de rivier; Leiden/KITLV hdl 1887.1/item:925082 (hfst. 3)
 04-klerk-marechaussee-boer/05-boeroe-echtpaar.jpg	480	960×769	Boeroe-echtpaar (andere familie); Tropenmuseum 60006571 via Wikimedia Commons (hfst. 5)
 04-klerk-marechaussee-boer/06-overlijdensakte-1907.jpg	550	1100×1679	Overlijdensakte Paramaribo 24-07-1907, NAS 2.10.61 inv. 1117 scan 0174 (hfst. 6)
+05-geboren-in-het-hospitaal/01-jodenbreestraat.jpg	1000	1400×839	Jodenbreestraat, Paramaribo; Rijksmuseum (openingsbeeld)
+05-geboren-in-het-hospitaal/02-huwelijksakte-1907-nr161.jpg	664	1600×1296	Huwelijksakte nr. 161, Paramaribo 1907 (hfst. 2)
+05-geboren-in-het-hospitaal/03-huwelijksakte-1907-handtekeningen.jpg	664	1600×1282	Slot van de akte met handtekeningen (hfst. 2)
+05-geboren-in-het-hospitaal/04-ephrata-cottica.jpg	664	800×540 (bron kleiner dan 2x)	Zendingsdorp Ephrata aan de Cottica; Wereldmuseum TM-60007145 via Wikimedia Commons (hfst. 3)
