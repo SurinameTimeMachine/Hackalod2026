@@ -62,7 +62,11 @@ export class Searchlight {
   beam = { x: 0, y: 0 };
   dwell = { key: null as string | null, progress: 0, empty: 0 };
   private cooldown = 0;
-  private spent: string | null = null; // just selected: the beam has to leave it first
+  // A beam at rest acts once: after a selection or a step back (and at start)
+  // nothing happens until the beam has moved. Otherwise a still beamer loops:
+  // a tree opens, its name settles off the beam centre, the empty wall steps
+  // back, the name on the wall is selected again.
+  private armed = false;
   fps = 0;
 
   private version = 0;
@@ -176,9 +180,12 @@ export class Searchlight {
     const c = this.config;
     const dw = this.dwell;
     if (point) this.beam = point;
-    if (!point || this.cooldown > 0) {
+    const still = this.aim.speed < c.stillSpeed;
+    if (!still) this.armed = true;
+    if (!point || this.cooldown > 0 || !this.armed) {
       this.cooldown -= dt;
       em.amount = Math.max(em.amount - dt * 2, 0);
+      dw.key = null;
       dw.progress = dw.empty = 0;
       return;
     }
@@ -188,13 +195,6 @@ export class Searchlight {
       const d = reach(t, point.x, point.y);
       if (d < bestD) [best, bestD] = [t, d];
     }
-    const still = this.aim.speed < c.stillSpeed;
-    if (best?.key !== this.spent) this.spent = null;
-    if (best && best.key === this.spent) {
-      em.key = dw.key = null;
-      dw.progress = dw.empty = 0;
-      return;
-    }
     if (best) {
       dw.empty = 0;
       if (best.key !== dw.key) [dw.key, dw.progress] = [best.key, 0];
@@ -203,7 +203,7 @@ export class Searchlight {
       em.amount = dw.progress * dw.progress * (3 - 2 * dw.progress);
       if (dw.progress >= 1) {
         best.select();
-        this.spent = best.key;
+        this.armed = false;
         this.cooldown = c.cooldown;
         dw.progress = 0;
       }
@@ -214,6 +214,7 @@ export class Searchlight {
     dw.empty = open && still ? dw.empty + dt : 0;
     if (dw.empty >= c.backTime) {
       onBack();
+      this.armed = false;
       this.cooldown = c.cooldown;
       dw.empty = 0;
     }
