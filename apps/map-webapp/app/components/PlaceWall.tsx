@@ -77,7 +77,7 @@ function GeneralWall({ place, onClose, years }: { place: PeopleCluster; onClose:
   const stamps = useMemo(() => ready && !mobile && people.length ? layoutWall(people.map(p => ({ id: p.person_id, text: nameTag(p.full_name, p.event_year) })), makeMeasure()) : [], [people, ready, mobile]);
   const describe = useCallback((id: number) => {
     const p = people.find(person => person.person_id === id);
-    return p ? [roleLabel(p.role), 'Verbindingen voor deze plek zijn nog niet beschikbaar.'].filter(Boolean).join('\n') : '';
+    return p ? roleLabel(p.role) ?? '' : '';
   }, [people]);
   const changePage = (next: number) => { setLoading(true); setError(''); setSelected(null); setPage(next); };
   return <WallDialog titleId="wall-title" onClose={onClose}>

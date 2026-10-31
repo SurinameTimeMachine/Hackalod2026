@@ -15,7 +15,7 @@ export function addPlantations(map: Map) {
       minzoom: 8,
       paint: {
         'fill-color': '#10291f',
-        'fill-opacity': 0.06,
+        'fill-opacity': 0.02,
       },
     },
     'water',
@@ -31,9 +31,9 @@ export function addPlantations(map: Map) {
         'line-join': 'round',
       },
       paint: {
-        'line-color': '#10291f',
-        'line-width': 1.6,
-        'line-opacity': 0.5,
+        'line-color': '#77867c',
+        'line-width': 0.8,
+        'line-opacity': 0.22,
         'line-blur': 0.3,
       },
     },
@@ -52,7 +52,7 @@ export function addPlantations(map: Map) {
       paint: {
         'line-color': '#a2b39a',
         'line-width': 0.6,
-        'line-opacity': 0.3,
+        'line-opacity': 0.1,
         'line-translate': [0, -0.7],
         'line-translate-anchor': 'viewport',
       },

@@ -41,6 +41,22 @@ export const landscapeStyle: StyleSpecification = {
       data: '/data/suriname.geojson',
       attribution: 'Grens: GONINI / SBB',
     },
+    'historical-region': {
+      type: 'raster',
+      tiles: ['https://allmaps.xyz/{z}/{x}/{y}.png?url=https%3A%2F%2Fannotations.allmaps.org%2Fmanifests%2F5178b46e14dc211e'],
+      tileSize: 256,
+      bounds: [-58.4486, 3.9638, -53.6423, 6.576],
+      maxzoom: 14,
+      attribution: 'Historische kaart van Suriname (1930): Universiteit Leiden · Allmaps',
+    },
+    'historical-paramaribo': {
+      type: 'raster',
+      tiles: ['https://allmaps.xyz/{z}/{x}/{y}.png?url=https%3A%2F%2Fannotations.allmaps.org%2Fmaps%2Fa8b80690c8e2e4cb'],
+      tileSize: 256,
+      bounds: [-55.1867, 5.8048, -55.1364, 5.8555],
+      maxzoom: 18,
+      attribution: 'Paramaribo 1916–1917: Universiteit van Amsterdam · Allmaps',
+    },
   },
 
   layers: [
@@ -71,6 +87,27 @@ export const landscapeStyle: StyleSpecification = {
         'hillshade-shadow-color': '#a8b6a5',
         'hillshade-highlight-color': '#ffffff',
         'hillshade-accent-color': '#c4cfc0',
+      },
+    },
+    {
+      id: 'historical-region',
+      type: 'raster',
+      source: 'historical-region',
+      minzoom: 8,
+      maxzoom: 15,
+      paint: {
+        'raster-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0, 9, 0.35, 12, 0.35, 15, 0],
+        'raster-saturation': -1,
+      },
+    },
+    {
+      id: 'historical-paramaribo',
+      type: 'raster',
+      source: 'historical-paramaribo',
+      minzoom: 12,
+      paint: {
+        'raster-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 14, 0.38, 18, 0.38],
+        'raster-saturation': -1,
       },
     },
     {
