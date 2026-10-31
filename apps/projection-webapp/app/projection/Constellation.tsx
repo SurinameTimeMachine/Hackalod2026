@@ -1,7 +1,8 @@
 import { Line, Text } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useRef, useState } from 'react';
+import { useContext, useRef, useState, type RefObject } from 'react';
 import type { Point } from './forceLayout';
+import { FrameContext, type Emphasis } from './frame';
 import type { Group } from 'three';
 import Stamp, { type StampState } from './Stamp';
 import { CAPTION_FONT } from './stampStyle';
@@ -66,6 +67,7 @@ function clearance(s: StampLayout, scale: number, dx: number, dy: number, below 
 // A line between two names that may still be moving: it is rebuilt every
 // frame from where both names are drawn.
 function Thread({ line, drawn }: { line: ConstellationLine; drawn: Drawn }) {
+  const frame = useContext(FrameContext);
   const stroke = useRef<LineObject>(null);
   const label = useRef<Group>(null);
   const texts = useRef<({ fillOpacity: number } | null)[]>([]);
@@ -76,7 +78,7 @@ function Thread({ line, drawn }: { line: ConstellationLine; drawn: Drawn }) {
   // Courier Prime is monospaced: ~0.6 em per character.
   const labels = line.showReference ? [line.reason, line.reference] : [line.reason];
   const labelHalf = (Math.min(Math.max(line.reason.length, line.showReference ? line.reference.length * 0.8 : 0), 26 / 0.6) * size * 0.6) / 2;
-  const edge = WALL.width / 2 - WALL.margin / 2;
+  const edge = (WALL.width / 2 - WALL.margin / 2) * frame.scale;
 
   useFrame(({ clock }) => {
     const a = drawn.get(line.fromKey);
@@ -101,7 +103,7 @@ function Thread({ line, drawn }: { line: ConstellationLine; drawn: Drawn }) {
     // beamer, nudged inside the wall if it would run off an edge.
     const mid = start + (end - start) * line.labelAt;
     const g = label.current;
-    if (g) g.position.set(Math.min(Math.max(a.x + ux * mid, -edge + labelHalf), edge - labelHalf), a.y + uy * mid, 0.8);
+    if (g) g.position.set(Math.min(Math.max(a.x + ux * mid, frame.x - edge + labelHalf), frame.x + edge - labelHalf), a.y + uy * mid, 0.8);
     const o = Math.min(Math.max((t - DELAY - DRAW) / LABEL_FADE, 0), 1);
     for (const txt of texts.current) if (txt) txt.fillOpacity = o;
     if (g) g.visible = o > 0;
@@ -157,11 +159,13 @@ export default function Constellation({
   names,
   lines,
   at,
+  emphasis,
   onClick,
 }: {
   names: ConstellationName[];
   lines: ConstellationLine[];
   at: (key: string) => Point | undefined; // live layout position
+  emphasis?: RefObject<Emphasis>; // keyed by node key
   onClick: (key: string) => void;
 }) {
   const [drawn] = useState<Drawn>(() => new Map());
@@ -181,6 +185,8 @@ export default function Constellation({
           origin={n.origin}
           at={() => at(n.key)}
           shown={(x, y) => drawn.set(n.key, { x, y })}
+          emphasis={emphasis}
+          emKey={n.key}
           onClick={() => onClick(n.key)}
         />
       ))}

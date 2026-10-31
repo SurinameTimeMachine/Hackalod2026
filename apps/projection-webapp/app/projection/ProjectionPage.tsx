@@ -9,14 +9,19 @@ import { fromNodeKey, patientKey, personKey } from '../shared/keys';
 import { useSignals } from '../shared/signals';
 import { ARCHIVE_OFFLINE, displayName, guessQuestion, NO_TIES, subtitle } from '../shared/strings';
 import Constellation, { type ConstellationLine, type ConstellationName } from './Constellation';
-import { TreeLayout, type Box, type TreeEdge } from './forceLayout';
+import { TreeLayout, type Box, type Point, type TreeEdge } from './forceLayout';
+import { FrameContext, WALL_FRAME, type Emphasis, type Frame } from './frame';
 import type { GNode, NodeKey } from './graph';
 import { captionSize, captionTop, LIT_SCALE, type StampState } from './Stamp';
 import { comboCandidates, FONTS, INK_NAMES, TOLD_COMBO, variation } from './stampStyle';
 import { useConstellation } from './useConstellation';
 import { useDisplayReport } from './useDisplayReport';
 import Wall from './Wall';
-import { layoutWall, makeMeasure, WALL, type StampLayout } from './wallLayout';
+import { layoutWall, makeMeasure, WALL, type Bounds, type StampLayout } from './wallLayout';
+
+// Searchlight mode (README_Searchlight.md) is only loaded when switched on.
+type SearchlightModule = typeof import('./searchlight');
+type Mode = 'static' | 'searchlight';
 
 const IDLE_TIMEOUT = 60_000;
 const TELLING_HOLD = 8 * 60_000; // a phone is telling about this person: dictating takes a while
@@ -79,6 +84,22 @@ export default function ProjectionPage() {
   const [fontsReady, setFontsReady] = useState(false);
   const [debug, setDebug] = useState(false);
   const [lastInput, setLastInput] = useState(() => Date.now());
+  // `S` or ?mode=searchlight: the phone on the beamer turns a camera over a
+  // larger wall. Static is the single-beam view.
+  const [mode, setMode] = useState<Mode>(() => (new URLSearchParams(window.location.search).get('mode') === 'searchlight' ? 'searchlight' : 'static'));
+  const [searchlightModule, setSearchlightModule] = useState<SearchlightModule | null>(null);
+  useEffect(() => {
+    if (mode === 'searchlight' && !searchlightModule) import('./searchlight').then(setSearchlightModule);
+  }, [mode, searchlightModule]);
+  const searchlight = useMemo(() => (searchlightModule ? new searchlightModule.Searchlight() : null), [searchlightModule]);
+  const lit = mode === 'searchlight' ? searchlight : null;
+  // The area the names are spread over; null while the searchlight loads.
+  const bounds: Bounds | null = mode === 'static' ? WALL : (searchlight?.bounds ?? null);
+  // Open trees are drawn as much larger as the names are.
+  const frameScale = bounds ? Math.sqrt((bounds.width * bounds.height) / (WALL.width * WALL.height)) : 1;
+  const emphasis = useRef<Emphasis>({ key: null, amount: 0 });
+  // Where a new tree opens: the wall's centre, or where the beam points.
+  const beamPoint = useRef<() => Point>(() => ({ x: 0, y: 0 }));
   // ?patient=<id> opens the wall with that constellation (demo story).
   const [initialPatient] = useState(() => {
     const id = Number(new URLSearchParams(window.location.search).get('patient'));
@@ -92,12 +113,13 @@ export default function ProjectionPage() {
   const measure = useMemo(() => (fontsReady ? makeMeasure() : null), [fontsReady]);
 
   const stamps: StampLayout[] = useMemo(() => {
-    if (!patients || !measure) return [];
+    if (!patients || !measure || !bounds) return [];
     return layoutWall(
       patients.map((p) => ({ id: p.patient_id, text: displayName(p) })),
       measure,
+      bounds,
     );
-  }, [patients, measure]);
+  }, [patients, measure, bounds]);
 
   const byId = useMemo(() => new Map(patients?.map((p) => [p.patient_id, p]) ?? []), [patients]);
   const wallStamp = useMemo(() => new Map(stamps.map((s) => [s.id, s])), [stamps]);
@@ -170,10 +192,14 @@ export default function ProjectionPage() {
       touch();
       if (e.key === 'Escape') back();
       if (e.key === 'd' || e.key === 'D') setDebug((d) => !d);
+      if ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey) {
+        reset();
+        setMode((m) => (m === 'static' ? 'searchlight' : 'static'));
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [back, touch]);
+  }, [back, reset, touch]);
 
   useEffect(() => {
     if (!graph) return;
@@ -262,24 +288,60 @@ export default function ProjectionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, loading, fresh, headline, wallStamp, byId, nodeStamp, layout, settled]);
 
+  // A new tree opens in its own frame (where the beam is, in searchlight).
+  const [frame, setFrame] = useState<Frame>(WALL_FRAME);
+  const frameRoot = useRef<string | null>(null);
   useEffect(() => {
-    if (graph) layout.sync(graph.root, view.boxes, view.edges);
-  }, [graph, layout, view]);
+    if (!graph) {
+      frameRoot.current = null;
+      return;
+    }
+    let f = frame;
+    if (graph.root !== frameRoot.current) {
+      frameRoot.current = graph.root;
+      f = { ...beamPoint.current(), scale: frameScale };
+      setFrame(f);
+    }
+    layout.sync(graph.root, view.boxes, view.edges, f);
+  }, [graph, layout, view, frame, frameScale]);
+
+  // What the beam can select: names on the wall, or with a tree open the
+  // names in it, at their live positions.
+  const wallTargets = useMemo(
+    () => stamps.map((s) => ({ key: `p:${s.id}`, em: `wall:${s.id}`, x: s.x, y: s.y, hw: s.width / 2, hh: s.size / 2, select: () => onClick(`p:${s.id}`) })),
+    [stamps, onClick],
+  );
+  const targets = useRef(() => wallTargets);
+  useEffect(() => {
+    targets.current = !graph
+      ? () => wallTargets
+      : () =>
+          view.names.map((n) => {
+            const p = at(n.key) ?? n.stamp;
+            const k = LIT_SCALE[n.state === 'selected' ? 'selected' : 'related'];
+            return { key: n.key, em: n.key, x: p.x, y: p.y, hw: (n.stamp.width * k) / 2, hh: (n.stamp.size * k) / 2, select: () => onClick(n.key) };
+          });
+  }, [graph, view, wallTargets, at, onClick]);
+  const beamBack = useCallback(() => {
+    touch();
+    back();
+  }, [touch, back]);
 
   // The names a visitor can read right now, for the display registry: the
   // whole wall, or with a constellation open only its lit names (the dimmed
   // wall behind it is too faint to scan).
   const [screen] = useState(() => new URLSearchParams(window.location.search).get('screen') || SCREEN);
   const displayReport = useMemo((): DisplayReport | null => {
-    if (!stamps.length) return null;
+    if (!stamps.length || !bounds) return null;
+    const wall = bounds;
     const entry = (key: string, s: StampLayout, state: DisplayStamp['state'], subtitle?: string): DisplayStamp => ({
       key,
       text: s.text,
       font: FONTS[s.combo.font].name,
       color: INK_NAMES[s.combo.ink],
-      x: +((s.x + WALL.width / 2) / WALL.width).toFixed(4),
-      y: +((WALL.height / 2 - s.y) / WALL.height).toFixed(4),
-      size: +((s.size * (state === 'idle' ? 1 : LIT_SCALE[state])) / WALL.height).toFixed(4),
+      x: +((s.x + wall.width / 2) / wall.width).toFixed(4),
+      y: +((wall.height / 2 - s.y) / wall.height).toFixed(4),
+      size: +((s.size * (state === 'idle' ? 1 : LIT_SCALE[state])) / wall.height).toFixed(4),
       state,
       ...(subtitle ? { subtitle } : {}),
     });
@@ -303,18 +365,26 @@ export default function ProjectionPage() {
       ).values(),
     ];
     return { screen, view: 'constellation', focus: fromNodeKey(graph.focus), stamps: out, guesses };
-  }, [screen, stamps, graph, view, byId]);
+  }, [screen, stamps, bounds, graph, view, byId]);
   useDisplayReport(displayReport);
 
   return (
     <main style={{ position: 'fixed', inset: 0, background: '#000' }}>
-      <Canvas flat dpr={[1, 2]} onPointerMissed={reset}>
+      {/* In searchlight a click on the background is the end of a drag. */}
+      <Canvas flat dpr={[1, 2]} onPointerMissed={lit ? undefined : reset}>
         <color attach="background" args={['#000']} />
-        <FitWall />
+        {lit && searchlightModule ? (
+          <searchlightModule.Scene sl={lit} targets={() => targets.current()} open={!!graph} onBack={beamBack} emphasisRef={emphasis} beamPointRef={beamPoint} />
+        ) : (
+          <FitWall />
+        )}
         <Ticker layout={layout} />
-        <Wall stamps={stamps} open={!!graph} lit={NONE} captions={NO_CAPTIONS} pulsing={NO_PULSE} onClick={(id) => onClick(`p:${id}`)} />
-        <Constellation names={view.names} lines={view.lines} at={at} onClick={onClick} />
+        <FrameContext.Provider value={frame}>
+          <Wall stamps={stamps} open={!!graph} lit={NONE} captions={NO_CAPTIONS} pulsing={NO_PULSE} emphasis={emphasis} onClick={(id) => onClick(`p:${id}`)} />
+          <Constellation names={view.names} lines={view.lines} at={at} emphasis={emphasis} onClick={onClick} />
+        </FrameContext.Provider>
       </Canvas>
+      {lit && searchlightModule && <searchlightModule.Overlay sl={lit} debug={debug} />}
       {offline && <div className="offline">{ARCHIVE_OFFLINE}</div>}
       {debug && (
         <div className="debug">
