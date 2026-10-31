@@ -2,6 +2,20 @@
 // terminology are still open).
 import type { Patient, Tie } from './api';
 
+export function nameTag(name: string | null, year: number | null) {
+  return `${name?.trim() || 'Naam onbekend'}${year != null && Number.isInteger(year) ? `, ${year}` : ''}`;
+}
+
+export function roleLabel(role: string | null) {
+  const roles: Record<string, string> = {
+    child: 'kind', parent: 'ouder', deceased: 'overledene', informant: 'aangever',
+    witness: 'getuige', resident: 'bewoner', enslaved: 'tot slaaf gemaakt',
+    emancipated: 'vrijverklaard', bride: 'bruid', groom: 'bruidegom',
+    mother: 'moeder', father: 'vader', patient: 'patiënt',
+  };
+  return role ? roles[role] ?? null : null;
+}
+
 export function displayName(p: Patient) {
   return [p.achternaam, p.initialen_of_contractnr].filter(Boolean).join(' ');
 }

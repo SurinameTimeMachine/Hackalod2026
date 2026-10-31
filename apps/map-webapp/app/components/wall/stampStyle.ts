@@ -13,7 +13,7 @@ export const FONTS: StampFont[] = [
   { name: 'alfa-slab-one', url: '/fonts/alfa-slab-one.woff', weight: 2, scale: 0.88 },
   { name: 'im-fell-english', url: '/fonts/im-fell-english.woff', weight: 2, scale: 1.08 },
   { name: 'old-standard-tt', url: '/fonts/old-standard-tt.woff', weight: 2, scale: 1.02 },
-  { name: 'caveat', url: '/fonts/caveat.woff', weight: 2, scale: 1.2 },
+  { name: 'caveat', url: '/fonts/caveat.woff', weight: 6, scale: 1.2 },
 ];
 
 // Small explanatory text under a lit name: plain typewriter, for legibility.

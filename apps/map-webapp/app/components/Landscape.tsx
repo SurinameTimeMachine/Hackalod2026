@@ -85,6 +85,7 @@ export default function Landscape() {
         [-51, 9],
       ],
       renderWorldCopies: false,
+      attributionControl: false,
       pixelRatio: Math.min(window.devicePixelRatio, 1.5),
       hash: 'view',
     });
@@ -137,6 +138,20 @@ export default function Landscape() {
       void loadPeople();
     };
 
+    const attribution = new maplibregl.AttributionControl({ compact: true, customAttribution: '<a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">MapLibre</a>' });
+    map.addControl(attribution, 'bottom-right');
+    const attributionElement = map.getContainer().querySelector<HTMLDetailsElement>('.maplibregl-ctrl-attrib');
+    let attributionTouched = false;
+    const rememberAttributionClick = () => { attributionTouched = true; };
+    const closeInitialAttribution = () => {
+      if (attributionTouched || !attributionElement) return;
+      attributionElement.classList.remove('maplibregl-compact-show');
+      attributionElement.removeAttribute('open');
+    };
+    attributionElement?.addEventListener('click', rememberAttributionClick, true);
+    map.on('sourcedata', closeInitialAttribution);
+    map.on('styledata', closeInitialAttribution);
+    closeInitialAttribution();
     map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
     map.on('load', () => {
@@ -181,6 +196,9 @@ export default function Landscape() {
 
     return () => {
       controller.abort();
+      attributionElement?.removeEventListener('click', rememberAttributionClick, true);
+      map.off('sourcedata', closeInitialAttribution);
+      map.off('styledata', closeInitialAttribution);
       timeRequest.current?.abort();
       allClusters.current = [];
       retryPeople.current = null;

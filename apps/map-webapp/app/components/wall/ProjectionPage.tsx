@@ -1,25 +1,16 @@
 'use client';
 
-import { OrthographicCamera } from '@react-three/drei';
-import { Canvas, useThree } from '@react-three/fiber';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePatientEdges, usePatients } from '../shared/hooks';
 import { useSignals } from '../shared/signals';
 import type { Tie } from '../shared/api';
-import { displayName, isCertain, NO_TIES, strongestTie, subtitle, tieReason, tieReference } from '../shared/strings';
-import { layoutWall, makeMeasure, WALL, type StampLayout } from './wallLayout';
+import { displayName, isCertain, nameTag, NO_TIES, strongestTie, subtitle, tieReason, tieReference } from '../shared/strings';
+import { layoutWall, makeMeasure, type StampLayout } from './wallLayout';
 import { FONTS } from './stampStyle';
 import Wall from './Wall';
 import { useMobileWall } from './useMobileWall';
-
-const IDLE_TIMEOUT = 60_000;
-
-// Fit the 1920×1080 wall into whatever the window is.
-function FitWall() {
-  const size = useThree((s) => s.size);
-  const zoom = Math.min(size.width / WALL.width, size.height / WALL.height);
-  return <OrthographicCamera makeDefault position={[0, 0, 100]} near={0.1} far={1000} zoom={zoom} />;
-}
+import WallCamera from './WallCamera';
 
 async function loadFonts() {
   await Promise.all(
@@ -33,7 +24,7 @@ async function loadFonts() {
 export default function ProjectionPage() {
   const mobile = useMobileWall();
   const { patients, source } = usePatients();
-  const edges = usePatientEdges();
+  const { edges, status: edgesStatus } = usePatientEdges();
   const [fontsReady, setFontsReady] = useState(false);
   // ?patient=<id> opens the wall with that name selected (demo story).
   const [selectedId, setSelectedId] = useState<number | null>(() => {
@@ -41,7 +32,13 @@ export default function ProjectionPage() {
     return Number.isInteger(id) && id > 0 ? id : null;
   });
   const [debug, setDebug] = useState(false);
-  const [lastInput, setLastInput] = useState(() => Date.now());
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!mobile || selectedId == null) return;
+    const item = listRef.current?.querySelector<HTMLElement>(`[data-person-id="${selectedId}"]`);
+    item?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+  }, [mobile, selectedId, patients]);
 
   useEffect(() => {
     loadFonts().finally(() => setFontsReady(true));
@@ -51,7 +48,7 @@ export default function ProjectionPage() {
     if (!patients || !fontsReady || mobile) return [];
     const measure = makeMeasure();
     return layoutWall(
-      patients.map((p) => ({ id: p.patient_id, text: displayName(p) })),
+      patients.map((p) => ({ id: p.patient_id, text: nameTag(displayName(p), 1921) })),
       measure,
     );
   }, [patients, fontsReady, mobile]);
@@ -60,7 +57,6 @@ export default function ProjectionPage() {
 
   const select = useCallback((id: number | null) => {
     setSelectedId(id);
-    setLastInput(Date.now());
   }, []);
   useSignals(select);
 
@@ -73,19 +69,13 @@ export default function ProjectionPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [select]);
 
-  useEffect(() => {
-    if (selectedId == null) return;
-    const t = setTimeout(() => setSelectedId(null), IDLE_TIMEOUT - (Date.now() - lastInput));
-    return () => clearTimeout(t);
-  }, [selectedId, lastInput]);
-
   const describeSelected = useCallback(
     (id: number, hasTies: boolean) => {
       const p = byId.get(id);
       if (!p) return '';
-      return hasTies ? subtitle(p) : `${subtitle(p)}\n${NO_TIES}`;
+      return hasTies || edgesStatus !== 'ready' ? subtitle(p) : `${subtitle(p)}\n${NO_TIES}`;
     },
-    [byId],
+    [byId, edgesStatus],
   );
 
   const describeTie = useCallback(
@@ -97,25 +87,30 @@ export default function ProjectionPage() {
     [byId],
   );
 
+  const selectedPatient = selectedId == null ? undefined : byId.get(selectedId);
+  const related = selectedPatient ? edges.flatMap(edge => {
+    const otherId = edge.a === selectedId ? edge.b : edge.b === selectedId ? edge.a : null;
+    const person = otherId == null ? undefined : byId.get(otherId);
+    if (!person || edge.ties.length === 0) return [];
+    const detail = describeTie(edge.ties, edge.a, edge.b);
+    return [{ person, ...detail }];
+  }) : [];
+
   return (
-    <main style={{ position: 'absolute', inset: 0, background: '#fbfaf6' }}>
-      {mobile ? <div className="wall-name-list">
+    <main style={{ position: 'absolute', inset: 0 }}>
+      {mobile ? <div className="wall-name-list" ref={listRef}>
         {source === 'loading' && <p role="status">Namen laden…</p>}
         {source === 'failed' && <p role="alert">De namen konden niet worden geladen.</p>}
-        {patients?.map(patient => {
-          const relatedIds = edges.flatMap(edge => edge.a === patient.patient_id ? [edge.b] : edge.b === patient.patient_id ? [edge.a] : []);
-          const names = relatedIds.map(id => byId.get(id)).filter((item): item is NonNullable<typeof item> => !!item).map(displayName);
-          return <button type="button" className="wall-name" key={patient.patient_id} aria-expanded={selectedId === patient.patient_id} onClick={() => select(selectedId === patient.patient_id ? null : patient.patient_id)}>
-            <span>{displayName(patient) || 'Naam onbekend'}</span>{selectedId === patient.patient_id && <small>{subtitle(patient)}{names.length > 0 && <> · {names.join(', ')}</>}</small>}
-          </button>;
-        })}
+        {patients?.map((patient, index) => <button type="button" className={`wall-name tag-style-${index % 4}`} key={patient.patient_id} data-person-id={patient.patient_id} aria-expanded={selectedId === patient.patient_id} onClick={() => select(selectedId === patient.patient_id ? null : patient.patient_id)}>
+          <span>{nameTag(displayName(patient), 1921)}</span>
+        </button>)}
       </div> : <Canvas
         flat
+        gl={{ alpha: true }}
         dpr={[1, 2]}
         onPointerMissed={() => select(null)}
       >
-        <color attach="background" args={['#fbfaf6']} />
-        <FitWall />
+        <WallCamera selected={stamps.find(stamp => stamp.id === selectedId)} caption={selectedId == null ? '' : describeSelected(selectedId, related.length > 0)} detailsPanel />
         <Wall
           stamps={stamps}
           edges={edges}
@@ -125,6 +120,12 @@ export default function ProjectionPage() {
           describeTie={describeTie}
         />
       </Canvas>}
+      {selectedPatient && <aside className="wall-person-details" aria-label="Persoonsgegevens">
+        <button type="button" className="wall-details-close" aria-label="Persoonsgegevens sluiten" onClick={() => select(null)}>×</button>
+        <h3>{nameTag(displayName(selectedPatient), 1921)}</h3>
+        {selectedPatient.geboortejaar && selectedPatient.geboortejaar !== '?' && <p>Geboren: {selectedPatient.geboortejaar}</p>}
+        {edgesStatus === 'loading' ? <p>Verbindingen laden…</p> : edgesStatus === 'failed' ? <p>Verbindingen konden niet worden geladen.</p> : related.length > 0 ? <><strong>Verbindingen</strong><ul>{related.map(({ person, reason, reference }) => <li key={person.patient_id}><button type="button" onClick={() => select(person.patient_id)}>{nameTag(displayName(person), 1921)}</button><small>{reason}{reference && ` · ${reference}`}</small></li>)}</ul></> : <p>Geen bekende verbindingen op deze muur.</p>}
+      </aside>}
       {debug && (
         <div className="debug">
           {`data: ${source}\nnames: ${stamps.length} @ ${stamps[0]?.size.toFixed(1) ?? '–'} units\npatient pairs with ties: ${edges.length}\nselected: ${selectedId ?? '–'}`}

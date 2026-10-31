@@ -3,7 +3,7 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useRef } from 'react';
 import type { Group } from 'three';
 import { CAPTION_FONT, FONTS, INKS } from './stampStyle';
-import { WALL, type StampLayout } from './wallLayout';
+import type { StampLayout } from './wallLayout';
 
 export type StampState = 'idle' | 'selected' | 'related' | 'dimmed';
 
@@ -27,24 +27,21 @@ type Props = {
 // towards the target for the current state.
 export default function Stamp({ stamp, state, caption, onSelect }: Props) {
   const group = useRef<Group>(null);
-  const name = useRef<{ fillOpacity: number } | null>(null);
+  const name = useRef<{ fillOpacity: number; strokeOpacity: number } | null>(null);
   const target = state === 'dimmed' ? DIMMED : state === 'idle' ? stamp.opacity : 1;
   const targetScale = state === 'selected' ? LIT_SCALE.selected : state === 'related' ? LIT_SCALE.related : 1;
 
   useFrame((_, dt) => {
     const k = 1 - Math.exp((-dt * 1000 * 4) / FADE);
-    if (name.current) name.current.fillOpacity += (target - name.current.fillOpacity) * k;
+    if (name.current) {
+      name.current.fillOpacity += (target - name.current.fillOpacity) * k;
+      name.current.strokeOpacity += (target * 0.22 - name.current.strokeOpacity) * k;
+    }
     const g = group.current;
     if (g) g.scale.setScalar(g.scale.x + (targetScale - g.scale.x) * k);
   });
 
-  // Keep the caption inside the wall when the name sits near an edge
-  // (Courier Prime: ~0.6 em per character).
   const capSize = captionSize(stamp);
-  const scale = LIT_SCALE.selected;
-  const captionHalf = caption ? (Math.max(...caption.split('\n').map((l) => l.length)) * capSize * 0.6 * scale) / 2 : 0;
-  const edge = WALL.width / 2 - WALL.margin / 2;
-  const captionDx = (Math.min(Math.max(stamp.x, -edge + captionHalf), edge - captionHalf) - stamp.x) / scale;
 
   const click = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -59,6 +56,9 @@ export default function Stamp({ stamp, state, caption, onSelect }: Props) {
         fontSize={stamp.size * FONTS[stamp.combo.font].scale}
         color={INKS[stamp.combo.ink]}
         fillOpacity={stamp.opacity}
+        strokeWidth={stamp.size * 0.018}
+        strokeColor={INKS[stamp.combo.ink]}
+        strokeOpacity={stamp.opacity * 0.22}
         anchorX="center"
         anchorY="middle"
         onClick={click}
@@ -76,7 +76,7 @@ export default function Stamp({ stamp, state, caption, onSelect }: Props) {
           anchorY="top"
           textAlign="center"
           lineHeight={1.25}
-          position={[captionDx, captionTop(stamp), 0]}
+          position={[0, captionTop(stamp), 0]}
         >
           {caption}
         </Text>
