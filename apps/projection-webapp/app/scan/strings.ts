@@ -69,13 +69,16 @@ export const DICT = {
   back: '← Terug naar de lijst',
   ok: 'Klopt',
   remove: 'Weghalen',
+  restore: 'Terugzetten',
+  removedToast: 'Weggehaald. Tik op het woord om het terug te zetten.',
+  restored: 'Teruggezet.',
   keepRaw: 'Houd zoals verteld',
   choose: 'Kies de juiste uit het archief',
   confirmed: 'bevestigd',
   removed: 'weggehaald',
   micDenied: 'Geen toegang tot de microfoon. Je kunt je verhaal ook typen.',
   failed: 'Er ging iets mis bij het verwerken. Probeer het nog eens.',
-  living: 'mogelijk nog in leven: wordt niet opgeslagen',
+  living: 'Mogelijk nog in leven.',
   edit: 'Bewerk',
   reprocess: 'Opnieuw herkennen',
   cancel: 'Annuleren',
@@ -169,4 +172,43 @@ export const ASK = {
   keptAsTold: 'Zoals verteld bewaard, zonder archiefkoppeling.',
   remaining: (n: number) => `${n} mogelijk in het archief`,
   thanks: 'Dank je! Alles is nagelopen.',
+};
+
+// "G.W." + "." reads as "G.W..": end a sentence on a name without doubling.
+const end = (name: string) => (name.endsWith('.') ? name : `${name}.`);
+
+export const SAVE = {
+  button: 'Opslaan',
+  title: 'Vertel over jezelf',
+  lede: (name: string) => `Je naam komt bij je verhaal te staan, en jij wordt zelf onderdeel van de dataset, verbonden met ${end(name)}`,
+  name: 'Je naam of bijnaam',
+  who: (name: string) => `Wie ben jij voor ${name}?`,
+  about: 'Over jezelf (mag ook leeg)',
+  aboutPlaceholder: 'Bijvoorbeeld waar je woont, of hoe je dit verhaal kent…',
+  speak: 'Vertel het',
+  stop: 'Stop',
+  listening: 'Luistert…',
+  transcribing: 'Uitschrijven…',
+  publish: 'Mijn verhaal en naam mogen openbaar getoond worden, ook in de open dataset.',
+  ai: 'Mijn opname is door een AI-dienst (OpenAI) omgezet in tekst.',
+  summary: (rows: number, entities: number) => `Wordt opgeslagen: je verhaal met ${entities} herkende ${entities === 1 ? 'begrip' : 'begrippen'}, ${rows} ${rows === 1 ? 'regel' : 'regels'} in de dataset, en jij als verteller.`,
+  saving: 'Opslaan…',
+  failed: 'Opslaan lukte niet. Probeer het nog eens.',
+  back: 'Terug naar je verhaal',
+};
+
+// How the narrator relates to the person (relation_type as in the dataset).
+export const NARRATOR_RELATIONS: { label: string; value: string | null }[] = [
+  { label: 'Kleinkind', value: 'grandchild' },
+  { label: 'Achterkleinkind', value: 'other' },
+  { label: 'Kind', value: 'child' },
+  { label: 'Andere familie', value: 'other' },
+  { label: 'Vriend of kennis', value: 'friend' },
+  { label: 'Geen familie', value: null },
+];
+
+export const THANKS = {
+  title: (name: string) => `Dank je, ${name}!`,
+  body: (subject: string) => `Je verhaal is opgeslagen bij ${end(subject)} Het staat nu in de aanvullingen, als "nog niet gecontroleerd".`,
+  again: 'Scan nog een naam',
 };

@@ -9,9 +9,9 @@ import type { Candidate, PersonContext, ScanResult } from '../shared/story';
 import Dictate from './Dictate';
 import { downscale } from './downscale';
 import { Back, Mic } from './icons';
-import { APP_NAME, FOUND, HOME, PICK, SCAN } from './strings';
+import { APP_NAME, FOUND, HOME, PICK, SCAN, THANKS } from './strings';
 
-type Screen = 'home' | 'scan' | 'pick' | 'found' | 'dict';
+type Screen = 'home' | 'scan' | 'pick' | 'found' | 'dict' | 'thanks';
 type Phase = 'reading' | 'found' | 'none' | 'error' | 'typing';
 
 // Shown on the home wall when no screen has reported names yet.
@@ -28,6 +28,7 @@ export default function ScanApp() {
   const [chosen, setChosen] = useState<Candidate | null>(null);
   const [ctx, setCtx] = useState<PersonContext | null>(null);
   const [showOthers, setShowOthers] = useState(false);
+  const [narrator, setNarrator] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
 
   // The home wall shows what the projection shows right now.
@@ -267,6 +268,10 @@ export default function ScanApp() {
             person={chosen}
             context={ctx}
             onBack={() => setScreen('found')}
+            onSaved={(n) => {
+              setNarrator(n);
+              setScreen('thanks');
+            }}
             onSubject={(c) => {
               setChosen(c);
               if (c.key.startsWith('name:')) return;
@@ -276,6 +281,20 @@ export default function ScanApp() {
                 .catch(() => {});
             }}
           />
+        )}
+
+        {screen === 'thanks' && chosen && (
+          <section className="screen s-found s-thanks" key="thanks">
+            <div className="found-body">
+              <h2>{THANKS.title(narrator)}</h2>
+              <p className="lede">{THANKS.body(chosen.text)}</p>
+            </div>
+            <div className="found-foot">
+              <button type="button" className="bigbtn dark" onClick={() => setScreen('home')}>
+                {THANKS.again}
+              </button>
+            </div>
+          </section>
         )}
       </main>
     </div>

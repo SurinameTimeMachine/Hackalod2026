@@ -39,7 +39,18 @@ A visitor photographs a name on the wall, confirms the person, and tells what th
 3. **Found**: the name in its own stamp lettering, with facts from the archive (`GET /story/context?key=`). Other candidates are one tap away.
 4. **Tell**: tap to record (max 3 min, or type instead). `POST /story/transcribe` takes the audio, with the person's related names and places as a spelling hint. `POST /story/extract` maps the story onto the columns of the `contributions` dataset, and the code resolves places (`ui_places`) and people (`person_search`). The top half shows the transcript with recognised words underlined in their colour (dotted means it still needs a choice). The bottom half lists what was found and the dataset rows it would become. Tap a word or row to pick the archive match, keep it as told, confirm or remove it.
 
-Not yet: consent + saving (`/contribute`, jsonl fallback), `/select` lighting the name on the wall, stories list, and follow-up questions to pin down which archive person is meant.
+5. **Follow-up questions**: names with several archive candidates get a **?**. Questions are built in code from what separates the candidates (era, place, then a pick); "Help zoeken" walks through them. Archive search results are never picked for the visitor, and a pick that does not fit the story is checked again afterwards.
+6. **Save**: "Vertel over jezelf" (name, relation to the person, a short text, typed or spoken) plus consent, then `POST /contribute`. The narrator becomes a person of their own (`name:<uuid>`), related to the subject.
+
+**Saved stories** are stored as JSON lines in `data/contributions.jsonl` (gitignored, on the machine that runs the app) until the Datasette write is live. Per story: one `story` row with the full transcript and its `entities` (character offsets `start`/`end`, type, archive `link`, `row_id` of the dataset row it produced), one row per entity placed in the dataset, a `narrator` row and the narrator's `relation` row. Read them with:
+
+- `GET /story/all`: every story, newest first
+- `GET /story/for?key=patient:111`: stories about a person, or naming them as a linked entity
+- `GET /story/get?id=<uuid>`: one story plus the rows it produced
+
+A dashboard can render a story clickable by cutting `transcript` at the entity offsets and linking each piece to `link` (archive) or `row_id` (addition). Types in `app/shared/story.ts` (`SavedStory`, `StoryEntity`).
+
+Not yet: `/select` lighting the name on the wall, showing saved stories on the phone and the wall, and a replay of the jsonl into Datasette.
 
 **Setup.** Put `OPENAI_API_KEY` in `.env` at the repo root (see `.env.example`); `next.config.ts` loads it. The key is only used server-side (`app/server/openai.ts`). Models are set in `app/server/config.ts`: `gpt-5.4-mini` for scan and extraction, `gpt-4o-transcribe` for speech. In dev, append `?model=` to a `/story/*` request to try another model.
 

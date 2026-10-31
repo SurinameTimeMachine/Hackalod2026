@@ -187,7 +187,8 @@
 .opts .ttl { font-size: 12px; color: var(--muted); }
 .opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card);
   cursor: pointer; font: inherit; color: inherit; }
-.opt.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.opt.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); background: #f1efe9; }
+.opt.on::after { content: '✓'; margin-left: auto; font: 700 16px var(--sans); color: var(--ink); }
 .opt small { display: block; color: var(--muted); font-size: 12px; }
 .btn { height: 44px; border-radius: 10px; font: 600 14px var(--sans); cursor: pointer; padding: 0 14px; background: var(--card); color: var(--ink); border: 1px solid var(--line-2); }
 .btn.primary { background: var(--ink); color: #fff; border: 0; }
@@ -226,3 +227,17 @@
 .qchip { min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--card); font: 600 14px var(--sans); color: var(--ink); cursor: pointer; }
 .qchip.skip { border-style: dashed; color: var(--muted); }
 .row.subject { background: #fffaf3; }
+
+/* Save: who told the story */
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--soft); }
+.field input, .field textarea { width: 100%; border: 1px solid var(--line-2); border-radius: 12px; background: var(--card); padding: 12px 14px;
+  font: 16px var(--sans); color: var(--ink); resize: none; }
+.qchip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn.speak { display: flex; align-items: center; gap: 8px; align-self: flex-start; }
+.btn.speak .mic { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--rec); }
+.btn.speak .mic svg { width: 16px; height: 16px; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.4; color: var(--soft); }
+.check input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--ink); }
+.s-thanks .found-body { justify-content: center; text-align: center; }
+.s-thanks h2 { font: 400 30px/1.2 var(--marker); margin: 0; }
+.s-thanks .lede { font-size: 15px; line-height: 1.5; color: var(--soft); margin: 12px 0 0; }

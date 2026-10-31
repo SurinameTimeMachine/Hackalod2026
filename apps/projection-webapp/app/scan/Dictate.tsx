@@ -5,10 +5,11 @@
 // contributions dataset, with archive matches to confirm or correct.
 // Nothing is saved yet; that is the consent + /contribute step.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Candidate, ExtractResult, MatchOption, PersonContext, ResolvedSuggestion } from '../shared/story';
-import { APP_NAME, ASK, BADGE, CATEGORY, DICT, FIELD, FOUND, RELATION, TYPE } from './strings';
+import type { Candidate, ExtractResult, MatchOption, PersonContext, ResolvedSuggestion, StoryEntity } from '../shared/story';
+import { APP_NAME, ASK, BADGE, CATEGORY, DICT, FIELD, FOUND, RELATION, SAVE, TYPE } from './strings';
 import { Mic } from './icons';
 import { answer, nextQuestion, startAsk, type Ask, type Question } from './questions';
+import Save from './Save';
 import { MAX_SECONDS, useRecorder } from './useRecorder';
 
 type Phase = 'idle' | 'recording' | 'transcribing' | 'extracting' | 'done' | 'typing';
@@ -72,8 +73,8 @@ function columns(s: ResolvedSuggestion, personKey: string, r: Review) {
 
 function badge(s: ResolvedSuggestion, r: Review): [string, string] {
   if (s.is_subject) return ['b-link', BADGE.self];
-  if (!s.kind) return ['b-wait', BADGE.only];
   if (r.status === 'removed') return ['b-wait', DICT.removed];
+  if (!s.kind) return ['b-wait', BADGE.only];
   if (s.possibly_living) return ['b-warn', 'mogelijk levend'];
   if (r.status === 'ok') return ['b-you', DICT.confirmed];
   if (r.choice) return ['b-link', BADGE.linked];
@@ -127,9 +128,15 @@ function QuestionCard({ q, left, onAnswer }: { q: Question; left: number; onAnsw
   );
 }
 
-type Props = { person: Candidate; context: PersonContext | null; onBack: () => void; onSubject: (c: Candidate) => void };
+type Props = {
+  person: Candidate;
+  context: PersonContext | null;
+  onBack: () => void;
+  onSubject: (c: Candidate) => void;
+  onSaved: (narrator: string) => void;
+};
 
-export default function Dictate({ person, context, onBack, onSubject }: Props) {
+export default function Dictate({ person, context, onBack, onSubject, onSaved }: Props) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [transcript, setTranscript] = useState('');
   const [typed, setTyped] = useState('');
@@ -143,6 +150,11 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
   const lastAudio = useRef<Blob | null>(null);
   const [asks, setAsks] = useState<Record<string, Ask>>({});
   const [walking, setWalking] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const panelBody = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    panelBody.current?.scrollTo({ top: 0 });
+  }, [sel, tab]);
 
   const say = (msg: string) => {
     setToast(msg);
@@ -164,7 +176,7 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
         });
         if (!res.ok) throw new Error(String(res.status));
         const out: ExtractResult = await res.json();
-        setReview(Object.fromEntries(out.suggestions.map((s) => [s.id, { status: s.kind && s.possibly_living ? 'removed' : 'open', choice: s.linked }])));
+        setReview(Object.fromEntries(out.suggestions.map((s) => [s.id, { status: 'open', choice: s.linked }])));
         // A question for every named person with archive candidates, and one
         // for the person themselves when the story does not fit the record.
         const next: Record<string, Ask> = {};
@@ -254,7 +266,23 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
     const c = review[s.id]?.choice;
     return c ? (s.options.find((o) => o.id === c)?.label ?? s.linkedLabel) : null;
   };
+  const isOpenAsk = (id: string) => !!asks[id] && !asks[id].done;
   const update = (id: string, r: Partial<Review>) => setReview((all) => ({ ...all, [id]: { ...all[id], ...r } }));
+  // Picking an archive match (or "as told") is the confirmation itself: say
+  // what happened and go back to the list, where the row shows it.
+  const pick = (id: string, choice: string | null, label: string) => {
+    update(id, { choice, status: 'ok' });
+    setSel(null);
+    say(choice ? ASK.linkedTo(label) : ASK.keptAsTold);
+  };
+  // Removing works for everything recognised, placed in the dataset or not.
+  const toggleRemove = (id: string) => {
+    const removed = review[id]?.status === 'removed';
+    update(id, { status: removed ? 'open' : 'removed' });
+    if (!removed && isOpenAsk(id)) setAsks((all) => ({ ...all, [id]: { ...all[id], done: true, result: null } }));
+    setSel(null);
+    say(removed ? DICT.restored : DICT.removedToast);
+  };
 
   // --- Follow-up questions ----------------------------------------------------
   const optionsOf = (id: string): MatchOption[] => (id === SUBJECT ? (data?.subject.options ?? []) : (list.find((s) => s.id === id)?.options ?? []));
@@ -262,7 +290,7 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
     const s = list.find((x) => x.id === id);
     return id === SUBJECT ? person.text : (s?.name_raw ?? s?.mention ?? '');
   };
-  const isOpen = (id: string) => !!asks[id] && !asks[id].done;
+  const isOpen = (id: string) => isOpenAsk(id) && review[id]?.status !== 'removed';
   const openIds = [SUBJECT, ...shown.map((s) => s.id)].filter(isOpen);
 
   const onAnswer = (id: string, q: Question, value: string) => {
@@ -373,7 +401,7 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
           <div className="opts">
             <span className="ttl">{selected.kind ? DICT.choose : 'In het archief'}</span>
             {selected.linked && !selected.options.some((o) => o.id === selected.linked) && (
-              <button type="button" className={`opt${r.choice === selected.linked ? ' on' : ''}`} onClick={() => update(selected.id, { choice: selected.linked })}>
+              <button type="button" className={`opt${r.choice === selected.linked ? ' on' : ''}`} onClick={() => pick(selected.id, selected.linked, selected.linkedLabel ?? '')}>
                 <span>
                   {selected.linkedLabel}
                   <small>{selected.linked}</small>
@@ -381,14 +409,14 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
               </button>
             )}
             {selected.options.map((o) => (
-              <button type="button" key={o.id} className={`opt${r.choice === o.id ? ' on' : ''}`} onClick={() => update(selected.id, { choice: o.id })}>
+              <button type="button" key={o.id} className={`opt${r.choice === o.id ? ' on' : ''}`} onClick={() => pick(selected.id, o.id, o.label)}>
                 <span>
                   {o.label}
                   <small>{o.detail}</small>
                 </span>
               </button>
             ))}
-            <button type="button" className={`opt${!r.choice ? ' on' : ''}`} onClick={() => update(selected.id, { choice: null })}>
+            <button type="button" className={`opt${!r.choice ? ' on' : ''}`} onClick={() => pick(selected.id, null, '')}>
               <span>
                 {DICT.keepRaw}
                 <small>{isPerson ? (selected.name_raw ?? selected.mention) : (selected.place_raw ?? selected.mention)}</small>
@@ -396,28 +424,23 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
             </button>
           </div>
         )}
-        {selected.kind && !isOpen(selected.id) && <div className="acts">
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => {
-              update(selected.id, { status: 'ok' });
-              setSel(null);
-            }}
-          >
-            {DICT.ok}
+        <div className="acts">
+          {selected.kind && !isOpen(selected.id) && r.status !== 'removed' && (
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => {
+                update(selected.id, { status: 'ok' });
+                setSel(null);
+              }}
+            >
+              {DICT.ok}
+            </button>
+          )}
+          <button type="button" className="btn" onClick={() => toggleRemove(selected.id)}>
+            {r.status === 'removed' ? DICT.restore : DICT.remove}
           </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              update(selected.id, { status: r.status === 'removed' ? 'open' : 'removed' });
-              setSel(null);
-            }}
-          >
-            {r.status === 'removed' ? 'Terugzetten' : DICT.remove}
-          </button>
-        </div>}
+        </div>
         {backLink}
       </div>
     );
@@ -528,6 +551,48 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
   }
 
   const busy = phase === 'transcribing' || phase === 'extracting';
+
+  // The story as it will be saved: every recognised entity that was not
+  // removed, with its place in the text, its archive link and its row.
+  const storyEntities = (): StoryEntity[] =>
+    list
+      .filter((s) => review[s.id]?.status !== 'removed')
+      .map((s) => {
+        const m = marks.find((x) => x.id === s.id);
+        const r = review[s.id];
+        const choice = r?.choice ?? null;
+        const isPlace = s.type === 'place' || !!s.place_raw || s.field === 'address_text';
+        return {
+          id: s.id,
+          start: m?.start ?? -1,
+          end: m?.end ?? -1,
+          mention: s.mention,
+          type: s.type,
+          category: s.category,
+          about: s.about,
+          is_subject: s.is_subject,
+          confirmed: r?.status === 'ok',
+          link: s.is_subject ? (person.key.startsWith('name:') ? null : person.key) : choice,
+          link_label: s.is_subject ? person.text : labelOf(s),
+          quote: s.quote,
+          row: s.kind
+            ? {
+                kind: s.kind,
+                relation_type: s.relation_type,
+                related_key: s.kind === 'relation' && choice && !choice.startsWith('place:') ? choice : null,
+                name_raw: s.name_raw,
+                field: s.field,
+                value: s.value,
+                place_raw: s.place_raw,
+                place_norm: isPlace && choice?.startsWith('place:') ? choice.slice(6) : null,
+                year: s.year,
+              }
+            : null,
+        };
+      });
+
+  if (saving && data)
+    return <Save person={person} transcript={transcript} summary={data.summary} entities={storyEntities()} onBack={() => setSaving(false)} onSaved={onSaved} />;
   const status =
     phase === 'typing' && transcript
       ? DICT.editHint
@@ -591,7 +656,9 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
             {DICT.tabData} ({data ? kept.length + 1 : 0})
           </button>
         </div>
-        <div className="panel-body">{panel}</div>
+        <div className="panel-body" ref={panelBody}>
+          {panel}
+        </div>
       </div>
 
       <div className="recbar">
@@ -634,7 +701,12 @@ export default function Dictate({ person, context, onBack, onSubject }: Props) {
           <span className="recstatus">{status}</span>
         </div>
         <div className="recside">
-          {phase !== 'typing' && !rec.recording && !busy && (
+          {data && phase === 'done' && !rec.recording && (
+            <button type="button" className="btn primary" style={{ height: 38 }} onClick={() => setSaving(true)}>
+              {SAVE.button}
+            </button>
+          )}
+          {phase !== 'typing' && !rec.recording && !busy && !data && (
             <button type="button" className="textbtn" onClick={() => (reset(), setPhase('typing'))}>
               {DICT.typeInstead}
             </button>

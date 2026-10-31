@@ -73,3 +73,63 @@ export type ResolvedSuggestion = Suggestion & {
 export type SubjectCheck = { status: 'ok' | 'check' | 'none'; reason: string | null; options: MatchOption[] };
 
 export type ExtractResult = { summary: string; suggestions: ResolvedSuggestion[]; subject: SubjectCheck };
+
+// --- Saving (POST /contribute) ------------------------------------------------
+
+// A row for the contributions dataset, as the visitor confirmed it.
+export type ContributionRow = {
+  kind: 'relation' | 'fact' | 'place' | 'date';
+  relation_type: string | null;
+  related_key: string | null;
+  name_raw: string | null;
+  field: string | null;
+  value: string | null;
+  place_raw: string | null;
+  place_norm: string | null;
+  year: number | null;
+};
+
+// One recognised entity of the story, with where it sits in the text, so a
+// dashboard can show the story with every name clickable.
+export type StoryEntity = {
+  id: string;
+  start: number; // character offsets in the transcript
+  end: number;
+  mention: string;
+  type: Suggestion['type'];
+  category: ResolvedSuggestion['category'];
+  about: string | null;
+  is_subject: boolean;
+  confirmed: boolean;
+  link: string | null; // archive key (patient:/person:/place:) it is linked to
+  link_label: string | null;
+  quote: string;
+  row: ContributionRow | null; // what goes into the dataset, if anything
+  row_id?: string | null; // set by the server
+};
+
+// Who told the story.
+export type Narrator = { name: string; relation: string | null; relation_label: string | null; about: string | null };
+
+export type ContributeRequest = {
+  key: string;
+  subject_name: string;
+  transcript: string;
+  summary: string;
+  entities: StoryEntity[];
+  narrator: Narrator;
+  consent: { publish: boolean; ai: boolean };
+};
+
+// A saved story as stored and served (GET /story/for, /story/get).
+export type SavedStory = {
+  id: string;
+  person_key: string;
+  person_name: string;
+  transcript: string;
+  summary: string;
+  entities: StoryEntity[];
+  narrator: Narrator & { key: string };
+  created_at: string;
+  reviewed: 0 | 1;
+};
