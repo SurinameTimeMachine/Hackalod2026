@@ -9,6 +9,7 @@ export type SearchlightConfig = {
   wallBeams: { x: number; y: number }; // virtual wall shape, in beams
   wallScale: number; // × wallBeams: a larger wall gets larger names (2 = names twice as large)
   ignoreRoll: boolean;
+  mountYaw: number; // degrees: which way the phone points on the beamer (O: fitted from a tilt up, or 90° steps)
   invertYaw: boolean;
   invertPitch: boolean;
   minCutoff: number; // One Euro filter, Hz
@@ -28,6 +29,7 @@ export const DEFAULTS: SearchlightConfig = {
   wallBeams: { x: 3, y: 2 },
   wallScale: 2,
   ignoreRoll: true,
+  mountYaw: 0, // phone flat on top, its top edge towards the wall
   invertYaw: false,
   invertPitch: false,
   minCutoff: 1.0, // calm when the beamer stands still…

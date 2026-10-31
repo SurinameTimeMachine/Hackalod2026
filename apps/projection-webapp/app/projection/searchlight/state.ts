@@ -3,7 +3,7 @@
 // the beamer relative to its calibrated "straight at the wall" pose.
 // Written at sensor rate and read every frame, so it lives outside React;
 // `subscribe` is only for the few things that change what is rendered.
-import { Euler, Quaternion } from 'three';
+import { Euler, Quaternion, Vector3 } from 'three';
 import { BEAM, loadConfig, saveConfig, TARGET, wallBounds, type SearchlightConfig } from './config';
 import { deviceQuat } from './deviceQuat';
 import { OneEuro } from './oneEuro';
@@ -31,6 +31,11 @@ export class Searchlight {
   private zero: Quaternion | null = null;
   private zeroInv = new Quaternion();
   private hasRaw = false;
+  // Which way the beamer faced at calibration (around the vertical), so a
+  // tilt reads as pitch whatever its heading. Without it the camera assumes
+  // a fixed compass direction and a tilt turns into roll.
+  private heading = new Quaternion();
+  private headingInv = new Quaternion();
   lastPoseAt = 0; // performance.now()
   poseRate = 0; // Hz
   poseDelay: number | null = null; // ms from the phone's clock to here (clocks are synced only roughly)
@@ -65,6 +70,12 @@ export class Searchlight {
   changed() {
     this.version++;
     for (const l of this.listeners) l();
+  }
+
+  // Roll as the phone sees it, before ignoreRoll: should stay near 0 while
+  // tilting the beamer. If tilting rolls it, the mount direction is off (O).
+  get trackerRoll() {
+    return this.trackerAim.roll;
   }
 
   get trackerLive() {
@@ -115,6 +126,7 @@ export class Searchlight {
     if (this.hasRaw) {
       this.zero = this.raw.clone();
       this.zeroInv.copy(this.zero).invert();
+      this.findHeading();
     }
     this.manual = { yaw: 0, pitch: 0 };
     this.trackerAim = { yaw: 0, pitch: 0, roll: 0 };
@@ -122,11 +134,50 @@ export class Searchlight {
     this.changed();
   }
 
+  // The beamer faces where the phone's top edge points (phone flat on top,
+  // top towards the wall), or where its back points if it stands upright;
+  // `mountYaw` turns that by 90° steps for other mounts (O).
+  private phoneHeading() {
+    let f = new Vector3(0, 1, 0).applyQuaternion(this.zero!);
+    if (Math.abs(f.y) > 0.7) f = new Vector3(0, 0, -1).applyQuaternion(this.zero!);
+    return Math.atan2(-f.x, -f.z);
+  }
+
+  private findHeading() {
+    if (!this.zero) return;
+    this.heading.setFromAxisAngle(new Vector3(0, 1, 0), this.phoneHeading() + this.config.mountYaw * DEG);
+    this.headingInv.copy(this.heading).invert();
+  }
+
+  // O. Calibrated, then tilted up: the axis the beamer tilted around is its
+  // right-hand side, which fixes its heading whatever way the phone is taped
+  // on. Without a tilt: turn the assumed mount by 90°.
+  turnMount(): string {
+    if (this.zero && this.trackerLive) {
+      const delta = new Quaternion().copy(this.raw).multiply(this.zeroInv);
+      if (delta.w < 0) delta.set(-delta.x, -delta.y, -delta.z, -delta.w);
+      const angle = 2 * Math.acos(Math.min(delta.w, 1));
+      const flat = Math.hypot(delta.x, delta.z) / Math.max(Math.sin(angle / 2), 1e-9);
+      if (angle > 5 * DEG && flat > 0.8) {
+        // Right-hand side of a beamer facing heading h: (cos h, 0, −sin h).
+        const h = Math.atan2(-delta.z, delta.x);
+        const mountYaw = Math.round((((h - this.phoneHeading()) / DEG) % 360 + 360) % 360);
+        this.adjust({ mountYaw });
+        this.findHeading();
+        return `mount ${mountYaw}°, from a ${(angle / DEG).toFixed(0)}° tilt up`;
+      }
+    }
+    this.adjust({ mountYaw: (Math.round(this.config.mountYaw / 90) * 90 + 90) % 360 });
+    this.findHeading();
+    return `mount ${this.config.mountYaw}° (to fit it: C straight, tilt up, O)`;
+  }
+
   // The beamer's rotation since calibration, in the world frame: q · qZero⁻¹,
-  // so it does not matter how the phone is taped on.
+  // so the phone's tilt on the beamer does not matter; then turned into the
+  // beamer's own heading so a tilt is pitch.
   private readTracker() {
     if (!this.zero || !this.trackerLive) return this.trackerAim;
-    const delta = new Quaternion().copy(this.raw).multiply(this.zeroInv);
+    const delta = new Quaternion().copy(this.headingInv).multiply(this.raw).multiply(this.zeroInv).multiply(this.heading);
     const e = new Euler().setFromQuaternion(delta, 'YXZ');
     const prev = this.trackerAim.yaw;
     this.trackerAim = { yaw: wrap(e.y / DEG, prev), pitch: e.x / DEG, roll: e.z / DEG };

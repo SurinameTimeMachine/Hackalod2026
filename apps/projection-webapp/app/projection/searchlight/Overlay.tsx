@@ -39,6 +39,7 @@ function useInputs(sl: Searchlight, note: (text: string) => void) {
       if (COARSE[e.code]) sl.adjust(COARSE[e.code](c, e.shiftKey ? 10 : 1));
       else if (KEYS[k]) sl.adjust(KEYS[k](c));
       else if (k === 'c') sl.calibrate();
+      else if (k === 'o') note(sl.turnMount());
       else if (k === 'f') note(sl.fit(window.innerWidth / window.innerHeight));
       else if (k === ',') sl.adjust({ beamRadius: Math.max(c.beamRadius - 5, 10) });
       else if (k === '.') sl.adjust({ beamRadius: Math.min(c.beamRadius + 5, 250) });
@@ -112,7 +113,7 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
     `searchlight  ${Math.round(sl.fps)} fps${sl.sim ? '  sim' : ''}`,
     `tracker: ${sl.lastPoseAt ? (lost ? 'LOST (frozen)' : `${Math.round(sl.poseRate)} Hz, age ${Math.round(age!)} ms, delay ~${Math.round(sl.poseDelay ?? 0)} ms`) : 'none yet'}`,
     `yaw ${sl.aim.yaw.toFixed(1)}°  pitch ${sl.aim.pitch.toFixed(1)}°  roll ${sl.aim.roll.toFixed(1)}°  speed ${sl.aim.speed.toFixed(0)}°/s`,
-    `manual yaw ${sl.manual.yaw.toFixed(1)}°  pitch ${sl.manual.pitch.toFixed(1)}°`,
+    `manual yaw ${sl.manual.yaw.toFixed(1)}°  pitch ${sl.manual.pitch.toFixed(1)}°   phone roll ${sl.trackerRoll.toFixed(1)}° (tilting should not change it: else C, tilt up, O; mount ${c.mountYaw}°)`,
     `hFov ${c.hFov}° [ ] (Shift ×10)   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0   predict ${c.predictMs} ms 7 8`,
     `beam at x ${Math.round(sl.beam.x)}  y ${Math.round(sl.beam.y)}   radius ${c.beamRadius}% , .   names ×${c.wallScale} n m`,
     `C calibrate  T pattern  F fit to tape  V beam  , . beam size  n m name size  P save  S static`,
