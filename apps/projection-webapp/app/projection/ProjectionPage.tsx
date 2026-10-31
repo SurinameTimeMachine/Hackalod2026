@@ -19,6 +19,7 @@ import Wall from './Wall';
 import { layoutWall, makeMeasure, WALL, type StampLayout } from './wallLayout';
 
 const IDLE_TIMEOUT = 60_000;
+const TELLING_HOLD = 8 * 60_000; // a phone is telling about this person: dictating takes a while
 const STORY_HOLD = 120_000; // after a saved story: time to walk back to the wall
 // Which screen this is in the display registry; ?screen=<name> for a second wall.
 const SCREEN = 'projection';
@@ -150,6 +151,7 @@ export default function ProjectionPage() {
   useSignals({
     select: (key, name) => {
       openedAt.current = Date.now();
+      holdUntil.current = Date.now() + TELLING_HOLD;
       openKey(key, name);
     },
     storySaved: (signal) => {

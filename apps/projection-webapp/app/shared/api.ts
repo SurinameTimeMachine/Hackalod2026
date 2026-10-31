@@ -44,8 +44,8 @@ export function cachedGet<T>(path: string, params: Record<string, string | numbe
 }
 
 // What saved stories added around a shared key (GET /story/graph), cached per
-// key like the archive queries. Every new story can touch several keys, so a
-// `story-saved` signal drops the whole cache.
+// key while one constellation grows. Dropped when a constellation opens and on
+// every `story-saved` signal (a story can touch several keys).
 const stories = new Map<string, Promise<ToldGraph>>();
 const NOTHING: ToldGraph = { nodes: [], edges: [], notes: [] };
 

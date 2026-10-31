@@ -388,6 +388,9 @@ export function useConstellation(opts: Options) {
     (node: GNode) => {
       gen.current++;
       history.current = [];
+      // Fresh stories for every new constellation: a story saved while this
+      // screen missed its signal (reconnecting, reloaded) still shows.
+      forgetStories();
       const key = node.key;
       commit(
         {
