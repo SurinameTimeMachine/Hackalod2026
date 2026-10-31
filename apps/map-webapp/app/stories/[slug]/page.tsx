@@ -34,6 +34,17 @@ const images: Record<string, { folder: string; hero: StoryImage; chapters: Recor
       ],
     },
   },
+  'klerk-marechaussee-boer': {
+    folder: '04-klerk-marechaussee-boer',
+    hero: { file: '01-straatgezicht-middelburg.jpg', width: 1018, height: 632, caption: 'Straatgezicht in Middelburg, negentiende eeuw. Hier werd Johannes Pieter de Graaff op 14 mei 1845 geboren. Zeeuws Archief.' },
+    chapters: {
+      'Middelburg, 14 mei 1845': [{ layout: 'single', items: [{ file: '02-geboorteakte-middelburg-1845.jpg', width: 937, height: 742, displayWidth: 664, caption: 'Geboorteakte van Johannes Pieter de Graaff, Middelburg, 15 mei 1845 (nr. 222). Aangever was de verloskundige Jacobus Johannes Pieterse; de moeder wordt genoemd als weduwe van Boudewijn de Graaff. Zeeuws Archief.' }] }],
+      'Kantoorklerk op plantage Waterloo': [{ layout: 'single', items: [{ file: '03-plantage-waterloo.jpg', width: 600, height: 357, displayWidth: 600, caption: 'Prentbriefkaart “Plantage Waterloo, Suriname, S. Amerika”. Universitaire Bibliotheken Leiden (KITLV), item 808307.' }] }],
+      'Marechaussee aan de Saramacca': [{ layout: 'single', items: [{ file: '04-politiepost-rivier.jpg', width: 600, height: 357, displayWidth: 600, caption: 'Een politiepost aan de rivier. Een foto van marechaussees uit zijn tijd is niet gevonden. Universitaire Bibliotheken Leiden (KITLV), item 925082.' }] }],
+      'Weduwnaar en landbouwer': [{ layout: 'single', items: [{ file: '05-boeroe-echtpaar.jpg', width: 960, height: 769, displayWidth: 480, caption: 'Een boeroe-echtpaar voor hun houten huis. Dit zijn niet De Graaff en zijn vrouw, maar leden van een andere boerenfamilie. Tropenmuseum, objectnummer 60006571, via Wikimedia Commons.' }] }],
+      '24 juli 1907, Gravenstraat B 2': [{ layout: 'single', items: [{ file: '06-overlijdensakte-1907.jpg', width: 1100, height: 1679, displayWidth: 550, caption: 'Overlijdensakte van Johannes Pieter de Graaff, Paramaribo, 24 juli 1907 (folio 775). Aangever Joseph van de Winkel, administrateur van het Militair Hospitaal. Nationaal Archief Suriname 2.10.61, inv. 1117, scan 0174.' }] }],
+    },
+  },
   'vrij-sinds-1836': {
     folder: '03-vrij-sinds-1836',
     hero: { file: '01-zwartenhovenbrugstraat-1955.jpg', width: 1280, height: 730, caption: 'De Zwartenhovenbrugstraat in 1955. Het familiehuis stond hier op erf E 218. Foto: Nationaal Archief, bestanddeelnr. 252-4935, via Wikimedia Commons.' },
@@ -89,6 +100,44 @@ const stories = {
       { heading: 'Vader', text: '' },
       { heading: 'Door dezelfde poort', text: 'Generaties van de familie zijn op verschillende momenten met dezelfde plek verbonden.' },
     ],
+  },
+  'klerk-marechaussee-boer': {
+    category: 'Familiegeschiedenis · Middelburg – Paramaribo · 1845–1907',
+    title: <>Klerk, marechaussee, <em>boer</em></>,
+    subtitle: 'Het leven van Johannes Pieter de Graaff',
+    introduction: 'Hij werd in 1845 in Middelburg geboren, twee maanden na de dood van zijn vader. In Suriname was hij kantoorklerk op een plantage in Nickerie, marechaussee aan de Saramacca en daarna landbouwer in de Tweede Buitenwijk. Hij trouwde twee keer in een Nederlandse boerenfamilie en stierf in 1907 in het Militair Hospitaal. Zestien akten vertellen zijn verhaal.',
+    sections: [
+      { heading: 'Middelburg, 14 mei 1845', text: [
+        'Johannes Pieter was de jongste van een arbeidersgezin. Zijn vader, de dagloner Boudewijn de Graaff, overleed op 18 maart 1845, twee maanden voor zijn geboorte. Zijn moeder Jacomijntje Adriaanse uit Goes was dienstbode en later werkvrouw. Van haar kinderen, geboren tussen 1832 en 1845, stierven er meerdere jong.',
+        'Jacomijntje overleed op 11 februari 1864 in het Gasthuis van Middelburg. Johannes Pieter was toen achttien. Wanneer hij naar Suriname vertrok, staat in geen enkele bron die we nu kennen.',
+      ] },
+      { heading: 'Kantoorklerk op plantage Waterloo', text: [
+        'In 1875 duikt zijn naam voor het eerst op in Suriname. Hij is dertig jaar en kantoorklerk op plantage Waterloo in Nickerie. Als klerk tekende hij als getuige bij de overlijdensaangiften van arbeiders: Beekha, contractarbeider 1124/B uit Brits-Indië, Joseph Clarck uit Barbados en Cornelis Woisk.',
+        'Zo staat de Zeeuwse klerk in de akten naast mensen die van de andere kant van de wereld naar dezelfde plantage waren gehaald.',
+      ] },
+      { heading: 'Marechaussee aan de Saramacca', text: [
+        'In 1880 is hij marechaussee tweede klasse op het station Groningen aan de Saramacca, onder brigadier Meindert Verschuur. Tot 1884 noemen de akten hem marechaussee, eerst in Saramacca en daarna in de Tweede Buitenwijk van Paramaribo.',
+        'Groningen was ook de plek waar in 1845 boerenkolonisten uit Gelderland en Utrecht aan land waren gegaan. Een van hen was Evert van der Klift, zijn latere schoonvader.',
+      ] },
+      { heading: 'Een boeroefamilie in de Tweede Buitenwijk', text: [
+        'Op 24 augustus 1881 trouwde hij in Paramaribo met de 21-jarige Cornelia van der Klift. Hij kon geen geboorteakte overleggen en verklaarde zijn geboorte onder ede; haar moeder, landbouwster, gaf toestemming. Cornelia’s ouders, Evert van der Klift uit Amerongen en Jansien Perkementis uit Zwolle, waren boeroes: zij hadden het kolonisatieproject van 1845 overleefd en boerden aan het kanaal naar Kwatta en de Wanicastraat.',
+        'Hun zoon kreeg de namen van beide grootvaders, Boudewijn Evert Johannes. Hij werd geboren op 20 januari 1884 en stierf een maand later, in het familiehuis Tweede Buitenwijk 47. De vader deed zelf aangifte. In 1886 volgde een dochter, Cornelia Maria.',
+        'Op 1 mei 1891 overleed Cornelia, dertig jaar oud, in Tweede Buitenwijk 238. Haar moeder Jansien stierf twee maanden later in hetzelfde huis.',
+      ] },
+      { heading: 'Weduwnaar en landbouwer', text: [
+        'Op 18 mei 1893 trouwde hij opnieuw, met Wilhelmina Velthuizen (46). Ze was een dochter van de boeroe Gerardus Velthuizen en Gijsbertje van den Berg; haar broer Teunis, landbouwer op De Drie Gebroeders, was getuige. Beide vrouwen van De Graaff kwamen dus uit boeroefamilies. Hij was 48, weduwnaar en landbouwer.',
+        'Een half jaar later, op 29 november 1893, trouwde op plantage Beekhuizen in Beneden-Para de 24-jarige Willem Gerhardus Lodewijk van Velthuizen. In zijn huwelijksakte staan als ouders Wilhelmina van Velthuizen en “Johannes Pieter de Graaf”, vader, in leven. Als dat klopt, kende De Graaff Wilhelmina al rond 1868, en waren Mathilda (1887) en Willem Gijsbertus (1891) zijn kleinkinderen. Het is de enige bron voor dit vaderschap.',
+        'De akten laten ook zijn kring zien: steeds dezelfde buren en boeren tekenen samen als getuige, zoals Theodorus Hugo Monsanto en de landbouwer Frederic Fraser van de Steenbakkersgracht.',
+      ] },
+      { heading: '24 juli 1907, Gravenstraat B 2', text: [
+        'Johannes Pieter de Graaff stierf op 24 juli 1907 om één uur ’s nachts “in het huis aan de Gravenstraat bekend als letter B nummer twee (Militair Hospitaal)”. Hij was 62, landbouwer, en woonde in het district Beneden-Suriname.',
+        'Aangifte deed Joseph van de Winkel, de administrateur van het hospitaal. Familie was daar niet bij. Acht jaar later werd zijn kleindochter Cornelia Henriette in hetzelfde hospitaal geboren.',
+      ] },
+      { heading: 'Wie er bleef', ending: true, text: [
+        'In de volkstelling van 1921 woont zijn dochter Cornelia Maria aan de Idsingastraat met waarschijnlijk haar broer J.J. de Graaff (1882) en haar dochters Johanna Cornelia Maria (1910) en Cornelia Henriette (1915), al onder de naam Van der Erf. Hun vader, de fuselier Gerardus Henderikus van der Erf, had beide meisjes in 1918 samen met Cornelia Maria erkend. Cornelia Maria overleed in 1958 in Paramaribo.',
+      ] },
+    ],
+    sources: 'Bronnen: Zeeuws Archief (geboorte 1845, overlijden vader 1845, huwelijk ouders 1831, overlijden moeder 1864), overlijdens- en geboorteakten Paramaribo (Nationaal Archief Suriname 2.10.61), huwelijksakten 1881 en 1893, erkenning 1918, volkstellingen 1921 en 1950. Redactie: Nisha Marapin en Thunnis van Oort.',
   },
   'vrij-sinds-1836': {
     category: 'Familiegeschiedenis · Paramaribo · 1835–1922',
