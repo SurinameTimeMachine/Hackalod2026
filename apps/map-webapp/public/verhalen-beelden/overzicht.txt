@@ -1,0 +1,20 @@
+Beelden uit de verhalen, op maat voor de website.
+Bestandsbreedte = 2x de weergavebreedte op desktop (scherp op retina), nooit groter dan het origineel.
+Niet opgenomen: burcht Penedono en familiewapen Coutinho (bronbestand grotendeels zwart, opnieuw aanleveren).
+
+bestand	weergavebreedte (px)	bestandsmaat (px)	bijschrift
+01-gekomen-gebleven/01-familieportret-paramaribo.jpg	1224	1362×530 (bron kleiner dan 2x)	Familieportret, Paramaribo, datum onbekend (openingsbeeld)
+01-gekomen-gebleven/02-krant-huwelijk-1896-knipsel.jpg	470	450×185 (bron kleiner dan 2x)	Rubriek Burgerlijke Stand – Huwelijken, november 1896 (hfst. 5)
+01-gekomen-gebleven/03-krant-huwelijk-1896-hele-pagina.jpg	1200	1849×2576 (bron kleiner dan 2x)	Hele krantenpagina, november 1896 (achter de klik op het knipsel)
+01-gekomen-gebleven/04-register-regel4-van-bochove.jpg	664	1328×937	Register, regel 4: Jacobus Carolus van Bochove, portier Mil. H. (hfst. 6)
+01-gekomen-gebleven/05-portret-jacobus.jpg	260	520×529	Vermoedelijk Jacobus Carolus van Bochove op latere leeftijd (slot)
+02-door-dezelfde-poort/01-groepsfoto-vervuurt-donner.jpg	1044	604×408 (bron kleiner dan 2x)	Familie Vervuurt en Donner, ca. 1915–1917 (openingsbeeld)
+02-door-dezelfde-poort/02-donner-en-naharen.jpg	339	678×462	J.W.A. Donner en Elmina Albertina Naharen (hfst. 4)
+02-door-dezelfde-poort/03-paul-donner-geschilderd.jpg	339	592×880 (bron kleiner dan 2x)	Geschilderd portret van Paul Donner (hfst. 4)
+02-door-dezelfde-poort/04-antoinette-donner.jpg	339	664×960 (bron kleiner dan 2x)	Antoinette Donner, moeder van Hilda Louise (hfst. 4)
+02-door-dezelfde-poort/05-krant-bevallen-1886.jpg	230	460×156	Rubriek Bevallen, 11 juni 1886 (hfst. 4)
+02-door-dezelfde-poort/06-advertentie-boekhouden.jpg	230	239×289 (bron kleiner dan 2x)	Advertentie J.W.A. Donner, Gonggrijpstraat (hfst. 4)
+02-door-dezelfde-poort/07-advertentie-waterverfportretten.jpg	230	460×277	Advertentie Waterverf-Portretten, J.W.H. Donner (hfst. 4)
+02-door-dezelfde-poort/08-dankbetuiging-1917.jpg	230	302×265 (bron kleiner dan 2x)	Dankbetuiging na overlijden Elmina, 1 november 1917 (hfst. 4)
+02-door-dezelfde-poort/09-vier-portretten-donner.jpg	664	1328×493	Vier portretten uit de familie Donner (hfst. 5)
+02-door-dezelfde-poort/10-jean-donner.jpg	400	800×1067	Jean Donner met John William Donner (hfst. 5)

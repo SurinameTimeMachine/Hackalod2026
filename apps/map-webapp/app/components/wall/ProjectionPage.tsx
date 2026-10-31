@@ -100,13 +100,13 @@ export default function ProjectionPage() {
   return (
     <main style={{ position: 'absolute', inset: 0, background: '#fbfaf6' }}>
       {mobile ? <div className="wall-name-list">
-        {source === 'loading' && <p role="status">Loading names…</p>}
-        {source === 'failed' && <p role="alert">The names could not load.</p>}
+        {source === 'loading' && <p role="status">Namen laden…</p>}
+        {source === 'failed' && <p role="alert">De namen konden niet worden geladen.</p>}
         {patients?.map(patient => {
           const relatedIds = edges.flatMap(edge => edge.a === patient.patient_id ? [edge.b] : edge.b === patient.patient_id ? [edge.a] : []);
           const names = relatedIds.map(id => byId.get(id)).filter((item): item is NonNullable<typeof item> => !!item).map(displayName);
           return <button type="button" className="wall-name" key={patient.patient_id} aria-expanded={selectedId === patient.patient_id} onClick={() => select(selectedId === patient.patient_id ? null : patient.patient_id)}>
-            <span>{displayName(patient) || 'Unnamed person'}</span>{selectedId === patient.patient_id && <small>{subtitle(patient)}{names.length > 0 && <> · {names.join(', ')}</>}</small>}
+            <span>{displayName(patient) || 'Naam onbekend'}</span>{selectedId === patient.patient_id && <small>{subtitle(patient)}{names.length > 0 && <> · {names.join(', ')}</>}</small>}
           </button>;
         })}
       </div> : <Canvas

@@ -25,8 +25,8 @@ maplibregl.setWorkerUrl(
 export default function Landscape() {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const [status, setStatus] = useState('Loading landscape…');
-  const [peopleStatus, setPeopleStatus] = useState('Loading people…');
+  const [status, setStatus] = useState('Kaart laden…');
+  const [peopleStatus, setPeopleStatus] = useState('Personen laden…');
   const [peopleFailed, setPeopleFailed] = useState(false);
   const [popularOnly, setPopularOnly] = useState(false);
   const popularOnlyRef = useRef(false);
@@ -97,7 +97,7 @@ export default function Landscape() {
       if (loadingPeople || peopleLayerAdded) return;
       loadingPeople = true;
       setPeopleFailed(false);
-      setPeopleStatus('Loading people…');
+      setPeopleStatus('Personen laden…');
       try {
         const [response, { createPeopleLayer }] = await Promise.all([
           fetch('/api/people-clusters', {
@@ -126,7 +126,7 @@ export default function Landscape() {
         if (controller.signal.aborted) return;
         console.error('People layer:', error);
         setPeopleStatus(
-          'People could not load. You can still explore the landscape.',
+          'Personen konden niet worden geladen. Je kunt de kaart blijven bekijken.',
         );
         setPeopleFailed(true);
       } finally {
@@ -176,7 +176,7 @@ export default function Landscape() {
 
     map.on('error', (event) => {
       console.error(event.error);
-      setStatus('Some map data could not load. Check your connection.');
+      setStatus('Sommige kaartgegevens konden niet worden geladen. Controleer je verbinding.');
     });
 
     return () => {
@@ -265,7 +265,7 @@ export default function Landscape() {
       setAppliedYears(range);
       return true;
     } catch (error) {
-      if (!controller.signal.aborted) console.error('Time selection:', error);
+      if (!controller.signal.aborted) console.error('Tijd selection:', error);
       return false;
     }
   }
@@ -302,7 +302,7 @@ export default function Landscape() {
     >
       <div
         ref={container}
-        aria-label="Suriname landscape"
+        aria-label="Kaart van Suriname"
         style={{ position: 'absolute', inset: 0 }}
       />
 
@@ -311,7 +311,7 @@ export default function Landscape() {
         type="button"
         className="map-home"
         onClick={resetView}
-        aria-label="Home: reset map view"
+        aria-label="Terug naar het begin"
       >
         <svg
           width="20"
@@ -328,12 +328,12 @@ export default function Landscape() {
         </svg>
       </button>
 
-      <button type="button" className="map-tool" aria-label="Zoom in" title="Zoom in" onClick={() => mapRef.current?.zoomIn()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
-      <button type="button" className="map-tool" aria-label="Zoom out" title="Zoom out" onClick={() => mapRef.current?.zoomOut()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14" /></svg></button>
-      <button type="button" className="map-tool" aria-label="Reset north" title="Reset north" onClick={() => mapRef.current?.resetNorth()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 7 14l5-2 5 2-5-11Z" /><path d="M12 12v9" /></svg></button>
+      <button type="button" className="map-tool" aria-label="Inzoomen" title="Inzoomen" onClick={() => mapRef.current?.zoomIn()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
+      <button type="button" className="map-tool" aria-label="Uitzoomen" title="Uitzoomen" onClick={() => mapRef.current?.zoomOut()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14" /></svg></button>
+      <button type="button" className="map-tool" aria-label="Noorden boven" title="Noorden boven" onClick={() => mapRef.current?.resetNorth()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 7 14l5-2 5 2-5-11Z" /><path d="M12 12v9" /></svg></button>
 
       <button type="button" className="popular-toggle" aria-pressed={popularOnly} onClick={togglePopularOnly}>
-        Popular places <span>over 50,000</span>
+        Populaire plaatsen <span>meer dan 50.000</span>
       </button>
       </div>
 
@@ -343,29 +343,29 @@ export default function Landscape() {
       {status && <div className="map-status" role="status">{status}</div>}
       {peopleStatus && <div className="people-status" role="status">
         <p>{peopleStatus}</p>
-        {peopleFailed && <button type="button" onClick={() => retryPeople.current?.()}>Retry people</button>}
+        {peopleFailed && <button type="button" onClick={() => retryPeople.current?.()}>Opnieuw proberen</button>}
       </div>}
-      {nearbyPlaces.length > 0 && <section className="nearby-places" aria-label="Choose a place">
-        <div className="search-results-heading"><strong>Choose a place</strong><button type="button" onClick={() => setNearbyPlaces([])}>Close</button></div>
+      {nearbyPlaces.length > 0 && <section className="nearby-places" aria-label="Kies een plaats">
+        <div className="search-results-heading"><strong>Kies een plaats</strong><button type="button" onClick={() => setNearbyPlaces([])}>Sluiten</button></div>
         {nearbyPlaces.length > 30 && <button type="button" className="nearby-place" onClick={() => {
           const map = mapRef.current;
           if (!map) return;
           const bounds = nearbyPlaces.reduce((b, place) => b.extend(place.center), new maplibregl.LngLatBounds(nearbyPlaces[0].center, nearbyPlaces[0].center));
           map.fitBounds(bounds, { padding: 80, maxZoom: 14, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1000 });
           setNearbyPlaces([]);
-        }}>Zoom in to see more places</button>}
-        {nearbyPlaces.slice(0, 30).map(place => <button type="button" className="nearby-place" key={place.id} onClick={() => showPlace(place)}>{place.label} <small>{place.person_count.toLocaleString()}</small></button>)}
+        }}>Inzoomen voor meer plaatsen</button>}
+        {nearbyPlaces.slice(0, 30).map(place => <button type="button" className="nearby-place" key={place.id} onClick={() => showPlace(place)}>{place.label} <small>{place.person_count.toLocaleString('nl-NL')}</small></button>)}
       </section>}
-      {(selectedPlace || selectedPerson) && <section className="selection-panel" aria-label="Selection">
-        <button type="button" onClick={clearSelection} aria-label="Close selection">Close</button>
-        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString()} person records · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'All dates'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0} onClick={() => setWallPlace(selectedPlace)}>Open wall of names</button></>}
-        {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Unnamed person'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Outside the selected years.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} mapped places</p>}{selectedPerson.limited && <p>Some links may be missing because the API limits results.</p>}</>}
+      {(selectedPlace || selectedPerson) && <section className="selection-panel" aria-label="Selectie">
+        <button type="button" onClick={clearSelection} aria-label="Selectie sluiten">Sluiten</button>
+        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0} onClick={() => setWallPlace(selectedPlace)}>Open namenmuur</button></>}
+        {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Naam onbekend'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Buiten de gekozen jaren.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} plaatsen op de kaart</p>}{selectedPerson.limited && <p>Sommige koppelingen ontbreken mogelijk.</p>}</>}
       </section>}
 
       </div>
       </div>
       <div className={`timeline-dock${timeOpen ? ' time-open' : ''}`}>
-        <button type="button" className="mobile-time-toggle" aria-expanded={timeOpen} aria-controls="time-controls" onClick={() => setTimeOpen(value => !value)}>{timeOpen ? 'Close time' : 'Time'}</button>
+        <button type="button" className="mobile-time-toggle" aria-expanded={timeOpen} aria-controls="time-controls" onClick={() => setTimeOpen(value => !value)}>{timeOpen ? 'Tijd sluiten' : 'Tijd'}</button>
         <div id="time-controls" className="time-controls"><TimeSlider key={timeKey} onApply={applyTime} onCancel={() => timeRequest.current?.abort()} /></div>
       </div>
       {wallPlace && <PlaceWall place={wallPlace} years={appliedYears} onClose={() => setWallPlace(null)} />}

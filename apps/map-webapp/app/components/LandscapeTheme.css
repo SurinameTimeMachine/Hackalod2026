@@ -7,7 +7,7 @@
   --shadows-line: rgb(213 219 198 / 23%);
   color: var(--shadows-cream);
   color-scheme: dark;
-  font-family: var(--font-shadow-sans, 'DM Sans', ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 14px;
   overflow: hidden;
 }
@@ -103,7 +103,7 @@
 .landscape-shell .search-result-icon svg { display: block; width: 22px; height: 22px; }
 .landscape-shell .search-result-text { min-width: 0; }
 .landscape-shell .search-results small, .landscape-shell .nearby-place small { color: var(--shadows-muted); opacity: 1; }
-.landscape-shell .selection-panel h2 { font-family: var(--font-shadow-serif, 'Instrument Serif', Georgia, serif); font-size: 25px; font-weight: 400; line-height: 1.2; }
+.landscape-shell .selection-panel h2 { font-family: var(--font-fell), Georgia, serif; font-size: 25px; font-weight: 400; line-height: 1.2; }
 .landscape-shell .selection-panel p { margin-top: 6px; color: #c7d1c4; line-height: 1.5; }
 .landscape-shell .selection-panel .open-wall { background: var(--shadows-gold); color: #172723; border-color: transparent; }
 .landscape-shell .time-slider input { accent-color: var(--shadows-gold); }

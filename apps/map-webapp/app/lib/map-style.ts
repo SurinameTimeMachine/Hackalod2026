@@ -39,7 +39,7 @@ export const landscapeStyle: StyleSpecification = {
     suriname: {
       type: 'geojson',
       data: '/data/suriname.geojson',
-      attribution: 'Boundary: GONINI / SBB',
+      attribution: 'Grens: GONINI / SBB',
     },
   },
 

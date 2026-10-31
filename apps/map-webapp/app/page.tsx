@@ -13,7 +13,7 @@ const Landscape = dynamic(() => import('./components/Landscape'), {
         padding: 24,
       }}
     >
-      Loading landscape…
+      Kaart laden…
     </main>
   ),
 });

@@ -7,20 +7,20 @@ export function displayName(p: Patient) {
 }
 
 export function subtitle(p: Patient) {
-  const born = p.geboortejaar && p.geboortejaar !== '?' ? ` · b. ${p.geboortejaar}` : '';
-  return `was here · 1921${born}`;
+  const born = p.geboortejaar && p.geboortejaar !== '?' ? ` · geb. ${p.geboortejaar}` : '';
+  return `was hier · 1921${born}`;
 }
 
-export const NO_TIES = 'no known ties to other names on this wall';
+export const NO_TIES = 'geen bekende verbindingen met andere namen';
 
 const RECORD_TYPES: Record<string, string> = {
-  contract_record: 'contract register',
-  erkenningen: 'recognition record',
-  census_entry: 'census entry',
-  census_1921_household: 'census 1921',
-  birth_certificate: 'birth certificate',
-  death_certificate: 'death certificate',
-  marriage_certificate: 'marriage certificate',
+  contract_record: 'contractregister',
+  erkenningen: 'erkenningsakte',
+  census_entry: 'volkstelling',
+  census_1921_household: 'volkstelling 1921',
+  birth_certificate: 'geboorteakte',
+  death_certificate: 'overlijdensakte',
+  marriage_certificate: 'huwelijksakte',
 };
 
 const RANK = { relation: 0, 'same-record': 1, 'same-match': 2 } as const;
@@ -37,27 +37,26 @@ export const isCertain = (t: Tie) =>
 export function tieReason(t: Tie, a: number, b: number, nameOf: (id: number) => string) {
   switch (t.kind) {
     case 'relation': {
-      const unsure = t.confidence === 'certain' ? '' : ' (probable)';
+      const unsure = t.confidence === 'certain' ? '' : ' (waarschijnlijk)';
       const [from, to] = t.from === a ? [a, b] : [b, a];
-      if (t.type === 'spouse') return `spouses${unsure}`;
-      if (t.type === 'parent-child') return `${nameOf(from)} parent of ${nameOf(to)}${unsure}`;
-      return `${nameOf(from)} was ${t.type} for ${nameOf(to)}${unsure}`;
+      if (t.type === 'spouse') return `echtgenoten${unsure}`;
+      if (t.type === 'parent-child') return `${nameOf(from)} ouder van ${nameOf(to)}${unsure}`;
+      return `${nameOf(from)} en ${nameOf(to)} zijn verbonden${unsure}`;
     }
     case 'same-record': {
-      const [ra, rb] = t.roles;
-      return ra && rb ? `on the same record: ${ra} and ${rb}` : 'on the same record';
+      return 'in dezelfde akte';
     }
     case 'same-match':
-      return 'possibly the same person';
+      return 'mogelijk dezelfde persoon';
   }
 }
 
 // The source the tie rests on.
 export function tieReference(t: Tie) {
   const r = t.record;
-  const what = r?.type ? (RECORD_TYPES[r.type] ?? r.type.replace(/_/g, ' ')) : null;
+  const what = r?.type ? (RECORD_TYPES[r.type] ?? 'archiefstuk') : null;
   const when = r?.date ?? r?.year ?? null;
   const parts = [what, when, r ? `#${r.certificate_id}` : null].filter(Boolean);
   const ref = parts.join(' · ');
-  return t.kind === 'same-match' ? `both linked to ${ref}` : ref;
+  return t.kind === 'same-match' ? `beiden gekoppeld aan ${ref}` : ref;
 }

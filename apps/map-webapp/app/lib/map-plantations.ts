@@ -4,7 +4,7 @@ export function addPlantations(map: Map) {
   map.addSource('plantations', {
     type: 'geojson',
     data: '/data/plantations-1930.geojson',
-    attribution: 'Historical plantation polygons: Suriname Time Machine',
+    attribution: 'Historische plantagegrenzen: Suriname Time Machine',
   });
 
   map.addLayer(

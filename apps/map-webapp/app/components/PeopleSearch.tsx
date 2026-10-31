@@ -70,19 +70,19 @@ export default function PeopleSearch({ clusters, onPlace, onPerson }: Props) {
       onPerson({ person, ids: result.ids, limited: result.limited });
       setOpen(false);
     } catch {
-      setError('Connected places could not load. Please try again.');
+      setError('De verbonden plaatsen konden niet worden geladen. Probeer het opnieuw.');
     } finally { setBusyPerson(null); }
   }
 
   return <div className="people-search">
-    <label htmlFor="people-search-input">Search people and places</label>
-    <input id="people-search-input" type="search" placeholder="Name or place" value={query} maxLength={100}
+    <label htmlFor="people-search-input">Zoek personen en plaatsen</label>
+    <input id="people-search-input" type="search" placeholder="Naam of plaats" value={query} maxLength={100}
       onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setPeople([]); setPlaces([]); setState(''); setPlaceState(''); setOpen(true); }} />
     {open && query.trim().length >= 2 && <div className="search-results">
-      <div className="search-results-heading"><strong>Places</strong><button type="button" onClick={() => setOpen(false)} aria-label="Close search results">Close</button></div>
-      {placeState === '' && <p>Searching places…</p>}
-      {placeState === 'error' && <p>Place search unavailable. Try changing your search.</p>}
-      {placeState === 'done' && !places.some(place => typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)) && <p>No mapped places found.</p>}
+      <div className="search-results-heading"><strong>Plaatsen</strong><button type="button" onClick={() => setOpen(false)} aria-label="Zoekresultaten sluiten">Sluiten</button></div>
+      {placeState === '' && <p>Plaatsen zoeken…</p>}
+      {placeState === 'error' && <p>Zoeken naar plaatsen is niet beschikbaar.</p>}
+      {placeState === 'done' && !places.some(place => typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)) && <p>Geen plaatsen op de kaart gevonden.</p>}
       {places.filter(place => typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)).map(place => {
         const cluster = clusters.find(c => c.id === place.gazetteer_id);
         const hasCoordinates = typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng);
@@ -90,15 +90,15 @@ export default function PeopleSearch({ clusters, onPlace, onPerson }: Props) {
           if (!hasCoordinates) return;
           onPlace(cluster ?? { id: place.gazetteer_id ?? place.place_norm, uri: null, label: place.label, type: 'place', lat: place.lat!, lng: place.lng!, person_count: 0, center: [place.lng!, place.lat!], radiusMeters: 0, placement: 'gazetteer-point', sizeCapped: false });
           setOpen(false);
-        }}><ResultIcon type="place" /><span className="search-result-text"><strong><span className="sr-only">Place: </span>{place.label}</strong><small>{hasCoordinates ? `${place.gazetteer_label && place.gazetteer_label !== place.label ? `Mapped to ${place.gazetteer_label} · ` : ''}${place.match_type ?? 'matched location'}${cluster ? '' : ' · no sphere available'}` : 'No coordinates available yet'} · {place.records.toLocaleString()} records</small></span></button>;
+        }}><ResultIcon type="place" /><span className="search-result-text"><strong><span className="sr-only">Plaats: </span>{place.label}</strong><small>{place.gazetteer_label && place.gazetteer_label !== place.label ? `Gekoppeld aan ${place.gazetteer_label} · ` : ''}{place.records.toLocaleString('nl-NL')} vermeldingen</small></span></button>;
       })}
-      {placesLimited && <p>Showing the first 100 recorded places. Refine your search.</p>}
-      <strong>People</strong>
-      {state === '' && <p>Searching…</p>}
-      {state === 'error' && <p>Person search unavailable. Try changing your search.</p>}
-      {state === 'done' && !people.length && <p>No person records found.</p>}
-      {state === 'done' && people.map(person => <button type="button" className="search-result" key={person.person_id} disabled={busyPerson !== null} onClick={() => void selectPerson(person)}><ResultIcon type="person" /><span className="search-result-text"><strong><span className="sr-only">Person: </span>{person.full_name || 'Unnamed person'}</strong><small>{[person.role, person.event_year].filter(Boolean).join(' · ')}</small></span></button>)}
-      {limited && <p>Showing the first 100 person records. Refine your search.</p>}
+      {placesLimited && <p>De eerste 100 plaatsen worden getoond. Verfijn je zoekopdracht.</p>}
+      <strong>Personen</strong>
+      {state === '' && <p>Zoeken…</p>}
+      {state === 'error' && <p>Zoeken naar personen is niet beschikbaar.</p>}
+      {state === 'done' && !people.length && <p>Geen personen gevonden.</p>}
+      {state === 'done' && people.map(person => <button type="button" className="search-result" key={person.person_id} disabled={busyPerson !== null} onClick={() => void selectPerson(person)}><ResultIcon type="person" /><span className="search-result-text"><strong><span className="sr-only">Persoon: </span>{person.full_name || 'Naam onbekend'}</strong><small>{person.event_year}</small></span></button>)}
+      {limited && <p>De eerste 100 vermeldingen worden getoond. Verfijn je zoekopdracht.</p>}
       {error && <p role="alert">{error}</p>}
     </div>}
   </div>;

@@ -7,14 +7,14 @@ type Bounds = { min: number; max: number };
 // These are navigation windows from the design, not claims that a historical
 // process necessarily began or ended at the edge of the displayed window.
 const periods = [
-  { label: 'Slavery', from: 1765, to: 1863, kind: 'forced', row: 0 },
-  { label: 'State supervision', from: 1863, to: 1873, kind: 'forced', row: 0 },
-  { label: 'Transatlantic slave trade', from: 1765, to: 1808, kind: 'forced', row: 1 },
-  { label: 'British Indian contract labour', from: 1873, to: 1916, kind: 'contract', row: 1 },
-  { label: 'Chinese contract labour', from: 1853, to: 1874, kind: 'contract', row: 2 },
-  { label: 'Javanese contract labour', from: 1890, to: 1939, kind: 'contract', row: 2 },
-  { label: 'Migration to the Netherlands', from: 1965, to: 1980, kind: 'migration', row: 0 },
-  { label: 'After the visa requirement', from: 1980, to: 2026, kind: 'migration', row: 1 },
+  { label: 'Slavernij', from: 1765, to: 1863, kind: 'forced', row: 0 },
+  { label: 'Staatstoezicht', from: 1863, to: 1873, kind: 'forced', row: 0 },
+  { label: 'Trans-Atlantische slavenhandel', from: 1765, to: 1808, kind: 'forced', row: 1 },
+  { label: 'Brits-Indische contractarbeid', from: 1873, to: 1916, kind: 'contract', row: 1 },
+  { label: 'Chinese contractarbeid', from: 1853, to: 1874, kind: 'contract', row: 2 },
+  { label: 'Javaanse contractarbeid', from: 1890, to: 1939, kind: 'contract', row: 2 },
+  { label: 'Migratie naar Nederland', from: 1965, to: 1980, kind: 'migration', row: 0 },
+  { label: 'Na de visumplicht', from: 1980, to: 2026, kind: 'migration', row: 1 },
 ] as const;
 
 export default function TimeSlider({ onApply, onCancel }: { onApply: (range: YearRange) => Promise<boolean>; onCancel: () => void }) {
@@ -35,7 +35,7 @@ export default function TimeSlider({ onApply, onCancel }: { onApply: (range: Yea
         const range = { min: Math.min(data.min, 1765), max: Math.max(data.max, 2026) };
         setBounds(range); setFrom(range.min); setTo(range.max); setError('');
       })
-      .catch(() => { if (!controller.signal.aborted) setError('Years unavailable.'); });
+      .catch(() => { if (!controller.signal.aborted) setError('Jaren niet beschikbaar.'); });
     return () => controller.abort();
   }, [retry]);
 
@@ -53,13 +53,13 @@ export default function TimeSlider({ onApply, onCancel }: { onApply: (range: Yea
       const ok = await onApply(start === bounds.min && end === bounds.max ? null : [start, end]);
       if (current !== request.current) return;
       setBusy(false);
-      if (!ok) setError('Could not load these years. Try adjusting the range.');
+      if (!ok) setError('Deze jaren konden niet worden geladen. Pas de periode aan.');
     }, 400);
   }
 
-  return <section className="time-slider" aria-label="Time range">
-    {!bounds ? <div>{error || 'Loading years…'} {error && <button type="button" onClick={() => { setError(''); setRetry(n => n + 1); }}>Retry</button>}</div> : <>
-      <div className="time-heading"><strong>Time</strong><span>{from} – {to}</span>{busy && <small role="status">Updating…</small>}</div>
+  return <section className="time-slider" aria-label="Tijdvak">
+    {!bounds ? <div>{error || 'Jaren laden…'} {error && <button type="button" onClick={() => { setError(''); setRetry(n => n + 1); }}>Opnieuw proberen</button>}</div> : <>
+      <div className="time-heading"><strong>Tijd</strong><span>{from} – {to}</span>{busy && <small role="status">Bijwerken…</small>}</div>
       <div className="timeline-scroll">
         <div className="timeline-axis">
           <div className="dual-range" style={{
@@ -67,12 +67,12 @@ export default function TimeSlider({ onApply, onCancel }: { onApply: (range: Yea
             '--range-to': `${((to - bounds.min) / (bounds.max - bounds.min)) * 100}%`,
           } as CSSProperties}>
             <div className="dual-range-track" aria-hidden="true"><div className="dual-range-selected" /></div>
-            <input aria-label="Start year" style={{ zIndex: from === to ? 2 : 1 }} type="range" min={bounds.min} max={bounds.max} value={from} onChange={e => choose(Math.min(Number(e.target.value), to), to)} />
-            <input aria-label="End year" type="range" min={bounds.min} max={bounds.max} value={to} onChange={e => choose(from, Math.max(Number(e.target.value), from))} />
+            <input aria-label="Beginjaar" style={{ zIndex: from === to ? 2 : 1 }} type="range" min={bounds.min} max={bounds.max} value={from} onChange={e => choose(Math.min(Number(e.target.value), to), to)} />
+            <input aria-label="Eindjaar" type="range" min={bounds.min} max={bounds.max} value={to} onChange={e => choose(from, Math.max(Number(e.target.value), from))} />
           </div>
-          <div className="timeline-events" aria-label="Select a historical period">
+          <div className="timeline-events" aria-label="Kies een historische periode">
             {periods.map(period => <button type="button" key={period.label} className={`timeline-period ${period.kind}`}
-              aria-label={`${period.label}, ${period.from} to ${period.to}`} aria-pressed={from === period.from && to === period.to}
+              aria-label={`${period.label}, ${period.from} tot ${period.to}`} aria-pressed={from === period.from && to === period.to}
               title={`${period.label}: ${period.from}–${period.to}`}
               style={{ left: `${(period.from - bounds.min) / (bounds.max - bounds.min) * 100}%`, width: `${(period.to - period.from) / (bounds.max - bounds.min) * 100}%`, top: `calc(${period.row} * var(--period-row))` }}
               onClick={() => choose(period.from, period.to)}>{period.label}</button>)}
