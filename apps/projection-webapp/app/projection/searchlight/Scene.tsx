@@ -57,20 +57,21 @@ function useSearchlightCamera(sl: Searchlight) {
   return camera;
 }
 
-// World-fixed calibration grid: lines every half beam, a cross at every
-// crossing, a large one at the wall's centre.
+// World-fixed calibration grid: lines every quarter beam, a cross at every
+// crossing, a large one at the wall's centre and medium ones on the four
+// targets for F (a quarter beam beside, above and below it).
 function TestPattern({ width, height }: { width: number; height: number }) {
   const [grid, crosses] = useMemo(() => {
     const lines: number[] = [];
     const marks: number[] = [];
-    const [sx, sy] = [BEAM.width / 2, BEAM.height / 2];
+    const [sx, sy] = [BEAM.width / 4, BEAM.height / 4];
     const nx = Math.floor(width / 2 / sx);
     const ny = Math.floor(height / 2 / sy);
     for (let i = -nx; i <= nx; i++) lines.push(i * sx, -ny * sy, 2, i * sx, ny * sy, 2);
     for (let j = -ny; j <= ny; j++) lines.push(-nx * sx, j * sy, 2, nx * sx, j * sy, 2);
     for (let i = -nx; i <= nx; i++)
       for (let j = -ny; j <= ny; j++) {
-        const r = i === 0 && j === 0 ? 120 : 40;
+        const r = i === 0 && j === 0 ? 120 : Math.abs(i) + Math.abs(j) === 1 ? 70 : 30;
         const [x, y] = [i * sx, j * sy];
         marks.push(x - r, y, 2, x + r, y, 2, x, y - r, 2, x, y + r, 2);
       }

@@ -15,8 +15,8 @@ export type SearchlightConfig = {
   dCutoff: number; // Hz, for the speed estimate
   predictMs: number; // extrapolate by this much (0 = off)
   beamEdge: boolean;
-  beamInner: number; // % of the half-diagonal where the edge starts to darken
-  beamOuter: number; // % where it is black
+  beamInner: number; // % of the half-diagonal where the round edge starts to darken
+  beamOuter: number; // % where it is black (smaller: a smaller searchlight)
   trackerLost: number; // ms without poses before the last one is frozen
   keyStep: number; // degrees per arrow key
 };
@@ -59,6 +59,10 @@ export function saveConfig(c: SearchlightConfig) {
 // One beam is the 1920×1080 wall of the plain projection; the virtual wall
 // is `wallBeams` of them. Names are laid out over all of it.
 export const BEAM = { width: WALL.width, height: WALL.height };
+
+// The test grid's calibration targets sit a quarter beam from the centre:
+// at zero they are always inside the image, whatever the field of view.
+export const TARGET = { x: BEAM.width / 4, y: BEAM.height / 4 };
 
 export const wallBounds = (c: SearchlightConfig): Bounds => ({
   width: c.wallBeams.x * BEAM.width,
