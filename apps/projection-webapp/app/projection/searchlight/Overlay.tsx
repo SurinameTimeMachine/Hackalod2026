@@ -7,12 +7,17 @@ import type { Searchlight } from './state';
 
 const round = (v: number, step: number) => Math.round(v / step) * step;
 
-// Calibration keys (§7): key → change, from the current config.
+// Field of view and lens offset, by physical key so Shift (×10, for a
+// short-throw beamer far from the default) does not change which key it is.
+const COARSE: Record<string, (c: SearchlightConfig, n: number) => Partial<SearchlightConfig>> = {
+  BracketLeft: (c, n) => ({ hFov: round(Math.max(c.hFov - 0.5 * n, 5), 0.5) }),
+  BracketRight: (c, n) => ({ hFov: round(Math.min(c.hFov + 0.5 * n, 150), 0.5) }),
+  Semicolon: (c, n) => ({ lensShiftY: round(c.lensShiftY - 0.02 * n, 0.01) }),
+  Quote: (c, n) => ({ lensShiftY: round(c.lensShiftY + 0.02 * n, 0.01) }),
+};
+
+// The filter keys: key → change, from the current config.
 const KEYS: Record<string, (c: SearchlightConfig) => Partial<SearchlightConfig>> = {
-  '[': (c) => ({ hFov: round(Math.max(c.hFov - 0.5, 5), 0.5) }),
-  ']': (c) => ({ hFov: round(Math.min(c.hFov + 0.5, 120), 0.5) }),
-  ';': (c) => ({ lensShiftY: round(c.lensShiftY - 0.02, 0.01) }),
-  "'": (c) => ({ lensShiftY: round(c.lensShiftY + 0.02, 0.01) }),
   '-': (c) => ({ minCutoff: round(Math.max(c.minCutoff - 0.1, 0.05), 0.05) }),
   '=': (c) => ({ minCutoff: round(c.minCutoff + 0.1, 0.05) }),
   '9': (c) => ({ beta: round(Math.max(c.beta - 0.005, 0), 0.001) }),
@@ -28,7 +33,8 @@ function useInputs(sl: Searchlight) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const c = sl.config;
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      if (KEYS[k]) sl.adjust(KEYS[k](c));
+      if (COARSE[e.code]) sl.adjust(COARSE[e.code](c, e.shiftKey ? 10 : 1));
+      else if (KEYS[k]) sl.adjust(KEYS[k](c));
       else if (k === 'c') sl.calibrate();
       else if (k === 't') {
         sl.show.pattern = !sl.show.pattern;
@@ -78,7 +84,7 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
     `tracker: ${sl.lastPoseAt ? (lost ? 'LOST (frozen)' : `${Math.round(sl.poseRate)} Hz, age ${Math.round(age!)} ms`) : 'none yet'}`,
     `yaw ${sl.aim.yaw.toFixed(1)}°  pitch ${sl.aim.pitch.toFixed(1)}°  roll ${sl.aim.roll.toFixed(1)}°  speed ${sl.aim.speed.toFixed(0)}°/s`,
     `manual yaw ${sl.manual.yaw.toFixed(1)}°  pitch ${sl.manual.pitch.toFixed(1)}°`,
-    `hFov ${c.hFov}° [ ]   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0`,
+    `hFov ${c.hFov}° [ ] (Shift ×10)   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0`,
     `beam at x ${Math.round(sl.beam.x)}  y ${Math.round(sl.beam.y)}`,
     `C calibrate  T pattern  V edge  P save  S static`,
     JSON.stringify(c),
