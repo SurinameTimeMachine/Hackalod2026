@@ -5,7 +5,7 @@ import type { OrthographicCamera as ThreeOrthographicCamera } from 'three';
 import type { StampLayout } from './wallLayout';
 import { wallFocus } from './wallFocus';
 
-export default function WallCamera({ selected, caption, detailsPanel = false, familyCount = 0 }: { selected?: StampLayout; caption?: string; detailsPanel?: boolean; familyCount?: number }) {
+export default function WallCamera({ selected, caption, detailsPanel = false, tree }: { selected?: StampLayout; caption?: string; detailsPanel?: boolean; tree?: { width: number; height: number } | null }) {
   const camera = useRef<ThreeOrthographicCamera>(null);
   const size = useThree(state => state.size);
   const canvas = useThree(state => state.gl.domElement);
@@ -30,7 +30,10 @@ export default function WallCamera({ selected, caption, detailsPanel = false, fa
   }, [canvas]);
   const inset = selected && detailsPanel ? Math.min(352, size.width * 0.45) : 0;
   const target = wallFocus(size.width - inset, size.height, selected, caption);
-  if (familyCount > 1) target.zoom = Math.min(target.zoom, Math.min(size.width / 1100, size.height / 800));
+  if (tree && selected) {
+    target.x = selected.x; target.y = selected.y;
+    target.zoom = Math.min((size.width - 64) / tree.width, (size.height - 96) / tree.height, size.width / 1100);
+  }
 
   useFrame((_, delta) => {
     const current = camera.current;

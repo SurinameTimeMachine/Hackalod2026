@@ -14,8 +14,11 @@ import WallCamera from './WallCamera';
 import WallMapButton from './WallMapButton';
 import type { PersonSelection } from '../PeopleSearch';
 import { useConstellation } from '../family-graph/projection/useConstellation';
+import { patientKey } from '../family-graph/projection/graph';
 import { usePatientEdges as useGraphEdges, usePatientIndex } from '../family-graph/shared/hooks';
 import FamilyConstellation from './FamilyConstellation';
+import { buildFamilyTree, type ExtraLink, type TreeNode } from './familyLayout';
+import { isFamily } from '../family-graph/shared/strings';
 
 async function loadFonts() {
   await Promise.all(
@@ -105,6 +108,27 @@ export default function ProjectionPage({ onPerson, patientId }: { onPerson: (sel
   );
 
   const selectedPatient = selectedId == null ? undefined : byId.get(selectedId);
+  // Patients who share a record with the selected one, but are not family: they probably knew each other.
+  const tree = useMemo(() => {
+    const graph = family.graph;
+    if (!graph || selectedId === null || graph.nodes.size < 2) return null;
+    const rootKey = patientKey(selectedId);
+    const isLink = (t: Tie) => !(t.kind === 'relation' && isFamily(t.type, t.record?.type ?? null));
+    const extras: ExtraLink[] = [];
+    for (const e of edges) {
+      const other = e.a === selectedId ? e.b : e.b === selectedId ? e.a : null;
+      const ties = e.ties.filter(isLink);
+      if (other === null || !ties.length || !byId.has(other) || graph.edges.has(`wall:${e.a}~${e.b}`)) continue;
+      const described = describeTie(ties, e.a, e.b);
+      extras.push({ patientId: other, key: patientKey(other), name: displayName(byId.get(other)!), caption: 'was hier · 1921', with: rootKey, ...described });
+    }
+    extras.sort((a, b) => Number(b.certain) - Number(a.certain));
+    return buildFamilyTree(graph, extras.slice(0, 12));
+  }, [family.graph, selectedId, edges, byId, describeTie]);
+  const openTreeNode = useCallback((node: TreeNode) => {
+    if (node.patientId !== undefined && node.patientId !== selectedId) select(node.patientId);
+    else if (node.kind !== 'connection') family.click(node.key);
+  }, [family, select, selectedId]);
   async function showFamilyOnMap() {
     if (!family.graph || !selectedPatient) return;
     const graph = family.graph;
@@ -148,7 +172,7 @@ export default function ProjectionPage({ onPerson, patientId }: { onPerson: (sel
         dpr={[1, 2]}
         onPointerMissed={() => select(null)}
       >
-        <WallCamera selected={stamps.find(stamp => stamp.id === selectedId)} caption={selectedId == null ? '' : describeSelected(selectedId)} familyCount={family.graph?.nodes.size ?? 0} />
+        <WallCamera selected={stamps.find(stamp => stamp.id === selectedId)} caption={selectedId == null ? '' : describeSelected(selectedId)} tree={tree} />
         <Wall
           stamps={stamps}
           edges={[]}
@@ -157,7 +181,7 @@ export default function ProjectionPage({ onPerson, patientId }: { onPerson: (sel
           describeSelected={describeSelected}
           describeTie={describeTie}
         />
-        {family.graph && selectedId !== null && stamps.find(stamp => stamp.id === selectedId) && <FamilyConstellation graph={family.graph} anchor={stamps.find(stamp => stamp.id === selectedId)!} rootCaption={describeSelected(selectedId)} onSelect={family.click} />}
+        {tree && selectedId !== null && stamps.find(stamp => stamp.id === selectedId) && <FamilyConstellation tree={tree} anchor={stamps.find(stamp => stamp.id === selectedId)!} onSelect={openTreeNode} onClose={() => select(null)} />}
       </Canvas>}
       {selectedPatient && <div className="wall-map-position">
         <WallMapButton person={{ person_id: selectedPatient.patient_id, full_name: displayName(selectedPatient), role: 'patient', source_dataset: 'mh1921', event_year: 1921 }} endpoint="patient-places" onShow={onPerson} />
