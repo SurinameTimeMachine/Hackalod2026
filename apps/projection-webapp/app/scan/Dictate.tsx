@@ -575,6 +575,7 @@ export default function Dictate({ person, context, onBack, onSubject, onSaved }:
           link: s.is_subject ? (person.key.startsWith('name:') ? null : person.key) : choice,
           link_label: s.is_subject ? person.text : labelOf(s),
           quote: s.quote,
+          narrator_relation: s.type === 'person' ? s.narrator_relation : null,
           row: s.kind
             ? {
                 kind: s.kind,

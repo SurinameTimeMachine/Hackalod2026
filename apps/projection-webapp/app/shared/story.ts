@@ -49,6 +49,7 @@ export type Suggestion = {
   quote: string;
   possibly_living: boolean;
   life: LifeFacts; // for persons: what the story says about their life
+  narrator_relation: string | null; // how this person is related to the narrator, if said
 };
 
 export type Range = [number, number];
@@ -106,6 +107,7 @@ export type StoryEntity = {
   quote: string;
   row: ContributionRow | null; // what goes into the dataset, if anything
   row_id?: string | null; // set by the server
+  narrator_relation: string | null; // how this person is related to the narrator ("mijn oma")
 };
 
 // Who told the story.

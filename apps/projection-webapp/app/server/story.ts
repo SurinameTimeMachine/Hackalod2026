@@ -131,7 +131,7 @@ const EXTRACT_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['mention', 'type', 'about', 'is_subject', 'kind', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living', 'life'],
+        required: ['mention', 'type', 'about', 'is_subject', 'kind', 'relation_type', 'related_key', 'name_raw', 'field', 'value', 'place_raw', 'year', 'quote', 'possibly_living', 'life', 'narrator_relation'],
         properties: {
           mention: { type: 'string', description: 'The exact words in the transcript, copied character for character' },
           type: { type: 'string', enum: TYPES },
@@ -148,6 +148,7 @@ const EXTRACT_SCHEMA = {
           quote: { type: 'string', description: 'The sentence from the transcript it comes from, copied exactly' },
           possibly_living: { type: 'boolean' },
           life: LIFE_SCHEMA,
+          narrator_relation: nullable('string', { enum: [...RELATIONS, null], description: "How this person is related to the narrator, if the story says so" }),
         },
       },
     },
@@ -167,6 +168,8 @@ A kinship word gets kind null (its person carries the relation). Kinship is rela
 
 Rules: only what is said, never infer. "mention" is copied exactly from the transcript; "quote" is the sentence it is in, copied exactly. For person entities set name_raw to the name as told and possibly_living true if they may still be alive (the narrator's parents or siblings, anyone born after 1930). Columns that do not apply are null. value and summary are written in Dutch; call people by their name, never "the subject" or "de subject".
 
+Narrator: for person entities set narrator_relation = how that person is related to the narrator when the story says so ("mijn grootmoeder Johanna" → grandparent, "mijn vader" → parent, also for the subject); null when not said or when the kinship is someone else's ("háár grootmoeder" is oma's grandmother, not the narrator's).
+
 Lifetimes: "life" (on every person entity; all null for other types) and "subject_life" (the subject) hold only what the transcript itself says, never what is known from the archive: born / died years, alive_in = one year they were alive (worked, married, arrived …; "rond 1908" → 1908), place = where they lived. Use null when not said; never guess from generations.`;
 
 const KINSHIP = /\b(oma|opa|grootmoeder|grootvader|over\w*|moeder|vader|ma|pa|zus|zuster|broer|oom|tante|neef|nicht|zoon|dochter|kind|man|vrouw|echtgeno\w*|kleinkind|kleinzoon|kleindochter|familie)\b/i;
@@ -174,6 +177,19 @@ const KINSHIP = /\b(oma|opa|grootmoeder|grootvader|over\w*|moeder|vader|ma|pa|zu
 const NARRATOR_KIN = '(?:moeder|vader|oma|opa|ouders?|broer|zus|zuster|oom|tante|neef|nicht|zoon|dochter|man|vrouw|\\w*moeder|\\w*vader)';
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // "mijn grootvader (heette) Ramlal": the narrator's own relative.
+// The kinship word itself, for when the model leaves narrator_relation empty.
+const KIN_TYPE: [RegExp, string][] = [
+  [/^(groot|over|oud)\w*(moeder|vader)$|^(oma|opa)$/, 'grandparent'],
+  [/^(moeder|vader|ouders?|ma|pa)$/, 'parent'],
+  [/^(broer|zus|zuster)$/, 'sibling'],
+  [/^(man|vrouw)$/, 'spouse'],
+  [/^(zoon|dochter)$/, 'child'],
+];
+const narratorKin = (quote: string, name: string): string | null => {
+  const m = new RegExp(`\\b(?:mijn|onze)\\s+(${NARRATOR_KIN})\\s+(?:heette\\s+|was\\s+|,\\s*)?${escapeRe(name.trim().split(/\s+/)[0])}`, 'i').exec(quote);
+  if (!m) return null;
+  return KIN_TYPE.find(([re]) => re.test(m[1].toLowerCase()))?.[1] ?? 'other';
+};
 const narratorsRelative = (quote: string, name: string) =>
   new RegExp(`\\b(?:mijn|onze)\\s+${NARRATOR_KIN}\\s+(?:heette\\s+|was\\s+|,\\s*)?${escapeRe(name.trim().split(/\s+/)[0])}`, 'i').test(quote);
 
@@ -251,6 +267,8 @@ export async function extract(key: string, transcript: string, opts: { name?: st
       else if (r.type === 'occupation' && !r.kind) Object.assign(r, { kind: 'fact', field: 'occupation', value: r.value ?? r.mention });
       if (r.type === 'person' && r.kind !== 'relation') r.kind = null;
       if (r.kind === 'relation' && narratorsRelative(r.quote, r.name_raw ?? r.mention)) r.kind = null;
+      // "mijn grootvader heette Ramlal": the narrator's relation, said in so many words.
+      if (r.type === 'person' && !r.narrator_relation) r.narrator_relation = narratorKin(r.quote, r.name_raw ?? r.mention);
       if (r.is_subject) {
         r.kind = null;
         r.linked = key.startsWith('name:') ? null : key;

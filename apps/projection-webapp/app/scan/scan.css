@@ -241,3 +241,7 @@
 .s-thanks .found-body { justify-content: center; text-align: center; }
 .s-thanks h2 { font: 400 30px/1.2 var(--marker); margin: 0; }
 .s-thanks .lede { font-size: 15px; line-height: 1.5; color: var(--soft); margin: 12px 0 0; }
+
+.field.missing input { border-color: var(--rec); box-shadow: 0 0 0 1px var(--rec); }
+.check.missing { color: var(--rec); }
+.check.missing input { outline: 2px solid var(--rec); outline-offset: 1px; }

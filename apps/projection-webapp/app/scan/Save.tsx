@@ -5,7 +5,7 @@
 import { useCallback, useState } from 'react';
 import type { Candidate, ContributeRequest, StoryEntity } from '../shared/story';
 import { Mic } from './icons';
-import { NARRATOR_RELATIONS, SAVE } from './strings';
+import { KIN, NARRATOR_CHIP_FOR, NARRATOR_RELATIONS, SAVE } from './strings';
 import { useRecorder } from './useRecorder';
 
 type Props = {
@@ -18,8 +18,14 @@ type Props = {
 };
 
 export default function Save({ person, transcript, summary, entities, onBack, onSaved }: Props) {
+  // What the story already says: "mijn grootmoeder Johanna" (the person) and
+  // "mijn grootvader Ramlal" (other family of the narrator).
+  const told = entities.find((e) => e.is_subject)?.narrator_relation;
+  const family = entities.filter((e) => e.type === 'person' && e.narrator_relation && !e.is_subject);
+  const [keep, setKeep] = useState<Set<string>>(() => new Set(family.map((e) => e.id)));
+  const [tried, setTried] = useState(false);
   const [name, setName] = useState('');
-  const [relation, setRelation] = useState<number | null>(null);
+  const [relation, setRelation] = useState<number | null>(told ? (NARRATOR_CHIP_FOR[told] ?? null) : null);
   const [about, setAbout] = useState('');
   const [publish, setPublish] = useState(false);
   const [ai, setAi] = useState(false);
@@ -47,9 +53,13 @@ export default function Save({ person, transcript, summary, entities, onBack, on
   const rec = useRecorder(onAudio);
 
   const rows = entities.filter((e) => e.row).length;
-  const ready = name.trim().length > 0 && publish && ai && !busy && !rec.recording;
+  const missingName = !name.trim();
+  const missingConsent = !publish || !ai;
 
+  // Always tappable: say what is missing instead of doing nothing.
   const submit = async () => {
+    if (busy || rec.recording) return;
+    if (missingName || missingConsent) return setTried(true);
     setBusy('saving');
     setError(null);
     const rel = relation === null ? null : NARRATOR_RELATIONS[relation];
@@ -58,7 +68,7 @@ export default function Save({ person, transcript, summary, entities, onBack, on
       subject_name: person.text,
       transcript,
       summary,
-      entities,
+      entities: entities.map((e) => (e.narrator_relation && !e.is_subject && !keep.has(e.id) ? { ...e, narrator_relation: null } : e)),
       narrator: { name: name.trim(), relation: rel?.value ?? null, relation_label: rel?.label ?? null, about: about.trim() || null },
       consent: { publish, ai },
     };
@@ -79,7 +89,7 @@ export default function Save({ person, transcript, summary, entities, onBack, on
           <h3>{SAVE.title}</h3>
           <p>{SAVE.lede(person.text)}</p>
         </div>
-        <label className="field">
+        <label className={`field${tried && missingName ? ' missing' : ''}`}>
           <span>{SAVE.name}</span>
           <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={120} />
         </label>
@@ -93,6 +103,30 @@ export default function Save({ person, transcript, summary, entities, onBack, on
             ))}
           </div>
         </div>
+        {family.length > 0 && (
+          <div className="field">
+            <span>{SAVE.fromStory}</span>
+            {family.map((e) => (
+              <label className="check" key={e.id}>
+                <input
+                  type="checkbox"
+                  checked={keep.has(e.id)}
+                  onChange={() =>
+                    setKeep((k) => {
+                      const n = new Set(k);
+                      if (n.has(e.id)) n.delete(e.id);
+                      else n.add(e.id);
+                      return n;
+                    })
+                  }
+                />
+                <span>
+                  {e.link_label ?? e.mention} · je {KIN[e.narrator_relation!] ?? e.narrator_relation}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
         <label className="field">
           <span>{SAVE.about}</span>
           <textarea value={about} onChange={(e) => setAbout(e.target.value)} placeholder={SAVE.aboutPlaceholder} maxLength={2000} rows={3} />
@@ -107,19 +141,22 @@ export default function Save({ person, transcript, summary, entities, onBack, on
             </>
           )}
         </button>
-        <label className="check">
+        <label className={`check${tried && !publish ? ' missing' : ''}`}>
           <input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
           <span>{SAVE.publish}</span>
         </label>
-        <label className="check">
+        <label className={`check${tried && !ai ? ' missing' : ''}`}>
           <input type="checkbox" checked={ai} onChange={(e) => setAi(e.target.checked)} />
           <span>{SAVE.ai}</span>
         </label>
         <p className="foot-note">{SAVE.summary(rows, entities.length)}</p>
+        {tried && (missingName || missingConsent) && (
+          <p className="foot-note" style={{ color: 'var(--rec)' }}>{missingName ? SAVE.missingName : SAVE.missingConsent}</p>
+        )}
         {error && <p className="foot-note" style={{ color: 'var(--rec)' }}>{error}</p>}
       </div>
       <div className="found-foot">
-        <button type="button" className="bigbtn dark" disabled={!ready} onClick={submit}>
+        <button type="button" className="bigbtn dark" onClick={submit}>
           {busy === 'saving' ? SAVE.saving : SAVE.button}
         </button>
         <button type="button" className="textbtn" onClick={onBack}>

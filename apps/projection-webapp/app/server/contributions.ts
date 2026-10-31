@@ -53,6 +53,7 @@ export async function save(req: ContributeRequest): Promise<SavedStory> {
       quote: cut(e.quote, 500) ?? '',
       row: null,
       row_id: null,
+      narrator_relation: cut(e.narrator_relation, 40),
     };
     if (e.row) {
       const id = randomUUID();
@@ -95,6 +96,22 @@ export async function save(req: ContributeRequest): Promise<SavedStory> {
       confirmed: true,
       ...base,
     });
+
+  // The narrator's own family as told ("mijn grootvader Ramlal"): relation
+  // rows from the narrator to those people.
+  for (const e of entities)
+    if (e.narrator_relation && !e.is_subject)
+      rows.push({
+        id: randomUUID(),
+        person_key: narratorKey,
+        kind: 'relation',
+        relation_type: e.narrator_relation,
+        related_key: e.link && /^(patient|person):/.test(e.link) ? e.link : null,
+        name_raw: e.link_label ?? e.mention,
+        quote: e.quote,
+        confirmed: true,
+        ...base,
+      });
 
   const story: SavedStory = {
     id: storyId,

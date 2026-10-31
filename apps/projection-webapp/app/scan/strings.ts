@@ -195,7 +195,26 @@ export const SAVE = {
   saving: 'Opslaan…',
   failed: 'Opslaan lukte niet. Probeer het nog eens.',
   back: 'Terug naar je verhaal',
+  fromStory: 'Uit je verhaal: jouw familie',
+  missingName: 'Vul je naam of bijnaam in.',
+  missingConsent: 'Vink beide vakjes aan om op te slaan.',
 };
+
+// "je grootouder": how a told person is related to the narrator.
+export const KIN: Record<string, string> = {
+  parent: 'ouder',
+  child: 'kind',
+  sibling: 'broer of zus',
+  spouse: 'partner',
+  grandparent: 'grootouder',
+  grandchild: 'kleinkind',
+  friend: 'vriend(in)',
+  colleague: 'collega',
+  other: 'familie',
+};
+
+// The person's relation to the narrator → the narrator's chip for that person.
+export const NARRATOR_CHIP_FOR: Record<string, number> = { grandparent: 0, parent: 2, other: 3, sibling: 3, spouse: 3, friend: 4 };
 
 // How the narrator relates to the person (relation_type as in the dataset).
 export const NARRATOR_RELATIONS: { label: string; value: string | null }[] = [
