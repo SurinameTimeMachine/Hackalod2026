@@ -6,6 +6,7 @@ import type { SearchlightConfig } from './config';
 import type { Searchlight } from './state';
 
 const round = (v: number, step: number) => Math.round(v / step) * step;
+const FULL_BEAM = 250; // % of half the height: past the corners of a 16:9 image
 
 // Field of view and lens offset, by physical key so Shift (×10, for a
 // short-throw beamer far from the default) does not change which key it is.
@@ -23,7 +24,7 @@ const KEYS: Record<string, (c: SearchlightConfig) => Partial<SearchlightConfig>>
   '9': (c) => ({ beta: round(Math.max(c.beta - 0.05, 0), 0.01) }),
   '0': (c) => ({ beta: round(c.beta + 0.05, 0.01) }),
   '7': (c) => ({ predictMs: Math.max(c.predictMs - 10, 0) }),
-  '8': (c) => ({ predictMs: Math.min(c.predictMs + 10, 250) }),
+  '8': (c) => ({ predictMs: Math.min(c.predictMs + 10, 500) }),
 };
 
 function useInputs(sl: Searchlight, note: (text: string) => void) {
@@ -65,6 +66,7 @@ function useInputs(sl: Searchlight, note: (text: string) => void) {
 // A round beam with a hard edge (a soft one blurs away on a modest beamer).
 // Only darkens, so black stays black.
 function BeamEdge({ radius }: { radius: number }) {
+  // Animates when it opens up for a tree and closes again.
   return (
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
       <div
@@ -77,6 +79,7 @@ function BeamEdge({ radius }: { radius: number }) {
           transform: 'translate(-50%, -50%)',
           borderRadius: '50%',
           boxShadow: '0 0 0 200vmax #000',
+          transition: 'width 0.8s ease, height 0.8s ease',
         }}
       />
     </div>
@@ -107,7 +110,7 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
   const lost = sl.lastPoseAt > 0 && !sl.trackerLive;
   const lines = [
     `searchlight  ${Math.round(sl.fps)} fps${sl.sim ? '  sim' : ''}`,
-    `tracker: ${sl.lastPoseAt ? (lost ? 'LOST (frozen)' : `${Math.round(sl.poseRate)} Hz, age ${Math.round(age!)} ms`) : 'none yet'}`,
+    `tracker: ${sl.lastPoseAt ? (lost ? 'LOST (frozen)' : `${Math.round(sl.poseRate)} Hz, age ${Math.round(age!)} ms, delay ~${Math.round(sl.poseDelay ?? 0)} ms`) : 'none yet'}`,
     `yaw ${sl.aim.yaw.toFixed(1)}°  pitch ${sl.aim.pitch.toFixed(1)}°  roll ${sl.aim.roll.toFixed(1)}°  speed ${sl.aim.speed.toFixed(0)}°/s`,
     `manual yaw ${sl.manual.yaw.toFixed(1)}°  pitch ${sl.manual.pitch.toFixed(1)}°`,
     `hFov ${c.hFov}° [ ] (Shift ×10)   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0   predict ${c.predictMs} ms 7 8`,
@@ -122,7 +125,8 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
   );
 }
 
-export default function Overlay({ sl, debug }: { sl: Searchlight; debug: boolean }) {
+// `open`: a tree is open, and the beam opens up to the whole image to show it.
+export default function Overlay({ sl, debug, open }: { sl: Searchlight; debug: boolean; open: boolean }) {
   useSyncExternalStore(sl.subscribe, sl.getVersion);
   // What F found, shown for a few seconds (it is projected).
   const [fitNote, setFitNote] = useState<string | null>(null);
@@ -134,7 +138,7 @@ export default function Overlay({ sl, debug }: { sl: Searchlight; debug: boolean
   useInputs(sl, setFitNote);
   return (
     <>
-      {sl.show.edge && <BeamEdge radius={sl.config.beamRadius} />}
+      {sl.show.edge && <BeamEdge radius={open ? FULL_BEAM : sl.config.beamRadius} />}
       {sl.show.pattern && <Crosshair />}
       {fitNote && <div className="offline" style={{ color: '#e6dcc6', fontSize: 16 }}>{fitNote}</div>}
       {debug && <DebugOverlay sl={sl} />}

@@ -99,8 +99,11 @@ export default function ProjectionPage() {
   const lit = mode === 'searchlight' ? searchlight : null;
   // The area the names are spread over; null while the searchlight loads.
   const bounds: Bounds | null = mode === 'static' ? WALL : (searchlight?.bounds ?? null);
-  // Open trees are drawn as much larger as the names are.
-  const frameScale = bounds ? Math.sqrt((bounds.width * bounds.height) / (WALL.width * WALL.height)) : 1;
+  // A larger wall has larger names. An open tree is laid out on one
+  // 1920×1080 wall, the whole projection, with its names `treeNames` times
+  // as large as on the plain wall (searchlight sets it; plain wall: 1).
+  const sizeRatio = bounds ? Math.sqrt((bounds.width * bounds.height) / (WALL.width * WALL.height)) : 1;
+  const treeSize = (lit?.config.treeNames ?? 1) / sizeRatio;
   // Where a new tree opens: the wall's centre, or where the beam points.
   const beamPoint = useRef<() => Point>(() => ({ x: 0, y: 0 }));
   // ?patient=<id> opens the wall with that constellation (demo story).
@@ -139,14 +142,14 @@ export default function ProjectionPage() {
         text: n.name,
         x,
         y,
-        size: baseSize,
-        width: (measure?.(n.name, combo.font) ?? n.name.length * 0.55) * baseSize,
+        size: baseSize * treeSize,
+        width: (measure?.(n.name, combo.font) ?? n.name.length * 0.55) * baseSize * treeSize,
         rotation: v.rotation,
         opacity: 1,
         combo,
       };
     },
-    [baseSize, measure],
+    [baseSize, treeSize, measure],
   );
 
   const patientName = useCallback((id: number) => (byId.has(id) ? displayName(byId.get(id)!) : `#${id}`), [byId]);
@@ -240,7 +243,7 @@ export default function ProjectionPage() {
         const s = wallStamp.get(n.patientId!);
         if (!s) continue;
         const patient = byId.get(n.patientId!);
-        stamp = { ...s, x: p.x, y: p.y, opacity: 1 };
+        stamp = { ...s, size: s.size * treeSize, width: s.width * treeSize, x: p.x, y: p.y, opacity: 1 };
         origin = { x: s.x, y: s.y };
         caption =
           patient && (n.key === graph.focus || n.key === graph.root)
@@ -289,7 +292,7 @@ export default function ProjectionPage() {
     return { names, lines, boxes, edges };
     // `settled`: re-read the positions once the tree has come to rest.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graph, loading, fresh, headline, wallStamp, byId, nodeStamp, layout, settled]);
+  }, [graph, loading, fresh, headline, wallStamp, byId, nodeStamp, treeSize, layout, settled]);
 
   // A new tree opens in its own frame (where the beam is, in searchlight).
   const [frame, setFrame] = useState<Frame>(WALL_FRAME);
@@ -302,11 +305,11 @@ export default function ProjectionPage() {
     let f = frame;
     if (graph.root !== frameRoot.current) {
       frameRoot.current = graph.root;
-      f = { ...beamPoint.current(), scale: frameScale };
+      f = { ...beamPoint.current(), scale: 1 };
       setFrame(f);
     }
     layout.sync(graph.root, view.boxes, view.edges, f);
-  }, [graph, layout, view, frame, frameScale]);
+  }, [graph, layout, view, frame]);
 
   // The names a visitor can read right now, for the display registry: the
   // whole wall, or with a constellation open only its lit names (the dimmed
@@ -364,7 +367,7 @@ export default function ProjectionPage() {
           <Constellation names={view.names} lines={view.lines} at={at} onClick={onClick} />
         </FrameContext.Provider>
       </Canvas>
-      {lit && searchlightModule && <searchlightModule.Overlay sl={lit} debug={debug} />}
+      {lit && searchlightModule && <searchlightModule.Overlay sl={lit} debug={debug} open={!!graph} />}
       {offline && <div className="offline">{ARCHIVE_OFFLINE}</div>}
       {debug && (
         <div className="debug">

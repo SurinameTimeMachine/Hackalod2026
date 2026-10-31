@@ -33,6 +33,7 @@ export class Searchlight {
   private hasRaw = false;
   lastPoseAt = 0; // performance.now()
   poseRate = 0; // Hz
+  poseDelay: number | null = null; // ms from the phone's clock to here (clocks are synced only roughly)
   private poseCount = 0;
   private rateAt = 0;
   private lastSeq = 0;
@@ -96,6 +97,10 @@ export class Searchlight {
     this.hasRaw = true;
     this.lastPoseAt = now;
     this.lastSeq = m.seq;
+    if (m.t > 0) {
+      const delay = Date.now() - m.t;
+      this.poseDelay = this.poseDelay === null ? delay : this.poseDelay * 0.9 + delay * 0.1;
+    }
     this.poseCount++;
     if (now - this.rateAt > 1000) {
       this.poseRate = (this.poseCount * 1000) / (now - this.rateAt);

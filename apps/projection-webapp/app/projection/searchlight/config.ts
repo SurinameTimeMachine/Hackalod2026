@@ -17,6 +17,7 @@ export type SearchlightConfig = {
   predictMs: number; // extrapolate the turn by this much, to hide network delay (0 = off)
   beamEdge: boolean;
   beamRadius: number; // round beam, % of half the image height (100: touches top and bottom)
+  treeNames: number; // names in an open tree, × their size on the plain projection (the tree fills the projection)
   trackerLost: number; // ms without poses before the last one is frozen
   keyStep: number; // degrees per arrow key
 };
@@ -35,6 +36,7 @@ export const DEFAULTS: SearchlightConfig = {
   predictMs: 0,
   beamEdge: true,
   beamRadius: 100,
+  treeNames: 2,
   trackerLost: 2000,
   keyStep: 1,
 };
