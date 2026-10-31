@@ -2,7 +2,7 @@
 
 import { OrthographicCamera } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { usePatientEdges, usePatientIndex, usePatients } from '../shared/hooks';
 import type { DisplayReport, DisplayStamp } from '../shared/display';
 import { fromNodeKey, patientKey, personKey } from '../shared/keys';
@@ -22,6 +22,8 @@ import { layoutWall, makeMeasure, WALL, type Bounds, type StampLayout } from './
 // Searchlight mode (README_Searchlight.md) is only loaded when switched on.
 type SearchlightModule = typeof import('./searchlight');
 type Mode = 'static' | 'searchlight';
+const NO_STORE = () => () => {};
+const NO_VERSION = () => 0;
 
 const IDLE_TIMEOUT = 60_000;
 const TELLING_HOLD = 8 * 60_000; // a phone is telling about this person: dictating takes a while
@@ -92,6 +94,8 @@ export default function ProjectionPage() {
     if (mode === 'searchlight' && !searchlightModule) import('./searchlight').then(setSearchlightModule);
   }, [mode, searchlightModule]);
   const searchlight = useMemo(() => (searchlightModule ? new searchlightModule.Searchlight() : null), [searchlightModule]);
+  // Re-read its wall size when it changes (n / m resize the names).
+  useSyncExternalStore(searchlight?.subscribe ?? NO_STORE, searchlight?.getVersion ?? NO_VERSION);
   const lit = mode === 'searchlight' ? searchlight : null;
   // The area the names are spread over; null while the searchlight loads.
   const bounds: Bounds | null = mode === 'static' ? WALL : (searchlight?.bounds ?? null);

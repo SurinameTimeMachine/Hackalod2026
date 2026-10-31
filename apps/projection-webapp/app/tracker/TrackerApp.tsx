@@ -7,7 +7,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { PosePost, PoseStatus } from '../shared/pose';
 
 const MIN_GAP = 15; // ms between poses: ~60 per second
-const MAX_IN_FLIGHT = 3; // more unanswered posts than this: drop the pose
+// More unanswered posts than this: drop the pose. HTTP/2 carries them side
+// by side, so with enough in flight the rate does not depend on the round trip.
+const MAX_IN_FLIGHT = 8;
 const STATUS_EVERY = 250; // ms
 
 type Stats = { rate: number; rtt: number | null; status: PoseStatus | null; online: boolean; angles: [number, number, number] | null };

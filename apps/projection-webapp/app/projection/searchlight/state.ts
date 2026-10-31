@@ -22,7 +22,7 @@ const round = (v: number, step: number) => Math.round(v / step) * step;
 
 export class Searchlight {
   config: SearchlightConfig = loadConfig();
-  readonly bounds = wallBounds(this.config);
+  bounds = wallBounds(this.config); // replaced (not changed) when the wall size changes
   show = { pattern: false, edge: this.config.beamEdge };
   sim = false;
 
@@ -206,6 +206,7 @@ export class Searchlight {
   // Live calibration (§7 of the brief) and display toggles.
   adjust(change: Partial<SearchlightConfig>) {
     Object.assign(this.config, change);
+    if ('wallScale' in change) this.bounds = wallBounds(this.config);
     this.changed();
   }
 
