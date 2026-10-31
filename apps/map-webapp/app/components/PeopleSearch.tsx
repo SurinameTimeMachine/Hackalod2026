@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PeopleCluster } from '../lib/people-data';
+import { specialPlaces, specialPlaceCluster } from '../lib/special-places';
 
 type PlaceResult = { place_norm: string; label: string; records: number; gazetteer_id: string | null; gazetteer_label: string | null; lat: number | null; lng: number | null; match_type: string | null; confidence: number | null };
 
@@ -80,9 +81,14 @@ export default function PeopleSearch({ clusters, onPlace, onPerson }: Props) {
       onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setPeople([]); setPlaces([]); setState(''); setPlaceState(''); setOpen(true); }} />
     {open && query.trim().length >= 2 && <div className="search-results">
       <div className="search-results-heading"><strong>Plaatsen</strong><button type="button" onClick={() => setOpen(false)} aria-label="Zoekresultaten sluiten">Sluiten</button></div>
+      {specialPlaces.filter(place => place.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).map(place => <button type="button" className="search-result" key={place.id} onClick={() => {
+        const linked = clusters.find(cluster => place.gazetteerIds?.includes(cluster.id));
+        onPlace(linked ?? specialPlaceCluster(place));
+        setOpen(false);
+      }}><ResultIcon type="place" /><span className="search-result-text"><strong>{place.label}</strong><small>Bijzondere plek</small></span></button>)}
       {placeState === '' && <p>Plaatsen zoeken…</p>}
       {placeState === 'error' && <p>Zoeken naar plaatsen is niet beschikbaar.</p>}
-      {placeState === 'done' && !places.some(place => typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)) && <p>Geen plaatsen op de kaart gevonden.</p>}
+      {placeState === 'done' && !specialPlaces.some(place => place.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) && !places.some(place => typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)) && <p>Geen plaatsen op de kaart gevonden.</p>}
       {places.filter(place => typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)).map(place => {
         const cluster = clusters.find(c => c.id === place.gazetteer_id);
         const hasCoordinates = typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng);

@@ -8,6 +8,7 @@ import { addPlantations } from '../lib/map-plantations';
 import { landscapeStyle } from '../lib/map-style';
 import { getHomeView } from '../lib/map-views';
 import { isPopularPlace, type PeopleCluster, type PeopleResponse } from '../lib/people-data';
+import { specialPlaceForId } from '../lib/special-places';
 import PeopleSearch, { type PersonSelection } from './PeopleSearch';
 import TimeSlider, { type YearRange } from './TimeSlider';
 import './LandscapeTheme.css';
@@ -378,7 +379,7 @@ export default function Landscape() {
       </section>}
       {(selectedPlace || selectedPerson) && <section className="selection-panel" aria-label="Selectie">
         <button type="button" onClick={clearSelection} aria-label="Selectie sluiten">Sluiten</button>
-        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0} onClick={() => { setWallPlace(selectedPlace); setWallVisible(true); }}>Open namenmuur</button></>}
+        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0 && !specialPlaceForId(selectedPlace.id)} onClick={() => { setWallPlace(selectedPlace); setWallVisible(true); }}>Open namenmuur</button></>}
         {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Naam onbekend'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Buiten de gekozen jaren.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} plaatsen op de kaart</p>}{selectedPerson.limited && <p>Sommige koppelingen ontbreken mogelijk.</p>}</>}
         {selectedPerson && wallPlace && !wallVisible && <button type="button" className="return-wall" onClick={() => setWallVisible(true)}>← Terug naar namenmuur</button>}
       </section>}
