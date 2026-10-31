@@ -37,8 +37,10 @@ function useInputs(sl: Searchlight, note: (text: string) => void) {
       else if (KEYS[k]) sl.adjust(KEYS[k](c));
       else if (k === 'c') sl.calibrate();
       else if (k === 'f') note(sl.fit(window.innerWidth / window.innerHeight));
-      else if (k === ',') sl.adjust({ beamOuter: Math.max(c.beamOuter - 5, 15), beamInner: Math.max(c.beamOuter - 5 - 25, 0) });
-      else if (k === '.') sl.adjust({ beamOuter: Math.min(c.beamOuter + 5, 120), beamInner: Math.min(c.beamOuter + 5 - 25, 95) });
+      else if (k === ',') sl.adjust({ beamRadius: Math.max(c.beamRadius - 5, 10) });
+      else if (k === '.') sl.adjust({ beamRadius: Math.min(c.beamRadius + 5, 250) });
+      else if (k === 'n') sl.adjust({ wallScale: round(Math.max(c.wallScale - 0.25, 0.5), 0.25) });
+      else if (k === 'm') sl.adjust({ wallScale: round(Math.min(c.wallScale + 0.25, 4), 0.25) });
       else if (k === 't') {
         sl.show.pattern = !sl.show.pattern;
         sl.changed();
@@ -58,17 +60,24 @@ function useInputs(sl: Searchlight, note: (text: string) => void) {
   }, [sl, note]);
 }
 
+// A round beam with a hard edge (a soft one blurs away on a modest beamer).
 // Only darkens, so black stays black.
-function BeamEdge({ inner, outer }: { inner: number; outer: number }) {
+function BeamEdge({ radius }: { radius: number }) {
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        pointerEvents: 'none',
-        background: `radial-gradient(circle at center, transparent ${inner}%, #000 ${outer}%)`,
-      }}
-    />
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          width: `${radius}vh`,
+          height: `${radius}vh`,
+          transform: 'translate(-50%, -50%)',
+          borderRadius: '50%',
+          boxShadow: '0 0 0 200vmax #000',
+        }}
+      />
+    </div>
   );
 }
 
@@ -100,8 +109,8 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
     `yaw ${sl.aim.yaw.toFixed(1)}°  pitch ${sl.aim.pitch.toFixed(1)}°  roll ${sl.aim.roll.toFixed(1)}°  speed ${sl.aim.speed.toFixed(0)}°/s`,
     `manual yaw ${sl.manual.yaw.toFixed(1)}°  pitch ${sl.manual.pitch.toFixed(1)}°`,
     `hFov ${c.hFov}° [ ] (Shift ×10)   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0`,
-    `beam at x ${Math.round(sl.beam.x)}  y ${Math.round(sl.beam.y)}`,
-    `C calibrate  T pattern  F fit to tape  V edge  , . beam size  P save  S static`,
+    `beam at x ${Math.round(sl.beam.x)}  y ${Math.round(sl.beam.y)}   radius ${c.beamRadius}% , .   names ×${c.wallScale} n m`,
+    `C calibrate  T pattern  F fit to tape  V beam  , . beam size  n m name size  P save  S static`,
     JSON.stringify(c),
   ];
   return (
@@ -123,7 +132,7 @@ export default function Overlay({ sl, debug }: { sl: Searchlight; debug: boolean
   useInputs(sl, setFitNote);
   return (
     <>
-      {sl.show.edge && <BeamEdge inner={sl.config.beamInner} outer={sl.config.beamOuter} />}
+      {sl.show.edge && <BeamEdge radius={sl.config.beamRadius} />}
       {sl.show.pattern && <Crosshair />}
       {fitNote && <div className="offline" style={{ color: '#e6dcc6', fontSize: 16 }}>{fitNote}</div>}
       {debug && <DebugOverlay sl={sl} />}
