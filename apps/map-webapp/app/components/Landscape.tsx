@@ -32,6 +32,7 @@ export default function Landscape() {
   const popularOnlyRef = useRef(false);
   const [clusters, setClusters] = useState<PeopleCluster[]>([]);
   const [wallPlace, setWallPlace] = useState<PeopleCluster | null>(null);
+  const [wallVisible, setWallVisible] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<PeopleCluster | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<PeopleCluster[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonSelection | null>(null);
@@ -157,8 +158,8 @@ export default function Landscape() {
     map.on('load', () => {
       map.addSource('selection-indicators', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addLayer({ id: 'selection-indicators', type: 'circle', source: 'selection-indicators', paint: {
-        'circle-radius': 15, 'circle-color': '#c18a11', 'circle-opacity': 0.08,
-        'circle-stroke-color': '#9b6800', 'circle-stroke-width': 2, 'circle-stroke-opacity': 0.95,
+        'circle-radius': 15, 'circle-color': '#ffcf50', 'circle-opacity': 0.08,
+        'circle-stroke-color': '#ffcf50', 'circle-stroke-width': 2, 'circle-stroke-opacity': 0.95,
       } });
       map.setTerrain({
         source: 'elevation',
@@ -250,15 +251,16 @@ export default function Landscape() {
     if (!map) return;
     updateSelectionIndicators(map, selected);
     layerRef.current?.setConnections(selected.map(place => place.id));
-    if (selected.length === 1) map.flyTo({ center: selected[0].center, zoom: Math.max(map.getZoom(), 12), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
+    if (selected.length === 1) map.flyTo({ center: selected[0].center, zoom: Math.max(map.getZoom(), 15), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
     if (selected.length > 1) {
       const bounds = selected.reduce((b, place) => b.extend(place.center), new maplibregl.LngLatBounds(selected[0].center, selected[0].center));
-      map.fitBounds(bounds, { padding: 100, maxZoom: 13, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
+      map.fitBounds(bounds, { padding: 55, maxZoom: 16, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
     }
   }
 
   function clearSelection() {
     setSelectedPlace(null); setSelectedPerson(null); setNearbyPlaces([]);
+    setWallVisible(false); setWallPlace(null);
     layerRef.current?.select([]);
     if (mapRef.current) updateSelectionIndicators(mapRef.current, []);
     layerRef.current?.setConnections([]);
@@ -356,7 +358,7 @@ export default function Landscape() {
       </div>
 
       <div className="map-sidebar">
-      <PeopleSearch clusters={clusters} onPlace={showPlace} onPerson={showPerson} />
+      <PeopleSearch clusters={clusters} onPlace={place => { setWallPlace(null); showPlace(place); }} onPerson={selection => { setWallPlace(null); showPerson(selection); }} />
       <div className={`map-panel-stack${timeOpen ? ' time-open' : ''}`}>
       {status && <div className="map-status" role="status">{status}</div>}
       {peopleStatus && <div className="people-status" role="status">
@@ -376,8 +378,9 @@ export default function Landscape() {
       </section>}
       {(selectedPlace || selectedPerson) && <section className="selection-panel" aria-label="Selectie">
         <button type="button" onClick={clearSelection} aria-label="Selectie sluiten">Sluiten</button>
-        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0} onClick={() => setWallPlace(selectedPlace)}>Open namenmuur</button></>}
+        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0} onClick={() => { setWallPlace(selectedPlace); setWallVisible(true); }}>Open namenmuur</button></>}
         {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Naam onbekend'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Buiten de gekozen jaren.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} plaatsen op de kaart</p>}{selectedPerson.limited && <p>Sommige koppelingen ontbreken mogelijk.</p>}</>}
+        {selectedPerson && wallPlace && !wallVisible && <button type="button" className="return-wall" onClick={() => setWallVisible(true)}>← Terug naar namenmuur</button>}
       </section>}
 
       </div>
@@ -386,7 +389,7 @@ export default function Landscape() {
         <button type="button" className="mobile-time-toggle" aria-expanded={timeOpen} aria-controls="time-controls" onClick={() => setTimeOpen(value => !value)}>{timeOpen ? 'Tijd sluiten' : 'Tijd'}</button>
         <div id="time-controls" className="time-controls"><TimeSlider key={timeKey} onApply={applyTime} onCancel={() => timeRequest.current?.abort()} /></div>
       </div>
-      {wallPlace && <PlaceWall place={wallPlace} years={appliedYears} onClose={() => setWallPlace(null)} />}
+      {wallPlace && <PlaceWall place={wallPlace} years={appliedYears} visible={wallVisible} onClose={() => { setWallVisible(false); setWallPlace(null); }} onPerson={selection => { setWallVisible(false); showPerson(selection); }} />}
 
     </main>
   );

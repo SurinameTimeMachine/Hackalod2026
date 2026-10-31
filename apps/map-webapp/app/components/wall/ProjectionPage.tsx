@@ -11,6 +11,8 @@ import { FONTS } from './stampStyle';
 import Wall from './Wall';
 import { useMobileWall } from './useMobileWall';
 import WallCamera from './WallCamera';
+import WallMapButton from './WallMapButton';
+import type { PersonSelection } from '../PeopleSearch';
 
 async function loadFonts() {
   await Promise.all(
@@ -21,7 +23,7 @@ async function loadFonts() {
   );
 }
 
-export default function ProjectionPage() {
+export default function ProjectionPage({ onPerson }: { onPerson: (selection: PersonSelection) => void }) {
   const mobile = useMobileWall();
   const { patients, source } = usePatients();
   const { edges, status: edgesStatus } = usePatientEdges();
@@ -110,7 +112,7 @@ export default function ProjectionPage() {
         dpr={[1, 2]}
         onPointerMissed={() => select(null)}
       >
-        <WallCamera selected={stamps.find(stamp => stamp.id === selectedId)} caption={selectedId == null ? '' : describeSelected(selectedId, related.length > 0)} detailsPanel />
+        <WallCamera selected={stamps.find(stamp => stamp.id === selectedId)} caption={selectedId == null ? '' : describeSelected(selectedId, related.length > 0)} />
         <Wall
           stamps={stamps}
           edges={edges}
@@ -120,12 +122,9 @@ export default function ProjectionPage() {
           describeTie={describeTie}
         />
       </Canvas>}
-      {selectedPatient && <aside className="wall-person-details" aria-label="Persoonsgegevens">
-        <button type="button" className="wall-details-close" aria-label="Persoonsgegevens sluiten" onClick={() => select(null)}>×</button>
-        <h3>{nameTag(displayName(selectedPatient), 1921)}</h3>
-        {selectedPatient.geboortejaar && selectedPatient.geboortejaar !== '?' && <p>Geboren: {selectedPatient.geboortejaar}</p>}
-        {edgesStatus === 'loading' ? <p>Verbindingen laden…</p> : edgesStatus === 'failed' ? <p>Verbindingen konden niet worden geladen.</p> : related.length > 0 ? <><strong>Verbindingen</strong><ul>{related.map(({ person, reason, reference }) => <li key={person.patient_id}><button type="button" onClick={() => select(person.patient_id)}>{nameTag(displayName(person), 1921)}</button><small>{reason}{reference && ` · ${reference}`}</small></li>)}</ul></> : <p>Geen bekende verbindingen op deze muur.</p>}
-      </aside>}
+      {selectedPatient && <div className="wall-map-position">
+        <WallMapButton person={{ person_id: selectedPatient.patient_id, full_name: displayName(selectedPatient), role: 'patient', source_dataset: 'mh1921', event_year: 1921 }} endpoint="patient-places" onShow={onPerson} />
+      </div>}
       {debug && (
         <div className="debug">
           {`data: ${source}\nnames: ${stamps.length} @ ${stamps[0]?.size.toFixed(1) ?? '–'} units\npatient pairs with ties: ${edges.length}\nselected: ${selectedId ?? '–'}`}

@@ -11,37 +11,41 @@ import Wall from './wall/Wall';
 import { useMobileWall } from './wall/useMobileWall';
 import { nameTag, roleLabel } from './shared/strings';
 import WallCamera from './wall/WallCamera';
+import WallMapButton from './wall/WallMapButton';
+import type { PersonSelection } from './PeopleSearch';
 
 const HospitalProjection = dynamic(() => import('./wall/ProjectionPage'), { ssr: false });
 
 type Person = { person_id: number; full_name: string | null; role: string | null; source_dataset: string; event_year: number | null };
-export default function PlaceWall(props: { place: PeopleCluster; onClose: () => void; years: YearRange }) {
-  return props.place.id === 'stm-1885-address-0327' && !props.years ? <HospitalWall onClose={props.onClose} /> : <GeneralWall {...props} />;
+type WallProps = { place: PeopleCluster; onClose: () => void; years: YearRange; onPerson: (selection: PersonSelection) => void; visible: boolean };
+export default function PlaceWall(props: WallProps) {
+  return props.place.id === 'stm-1885-address-0327' && !props.years ? <HospitalWall onClose={props.onClose} onPerson={props.onPerson} visible={props.visible} /> : <GeneralWall {...props} />;
 }
 
-function WallDialog({ titleId, onClose, children }: { titleId: string; onClose: () => void; children: ReactNode }) {
+function WallDialog({ titleId, onClose, visible, children }: { titleId: string; onClose: () => void; visible: boolean; children: ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    if (!visible) { if (dialog.open) dialog.close(); return; }
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialog.showModal();
+    if (!dialog.open) dialog.showModal();
     return () => {
-      dialog.close();
+      if (dialog.open) dialog.close();
       previousFocus?.focus();
     };
-  }, []);
+  }, [visible]);
   return <dialog ref={dialogRef} className="wall-overlay" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }}>{children}</dialog>;
 }
 
-function HospitalWall({ onClose }: { onClose: () => void }) {
-  return <WallDialog titleId="hospital-wall-title" onClose={onClose}>
+function HospitalWall({ onClose, onPerson, visible }: Pick<WallProps, 'onClose' | 'onPerson' | 'visible'>) {
+  return <WallDialog titleId="hospital-wall-title" onClose={onClose} visible={visible}>
     <header className="wall-header"><h2 id="hospital-wall-title">’s Lands Hospitaal <span>· 1921</span></h2><button type="button" autoFocus onClick={onClose} aria-label="Namenmuur sluiten">Sluiten <span aria-hidden="true">×</span></button></header>
-    <div className="wall-canvas"><HospitalProjection /></div>
+    <div className="wall-canvas"><HospitalProjection onPerson={onPerson} /></div>
   </WallDialog>;
 }
 
-function GeneralWall({ place, onClose, years }: { place: PeopleCluster; onClose: () => void; years: YearRange }) {
+function GeneralWall({ place, onClose, years, onPerson, visible }: WallProps) {
   const mobile = useMobileWall();
   const [page, setPage] = useState(0);
   const [people, setPeople] = useState<Person[]>([]);
@@ -80,11 +84,12 @@ function GeneralWall({ place, onClose, years }: { place: PeopleCluster; onClose:
     return p ? roleLabel(p.role) ?? '' : '';
   }, [people]);
   const changePage = (next: number) => { setLoading(true); setError(''); setSelected(null); setPage(next); };
-  return <WallDialog titleId="wall-title" onClose={onClose}>
+  return <WallDialog titleId="wall-title" onClose={onClose} visible={visible}>
     <header className="wall-header"><h2 id="wall-title">{place.label} <span>· {years ? `${years[0]} – ${years[1]}` : 'Alle jaren'}</span></h2><button type="button" autoFocus onClick={onClose} aria-label="Namenmuur sluiten">Sluiten <span aria-hidden="true">×</span></button></header>
     <div className="wall-canvas">
       {!loading && !error && mobile && people.length > 0 && <div className="wall-name-list" ref={listRef}>{people.map((person, index) => <button type="button" className={`wall-name tag-style-${index % 4}`} key={person.person_id} data-person-id={person.person_id} aria-expanded={selected === person.person_id} onClick={() => setSelected(selected === person.person_id ? null : person.person_id)}><span>{nameTag(person.full_name, person.event_year)}</span>{selected === person.person_id && <small>{describe(person.person_id)}</small>}</button>)}</div>}
       {!loading && !error && ready && !mobile && people.length > 0 && <Canvas flat gl={{ alpha: true }} dpr={[1, 1.5]} onPointerMissed={() => setSelected(null)}><WallCamera selected={stamps.find(stamp => stamp.id === selected)} caption={selected == null ? '' : describe(selected)} /><Wall stamps={stamps} edges={[]} selectedId={selected} onSelect={setSelected} describeSelected={describe} describeTie={() => ({ certain: false, reason: '', reference: '' })} /></Canvas>}
+      {selected !== null && people.filter(person => person.person_id === selected).map(person => <div className="wall-map-position" key={person.person_id}><WallMapButton person={{ ...person, full_name: person.full_name ?? '' }} endpoint="person-places" onShow={onPerson} /></div>)}
       {loading && <p role="status">Namen laden…</p>}
       {!loading && !error && !people.length && <p>Geen personen gevonden voor deze plaats.</p>}
       {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => { setError(''); setLoading(true); setRetry(value => value + 1); }}>Opnieuw proberen</button></div>}

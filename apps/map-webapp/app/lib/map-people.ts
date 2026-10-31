@@ -43,14 +43,14 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
   const camera = new Camera();
   const geometry = new SphereGeometry(1, 16, 12);
   const material = new MeshPhongMaterial({ color: '#dfaf49', specular: '#fff0bf', shininess: 45 });
-  const fadedMaterial = new MeshPhongMaterial({ color: '#dfaf49', transparent: true, opacity: 0.48, depthWrite: false });
+  const fadedMaterial = new MeshPhongMaterial({ color: '#bda779', transparent: true, opacity: 0.18, depthWrite: false });
   const selectedMaterial = new MeshPhongMaterial({ color: '#ffdc72', emissive: '#b26a10', emissiveIntensity: 0.65, specular: '#ffffff', shininess: 70 });
   const connectionGeometry = new LineSegmentsGeometry();
-  const connectionMaterial = new LineMaterial({ color: '#9b6800', linewidth: 3, transparent: true, opacity: 0.8, depthWrite: false });
+  const connectionMaterial = new LineMaterial({ color: '#ffcf50', linewidth: 3, transparent: true, opacity: 0.95, depthWrite: false });
   const lines = new LineSegments2(connectionGeometry, connectionMaterial);
   lines.frustumCulled = false;
   const lightGeometry = new BufferGeometry();
-  const lightMaterial = new PointsMaterial({ color: '#fff2bc', size: 5, sizeAttenuation: false, transparent: true, opacity: 0.9, depthWrite: false });
+  const lightMaterial = new PointsMaterial({ color: '#ffffff', size: 6, sizeAttenuation: false, transparent: true, opacity: 0.95, depthWrite: false });
   const lights = new Points(lightGeometry, lightMaterial);
   lights.frustumCulled = false;
   let connectionCenters: [Vector3, Vector3][] = [];
@@ -179,7 +179,7 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
       }
       camera.projectionMatrix.fromArray(options.defaultProjectionData.mainMatrix).multiply(translation);
       inverseProjection = camera.projectionMatrix.clone().invert();
-      connectionMaterial.opacity = motion?.matches ? 0.8 : 0.7 + 0.15 * Math.sin(performance.now() / 900);
+      connectionMaterial.opacity = motion?.matches ? 0.9 : 0.8 + 0.1 * Math.sin(performance.now() / 900);
       lights.visible = !motion?.matches && connectionCenters.length > 0;
       if (lights.visible) {
         // Two lights move symmetrically back and forth, with no implied direction.
