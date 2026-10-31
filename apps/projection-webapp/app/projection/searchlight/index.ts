@@ -3,4 +3,4 @@
 // ProjectionPage only; nothing outside it imports from here.
 export { default as Overlay } from './Overlay';
 export { default as Scene } from './Scene';
-export { Searchlight, type Target } from './state';
+export { Searchlight } from './state';

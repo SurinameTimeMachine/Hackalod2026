@@ -1,6 +1,6 @@
 // Over the canvas: the soft round beam edge and the debug overlay. Also owns
-// the searchlight's inputs (tracker stream, calibration keys, mouse drag,
-// arrow keys) while it is mounted.
+// the searchlight's inputs (tracker stream, calibration keys, arrow keys)
+// while it is mounted. The mouse only clicks names, as on the plain wall.
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { SearchlightConfig } from './config';
 import type { Searchlight } from './state';
@@ -44,32 +44,8 @@ function useInputs(sl: Searchlight) {
       else return;
       e.preventDefault();
     };
-    // Dragging moves the beam with the mouse: a drag across the window turns
-    // it by one field of view.
-    let drag: { x: number; y: number } | null = null;
-    const down = (e: PointerEvent) => {
-      if (e.button === 0) drag = { x: e.clientX, y: e.clientY };
-    };
-    const move = (e: PointerEvent) => {
-      if (!drag) return;
-      const k = sl.config.hFov / window.innerWidth;
-      sl.manual.yaw -= (e.clientX - drag.x) * k;
-      sl.manual.pitch -= (e.clientY - drag.y) * k;
-      drag = { x: e.clientX, y: e.clientY };
-    };
-    const up = () => (drag = null);
     window.addEventListener('keydown', onKey);
-    window.addEventListener('pointerdown', down);
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('pointerdown', down);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [sl]);
 }
 
@@ -103,7 +79,7 @@ function DebugOverlay({ sl }: { sl: Searchlight }) {
     `yaw ${sl.aim.yaw.toFixed(1)}°  pitch ${sl.aim.pitch.toFixed(1)}°  roll ${sl.aim.roll.toFixed(1)}°  speed ${sl.aim.speed.toFixed(0)}°/s`,
     `manual yaw ${sl.manual.yaw.toFixed(1)}°  pitch ${sl.manual.pitch.toFixed(1)}°`,
     `hFov ${c.hFov}° [ ]   lensShiftY ${c.lensShiftY} ; '   minCutoff ${c.minCutoff} - =   beta ${c.beta} 9 0`,
-    `dwell: ${sl.dwell.key ?? '–'} ${Math.round(sl.dwell.progress * 100)}%${sl.dwell.empty ? `  back ${sl.dwell.empty.toFixed(1)} s` : ''}`,
+    `beam at x ${Math.round(sl.beam.x)}  y ${Math.round(sl.beam.y)}`,
     `C calibrate  T pattern  V edge  P save  S static`,
     JSON.stringify(c),
   ];

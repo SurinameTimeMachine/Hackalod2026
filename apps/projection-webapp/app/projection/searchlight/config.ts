@@ -17,11 +17,6 @@ export type SearchlightConfig = {
   beamEdge: boolean;
   beamInner: number; // % of the half-diagonal where the edge starts to darken
   beamOuter: number; // % where it is black
-  dwellRadius: number; // × beam width: how close to a name the beam centre must be
-  stillSpeed: number; // deg/s: slower than this counts as holding still
-  dwellTime: number; // s on one name to select it
-  cooldown: number; // s after a selection before the next dwell
-  backTime: number; // s on empty wall to step back
   trackerLost: number; // ms without poses before the last one is frozen
   keyStep: number; // degrees per arrow key
 };
@@ -40,11 +35,6 @@ export const DEFAULTS: SearchlightConfig = {
   beamEdge: true,
   beamInner: 55,
   beamOuter: 80,
-  dwellRadius: 0.06,
-  stillSpeed: 8,
-  dwellTime: 1.5,
-  cooldown: 2,
-  backTime: 3,
   trackerLost: 2000,
   keyStep: 1,
 };

@@ -1,8 +1,8 @@
 import { Line, Text } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useContext, useRef, useState, type RefObject } from 'react';
+import { useContext, useRef, useState } from 'react';
 import type { Point } from './forceLayout';
-import { FrameContext, type Emphasis } from './frame';
+import { FrameContext } from './frame';
 import type { Group } from 'three';
 import Stamp, { type StampState } from './Stamp';
 import { CAPTION_FONT } from './stampStyle';
@@ -159,13 +159,11 @@ export default function Constellation({
   names,
   lines,
   at,
-  emphasis,
   onClick,
 }: {
   names: ConstellationName[];
   lines: ConstellationLine[];
   at: (key: string) => Point | undefined; // live layout position
-  emphasis?: RefObject<Emphasis>; // keyed by node key
   onClick: (key: string) => void;
 }) {
   const [drawn] = useState<Drawn>(() => new Map());
@@ -185,8 +183,6 @@ export default function Constellation({
           origin={n.origin}
           at={() => at(n.key)}
           shown={(x, y) => drawn.set(n.key, { x, y })}
-          emphasis={emphasis}
-          emKey={n.key}
           onClick={() => onClick(n.key)}
         />
       ))}

@@ -10,7 +10,7 @@ import { useSignals } from '../shared/signals';
 import { ARCHIVE_OFFLINE, displayName, guessQuestion, NO_TIES, subtitle } from '../shared/strings';
 import Constellation, { type ConstellationLine, type ConstellationName } from './Constellation';
 import { TreeLayout, type Box, type Point, type TreeEdge } from './forceLayout';
-import { FrameContext, WALL_FRAME, type Emphasis, type Frame } from './frame';
+import { FrameContext, WALL_FRAME, type Frame } from './frame';
 import type { GNode, NodeKey } from './graph';
 import { captionSize, captionTop, LIT_SCALE, type StampState } from './Stamp';
 import { comboCandidates, FONTS, INK_NAMES, TOLD_COMBO, variation } from './stampStyle';
@@ -97,7 +97,6 @@ export default function ProjectionPage() {
   const bounds: Bounds | null = mode === 'static' ? WALL : (searchlight?.bounds ?? null);
   // Open trees are drawn as much larger as the names are.
   const frameScale = bounds ? Math.sqrt((bounds.width * bounds.height) / (WALL.width * WALL.height)) : 1;
-  const emphasis = useRef<Emphasis>({ key: null, amount: 0 });
   // Where a new tree opens: the wall's centre, or where the beam points.
   const beamPoint = useRef<() => Point>(() => ({ x: 0, y: 0 }));
   // ?patient=<id> opens the wall with that constellation (demo story).
@@ -305,28 +304,6 @@ export default function ProjectionPage() {
     layout.sync(graph.root, view.boxes, view.edges, f);
   }, [graph, layout, view, frame, frameScale]);
 
-  // What the beam can select: names on the wall, or with a tree open the
-  // names in it, at their live positions.
-  const wallTargets = useMemo(
-    () => stamps.map((s) => ({ key: `p:${s.id}`, em: `wall:${s.id}`, x: s.x, y: s.y, hw: s.width / 2, hh: s.size / 2, select: () => onClick(`p:${s.id}`) })),
-    [stamps, onClick],
-  );
-  const targets = useRef(() => wallTargets);
-  useEffect(() => {
-    targets.current = !graph
-      ? () => wallTargets
-      : () =>
-          view.names.map((n) => {
-            const p = at(n.key) ?? n.stamp;
-            const k = LIT_SCALE[n.state === 'selected' ? 'selected' : 'related'];
-            return { key: n.key, em: n.key, x: p.x, y: p.y, hw: (n.stamp.width * k) / 2, hh: (n.stamp.size * k) / 2, select: () => onClick(n.key) };
-          });
-  }, [graph, view, wallTargets, at, onClick]);
-  const beamBack = useCallback(() => {
-    touch();
-    back();
-  }, [touch, back]);
-
   // The names a visitor can read right now, for the display registry: the
   // whole wall, or with a constellation open only its lit names (the dimmed
   // wall behind it is too faint to scan).
@@ -370,18 +347,17 @@ export default function ProjectionPage() {
 
   return (
     <main style={{ position: 'fixed', inset: 0, background: '#000' }}>
-      {/* In searchlight a click on the background is the end of a drag. */}
-      <Canvas flat dpr={[1, 2]} onPointerMissed={lit ? undefined : reset}>
+      <Canvas flat dpr={[1, 2]} onPointerMissed={reset}>
         <color attach="background" args={['#000']} />
         {lit && searchlightModule ? (
-          <searchlightModule.Scene sl={lit} targets={() => targets.current()} open={!!graph} onBack={beamBack} emphasisRef={emphasis} beamPointRef={beamPoint} />
+          <searchlightModule.Scene sl={lit} beamPointRef={beamPoint} />
         ) : (
           <FitWall />
         )}
         <Ticker layout={layout} />
         <FrameContext.Provider value={frame}>
-          <Wall stamps={stamps} open={!!graph} lit={NONE} captions={NO_CAPTIONS} pulsing={NO_PULSE} emphasis={emphasis} onClick={(id) => onClick(`p:${id}`)} />
-          <Constellation names={view.names} lines={view.lines} at={at} emphasis={emphasis} onClick={onClick} />
+          <Wall stamps={stamps} open={!!graph} lit={NONE} captions={NO_CAPTIONS} pulsing={NO_PULSE} onClick={(id) => onClick(`p:${id}`)} />
+          <Constellation names={view.names} lines={view.lines} at={at} onClick={onClick} />
         </FrameContext.Provider>
       </Canvas>
       {lit && searchlightModule && <searchlightModule.Overlay sl={lit} debug={debug} />}

@@ -1,12 +1,11 @@
 // Inside the canvas: the camera that turns with the beamer, the calibration
-// grid, and where the centre of the beam lands (for dwell selection).
+// grid, and where the centre of the beam lands (a new tree opens there).
 import { useFrame, useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo, useState, useSyncExternalStore, type RefObject } from 'react';
 import { BufferGeometry, Euler, Float32BufferAttribute, PerspectiveCamera, Vector3 } from 'three';
 import type { Point } from '../forceLayout';
-import type { Emphasis } from '../frame';
 import { BEAM } from './config';
-import { distance, type Searchlight, type Target } from './state';
+import { distance, type Searchlight } from './state';
 
 const DEG = Math.PI / 180;
 const NEAR = 10;
@@ -14,10 +13,6 @@ const FAR = 100_000;
 
 type Props = {
   sl: Searchlight;
-  targets: () => Target[];
-  open: boolean; // a constellation is open: holding on empty wall steps back
-  onBack: () => void;
-  emphasisRef: RefObject<Emphasis>;
   beamPointRef: RefObject<() => Point>;
 };
 
@@ -98,7 +93,7 @@ function TestPattern({ width, height }: { width: number; height: number }) {
   );
 }
 
-export default function Scene({ sl, targets, open, onBack, emphasisRef, beamPointRef }: Props) {
+export default function Scene({ sl, beamPointRef }: Props) {
   const camera = useSearchlightCamera(sl);
   useSyncExternalStore(sl.subscribe, sl.getVersion);
   const [ray] = useState(() => new Vector3());
@@ -110,12 +105,12 @@ export default function Scene({ sl, targets, open, onBack, emphasisRef, beamPoin
     };
   }, [beamPointRef, sl]);
 
-  // The beam is the pointer: the centre of the image, on the wall plane.
-  useFrame((_, dt) => {
+  // The centre of the image, on the wall plane.
+  useFrame(() => {
     ray.set(0, 0, 0.5).unproject(camera).sub(camera.position);
-    const hit = ray.z < 0 ? -camera.position.z / ray.z : null;
-    const point = hit === null ? null : { x: camera.position.x + ray.x * hit, y: camera.position.y + ray.y * hit };
-    sl.point(point, dt, targets(), open, onBack, emphasisRef.current);
+    if (ray.z >= 0) return;
+    const hit = -camera.position.z / ray.z;
+    sl.setBeam(camera.position.x + ray.x * hit, camera.position.y + ray.y * hit);
   });
 
   return sl.show.pattern ? <TestPattern width={sl.bounds.width} height={sl.bounds.height} /> : null;

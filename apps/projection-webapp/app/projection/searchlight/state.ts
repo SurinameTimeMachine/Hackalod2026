@@ -4,7 +4,6 @@
 // Written at sensor rate and read every frame, so it lives outside React;
 // `subscribe` is only for the few things that change what is rendered.
 import { Euler, Quaternion } from 'three';
-import type { Emphasis } from '../frame';
 import { BEAM, loadConfig, saveConfig, wallBounds, type SearchlightConfig } from './config';
 import { deviceQuat } from './deviceQuat';
 import { OneEuro } from './oneEuro';
@@ -17,14 +16,6 @@ const ACK_EVERY = 500; // ms
 // Camera distance to the wall plane for this field of view: one beam is
 // BEAM.width world units wide.
 export const distance = (c: SearchlightConfig) => BEAM.width / 2 / Math.tan((c.hFov * DEG) / 2);
-
-// Something the beam can select: a name's centre and half extent, world
-// units. `key` is who it is (a patient on the wall and in a tree is the same
-// key), `em` the stamp to brighten.
-export type Target = { key: string; em: string; x: number; y: number; hw: number; hh: number; select: () => void };
-
-// Box distance from a point to a name: 0 inside its text box.
-const reach = (t: Target, x: number, y: number) => Math.hypot(Math.max(Math.abs(x - t.x) - t.hw, 0), Math.max(Math.abs(y - t.y) - t.hh, 0));
 
 const wrap = (deg: number, near: number) => deg + 360 * Math.round((near - deg) / 360);
 
@@ -47,10 +38,10 @@ export class Searchlight {
   private ackedSeq = 0;
   private trackerAim = { yaw: 0, pitch: 0, roll: 0 }; // frozen when the tracker drops
 
-  // Mouse drag / arrow keys, added on top of the tracker.
+  // Arrow keys, added on top of the tracker.
   manual = { yaw: 0, pitch: 0 };
 
-  // Filtered aim, degrees. `speed` in deg/s, for the dwell's stillness check.
+  // Filtered aim, degrees; `speed` in deg/s.
   aim = { yaw: 0, pitch: 0, roll: 0, speed: 0 };
   private filters = {
     yaw: new OneEuro(() => this.config),
@@ -58,15 +49,8 @@ export class Searchlight {
     roll: new OneEuro(() => this.config),
   };
 
-  // Where the centre of the beam lands on the wall, and what it rests on.
-  beam = { x: 0, y: 0 };
-  dwell = { key: null as string | null, progress: 0, empty: 0 };
-  private cooldown = 0;
-  // A beam at rest acts once: after a selection or a step back (and at start)
-  // nothing happens until the beam has moved. Otherwise a still beamer loops:
-  // a tree opens, its name settles off the beam centre, the empty wall steps
-  // back, the name on the wall is selected again.
-  private armed = false;
+  // Where the centre of the beam lands on the wall: a new tree opens there.
+  beam: Point = { x: 0, y: 0 };
   fps = 0;
 
   private version = 0;
@@ -173,51 +157,8 @@ export class Searchlight {
     };
   }
 
-  // Dwell selection, once per frame: the beam resting on a name for
-  // `dwellTime` selects it, brightening it meanwhile (`em`); resting on empty
-  // wall with a tree open steps back. `point`: null when the beam misses the wall.
-  point(point: Point | null, dt: number, targets: Target[], open: boolean, onBack: () => void, em: Emphasis) {
-    const c = this.config;
-    const dw = this.dwell;
-    if (point) this.beam = point;
-    const still = this.aim.speed < c.stillSpeed;
-    if (!still) this.armed = true;
-    if (!point || this.cooldown > 0 || !this.armed) {
-      this.cooldown -= dt;
-      em.amount = Math.max(em.amount - dt * 2, 0);
-      dw.key = null;
-      dw.progress = dw.empty = 0;
-      return;
-    }
-    let best: Target | null = null;
-    let bestD = c.dwellRadius * BEAM.width;
-    for (const t of targets) {
-      const d = reach(t, point.x, point.y);
-      if (d < bestD) [best, bestD] = [t, d];
-    }
-    if (best) {
-      dw.empty = 0;
-      if (best.key !== dw.key) [dw.key, dw.progress] = [best.key, 0];
-      dw.progress = still ? dw.progress + dt / c.dwellTime : Math.max(dw.progress - dt * 2, 0);
-      em.key = best.em;
-      em.amount = dw.progress * dw.progress * (3 - 2 * dw.progress);
-      if (dw.progress >= 1) {
-        best.select();
-        this.armed = false;
-        this.cooldown = c.cooldown;
-        dw.progress = 0;
-      }
-      return;
-    }
-    em.key = dw.key = null;
-    em.amount = dw.progress = 0;
-    dw.empty = open && still ? dw.empty + dt : 0;
-    if (dw.empty >= c.backTime) {
-      onBack();
-      this.armed = false;
-      this.cooldown = c.cooldown;
-      dw.empty = 0;
-    }
+  setBeam(x: number, y: number) {
+    this.beam = { x, y };
   }
 
   setSim(on: boolean) {
