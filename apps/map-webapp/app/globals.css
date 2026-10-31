@@ -400,6 +400,19 @@ body {
 .wall-overlay .wall-canvas .wall-map-position button { margin-top: 0; box-shadow: 0 2px 8px rgb(40 30 10 / 10%); }
 .wall-map-position p { padding: 8px; background: #fff; }
 .wall-map-action p { font-size: 13px; }
+.wall-family-graph { position: absolute; z-index: 3; inset: 0; background: rgb(251 250 246 / 92%); overflow: auto; }
+.wall-overlay .wall-canvas .wall-family-close { position: absolute; z-index: 5; top: 12px; right: 12px; min-height: 44px; padding: 0 12px; border: 1px solid #e3dfd7; background: #fff; color: #48443c; font: 13px var(--font-plex-sans), sans-serif; }
+.wall-family-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.wall-family-lines line { stroke: #a47a30; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.wall-overlay .wall-canvas .wall-family-node { position: absolute; transform: translate(-50%, -50%); width: max-content; max-width: min(180px, 30%); min-height: 44px; padding: 5px 8px; border: 0; background: rgb(251 250 246 / 92%); color: #745014; font: 19px/1.15 'caveat', var(--font-fell), serif; overflow-wrap: anywhere; }
+.wall-family-node small { display: block; color: #625f57; font: 11px/1.2 var(--font-plex-sans), sans-serif; }
+.wall-overlay .wall-canvas .wall-family-node.is-focused { color: #a66d00; font-size: 23px; }
+.wall-relations { position: absolute; z-index: 4; right: 16px; bottom: 16px; width: min(290px, calc(100% - 32px)); max-height: 36%; overflow-y: auto; padding: 12px 14px; background: rgb(255 255 255 / 94%); border: 1px solid #e3dfd7; color: #48443c; font: 13px/1.4 var(--font-plex-sans), sans-serif; }
+.wall-relations strong { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.wall-relations ul { margin: 8px 0 0; padding: 0; list-style: none; }
+.wall-relations li { padding: 6px 0; border-top: 1px solid #e3dfd7; }
+.wall-overlay .wall-relations button { display: block; min-height: 0; padding: 2px 0; border: 0; background: transparent; color: #855800; text-align: left; font: 600 13px var(--font-plex-sans), sans-serif; }
+.wall-relations small { display: block; color: #625f57; }
 .wall-person-details strong { display: block; margin-top: 12px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .wall-person-details ul { margin: 4px 0 0; padding: 0; list-style: none; }
 .wall-person-details li { padding: 8px 0; border-top: 1px solid #ece7de; }
