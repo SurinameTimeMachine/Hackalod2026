@@ -46,6 +46,18 @@ export default function ProjectionPage({ onPerson, patientId }: { onPerson: (sel
   const [familyMapStatus, setFamilyMapStatus] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Keep ?patient=<id> in the URL so a family tree can be shared.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (selectedId === null) url.searchParams.delete('patient'); else url.searchParams.set('patient', String(selectedId));
+    window.history.replaceState(null, '', url);
+  }, [selectedId]);
+  useEffect(() => () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('patient');
+    window.history.replaceState(null, '', url);
+  }, []);
+
   useEffect(() => {
     if (!mobile || selectedId == null) return;
     const item = listRef.current?.querySelector<HTMLElement>(`[data-person-id="${selectedId}"]`);
@@ -123,7 +135,7 @@ export default function ProjectionPage({ onPerson, patientId }: { onPerson: (sel
       extras.push({ patientId: other, key: patientKey(other), name: displayName(byId.get(other)!), caption: 'was hier · 1921', with: rootKey, ...described });
     }
     extras.sort((a, b) => Number(b.certain) - Number(a.certain));
-    return buildFamilyTree(graph, extras.slice(0, 12));
+    return buildFamilyTree(graph, extras.slice(0, 12), byId.has(selectedId) ? subtitle(byId.get(selectedId)!) : undefined);
   }, [family.graph, selectedId, edges, byId, describeTie]);
   const openTreeNode = useCallback((node: TreeNode) => {
     if (node.patientId !== undefined && node.patientId !== selectedId) select(node.patientId);
@@ -187,6 +199,7 @@ export default function ProjectionPage({ onPerson, patientId }: { onPerson: (sel
         <WallMapButton person={{ person_id: selectedPatient.patient_id, full_name: displayName(selectedPatient), role: 'patient', source_dataset: 'mh1921', event_year: 1921 }} endpoint="patient-places" onShow={onPerson} />
         {family.graph && family.graph.nodes.size > 1 && <button type="button" className="wall-family-toggle" onClick={() => void showFamilyOnMap()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15M15 6v15" /></svg>Familie op de kaart</button>}
         {familyMapStatus && <p role="status">{familyMapStatus}</p>}
+        {!familyMapStatus && (!family.graph || family.graph.nodes.size < 2) && (family.offline || family.loading.size > 0) && <p role="status" className="wall-family-status">{family.offline ? 'Familiegegevens zijn nu niet bereikbaar. Herlaad de pagina om het opnieuw te proberen.' : 'Familie wordt geladen…'}</p>}
       </div>}
       {mobile && family.graph && family.graph.nodes.size > 1 && <div className="wall-relations" aria-label="Familie en verbindingen"><strong>Verbindingen</strong><ul>{[...family.graph.nodes.values()].filter(node => node.key !== family.graph?.root).map(node => <li key={node.key}><button type="button" onClick={() => family.click(node.key)}>{node.name}</button><small>{node.caption}</small></li>)}</ul></div>}
       {debug && (

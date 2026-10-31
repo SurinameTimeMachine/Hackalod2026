@@ -8,7 +8,7 @@ import type { GEdge, GNode } from '../family-graph/projection/graph';
 export const NAME_SIZE = 22;
 export const CAPTION_SIZE = 11;
 export const DOT = 8;
-const TEXT_WIDTH = 170;
+const TEXT_WIDTH = 200;
 const GAP = 46;
 const ROW = 175;
 
@@ -41,13 +41,14 @@ export type ExtraLink = { patientId: number; key: string; name: string; caption:
 
 const lines = (chars: number, size: number, factor: number) => Math.max(1, Math.ceil((chars * size * factor) / TEXT_WIDTH));
 
-function measure(name: string, caption: string | undefined) {
-  const nameLines = lines(name.length, NAME_SIZE, 0.5);
+function measure(name: string, caption: string | undefined, root: boolean) {
+  const size = root ? NAME_SIZE * 1.25 : NAME_SIZE;
+  const nameLines = lines(name.length, size, 0.5);
   const captionLines = caption ? lines(caption.length, CAPTION_SIZE, 0.6) : 0;
   const textWidth = Math.min(TEXT_WIDTH, Math.max(name.length * NAME_SIZE * 0.5, (caption?.length ?? 0) * CAPTION_SIZE * 0.6));
   return {
     width: textWidth + GAP,
-    bottom: DOT + 8 + nameLines * NAME_SIZE * 1.1 + (captionLines ? 4 + captionLines * CAPTION_SIZE * 1.3 : 0),
+    bottom: (root ? DOT * 1.6 : DOT) + 8 + nameLines * size * 1.1 + (captionLines ? 4 + captionLines * CAPTION_SIZE * 1.3 : 0),
   };
 }
 
@@ -68,13 +69,13 @@ function spread(items: { width: number; want: number }[]) {
   return left.map((x, i) => x + shift + items[i].width / 2);
 }
 
-export function buildFamilyTree(graph: Graph, extras: ExtraLink[] = []): FamilyTree {
+export function buildFamilyTree(graph: Graph, extras: ExtraLink[] = [], rootCaption?: string): FamilyTree {
   const nodes = new Map<string, TreeNode>();
   const add = (n: GNode | (Omit<GNode, 'kind'> & { kind: 'connection' }), patientId?: number) => {
-    const m = measure(n.name, n.caption);
+    const m = measure(n.name, n.caption, n.key === graph.root);
     nodes.set(n.key, { key: n.key, kind: n.kind, name: n.name, caption: n.caption, x: 0, y: 0, width: m.width, bottom: m.bottom, root: n.key === graph.root, patientId });
   };
-  for (const n of graph.nodes.values()) add(n, n.patientId);
+  for (const n of graph.nodes.values()) add(n.key === graph.root && rootCaption ? { ...n, caption: rootCaption } : n, n.patientId);
   const edges: TreeEdge[] = [...graph.edges.values()].filter(e => nodes.has(e.from) && nodes.has(e.to) && e.from !== e.to).map(toEdge);
   for (const x of extras) {
     if (!nodes.has(x.key)) add({ key: x.key, kind: 'connection', name: x.name, caption: x.caption }, x.patientId);
@@ -113,7 +114,14 @@ export function buildFamilyTree(graph: Graph, extras: ExtraLink[] = []): FamilyT
     for (const e of edges) if (e.kind === 'level' && parent.has(e.from) && parent.has(e.to)) parent.set(find(e.from), find(e.to));
     const groups = new Map<string, string[]>();
     for (const k of members) (groups.get(find(k)) ?? groups.set(find(k), []).get(find(k))!).push(k);
-    return [...groups.values()];
+    // The selected name sits in the middle of its siblings and partner.
+    return [...groups.values()].map(unit => {
+      const i = unit.indexOf(graph.root);
+      if (i < 0) return unit;
+      const rest = unit.filter(k => k !== graph.root);
+      rest.splice(Math.floor(rest.length / 2), 0, graph.root);
+      return rest;
+    });
   };
   const units = new Map(generations.map(g => [g, unitsOf(g)]));
   const neighbours = (key: string, d: 1 | -1) => edges.flatMap(e => e.kind !== 'parent' ? [] : d === -1 && e.to === key ? [e.from] : d === 1 && e.from === key ? [e.to] : []);

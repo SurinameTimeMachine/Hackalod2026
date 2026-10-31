@@ -50,10 +50,6 @@ export default function Stamp({ stamp, state, caption, onSelect }: Props) {
 
   return (
     <group ref={group} position={[stamp.x, stamp.y, state === 'idle' || state === 'dimmed' ? 0 : 1]} rotation={[0, 0, stamp.rotation]}>
-      {(state === 'selected' || state === 'related') && <mesh position={[0, caption ? -stamp.size * .45 : 0, -0.01]}>
-        <planeGeometry args={[Math.max(stamp.width, ...((caption ?? '').split('\n').map(line => line.length * capSize * .6))) + stamp.size, caption ? stamp.size * 2.5 + capSize * 1.25 * caption.split('\n').length : stamp.size * 1.8]} />
-        <meshBasicMaterial color="#fbfaf6" transparent opacity={0.94} depthWrite={false} />
-      </mesh>}
       <Text
         ref={name}
         font={FONTS[stamp.combo.font].url}

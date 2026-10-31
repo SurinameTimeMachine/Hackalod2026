@@ -28,8 +28,7 @@ function curve(edge: TreeEdge, a: TreeNode, b: TreeNode) {
   const start = new Vector3(a.x, a.y, 0), end = new Vector3(b.x, b.y, 0);
   const dx = end.x - start.x, dy = end.y - start.y, dist = Math.hypot(dx, dy) || 1;
   if (edge.kind === 'level') {
-    const lift = Math.min(34, dist * 0.2);
-    return new QuadraticBezierCurve3(start, new Vector3((start.x + end.x) / 2, (start.y + end.y) / 2 + lift, 0), end).getPoints(24);
+    return [start, end];
   }
   // Connections bow sideways so they stay clear of the family lines.
   const bow = Math.min(dist * 0.28, 240) * (dx >= 0 ? 1 : -1);
@@ -78,7 +77,7 @@ function Person({ node, dim, lit, onHover, onSelect }: { node: TreeNode; dim: bo
       anchorX="center"
       anchorY="top"
       textAlign="center"
-      maxWidth={170}
+      maxWidth={200}
       lineHeight={1.1}
       position={[0, -(radius + 7), 0]}
       outlineWidth="6%"
@@ -98,9 +97,9 @@ function Person({ node, dim, lit, onHover, onSelect }: { node: TreeNode; dim: bo
       anchorX="center"
       anchorY="top"
       textAlign="center"
-      maxWidth={170}
+      maxWidth={200}
       lineHeight={1.3}
-      position={[0, -(node.bottom - CAPTION_SIZE * 1.3 * Math.max(1, Math.ceil((node.caption.length * CAPTION_SIZE * 0.6) / 170))), 0]}
+      position={[0, -(node.bottom - CAPTION_SIZE * 1.3 * Math.max(1, Math.ceil((node.caption.length * CAPTION_SIZE * 0.6) / 200))), 0]}
     >
       {node.caption}
     </Text>}
