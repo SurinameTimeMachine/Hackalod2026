@@ -65,6 +65,12 @@ export default function ProjectionPage({ onPerson }: { onPerson: (selection: Per
   const byId = useMemo(() => new Map(patients?.map((p) => [p.patient_id, p]) ?? []), [patients]);
 
   const { open: openFamily, reset: resetFamily } = family;
+  const initialOpened = useRef(false);
+  useEffect(() => {
+    if (initialOpened.current || selectedId === null || !patients?.some(patient => patient.patient_id === selectedId)) return;
+    initialOpened.current = true;
+    openFamily(selectedId);
+  }, [openFamily, patients, selectedId]);
   const select = useCallback((id: number | null) => {
     setSelectedId(id);
     if (id === null) resetFamily(); else openFamily(id);

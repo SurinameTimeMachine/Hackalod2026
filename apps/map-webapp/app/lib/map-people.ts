@@ -50,6 +50,11 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
   let hospitalFocus = false;
   let hospitalOnly = false;
   let walkers: InstancedMesh | null = null;
+  let walkerMarker: Mesh | null = null;
+  let selectedWalker = -1;
+  let frozenSeconds = 0;
+  const walkerRadii: number[] = [];
+  const walkerPositions = WALKERS.map(() => new Vector3());
   let hospitalLoading = false;
   let hospitalRemoved = false;
   let hospital: Group | null = null;
@@ -121,6 +126,10 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
       walkers = new InstancedMesh(new SphereGeometry(1, 10, 8), new MeshPhongMaterial({ color: '#ffdc72', emissive: '#b26a10', emissiveIntensity: 0.5, specular: '#ffffff', shininess: 60 }), WALKERS.length);
       walkers.frustumCulled = false;
       gltf.scene.add(walkers);
+      walkerMarker = new Mesh(new SphereGeometry(1, 14, 10), selectedMaterial);
+      walkerMarker.visible = false;
+      walkerMarker.frustumCulled = false;
+      gltf.scene.add(walkerMarker);
       hospital.visible = hospitalVisible;
       scene.add(hospital);
       dirty = true;
@@ -128,9 +137,11 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
     }, undefined, error => { hospitalLoading = false; console.error('Hospital model:', error); });
   }
   const dummy = new Object3D();
-  function updateWalkers(instances: InstancedMesh, seconds: number) {
+  function updateWalkers(instances: InstancedMesh, now: number) {
     instances.visible = true;
+    if (walkerMarker) walkerMarker.visible = selectedWalker >= 0;
     WALKERS.forEach((walker, index) => {
+      const seconds = index === selectedWalker ? frozenSeconds : now;
       const t = ((seconds / walker.period + walker.phase) % 1 + 1) % 1;
       // Entering walks outside -> door and shrinks away; leaving is the reverse.
       const progress = walker.entering ? t : 1 - t;
@@ -139,8 +150,14 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
       const bob = Math.abs(Math.sin(seconds * 6 + walker.phase * 20)) * 0.5;
       const fade = Math.min(1, (walker.entering ? 1 - t : t) * 12);
       const r = WALKER_RADIUS * (0.4 + 0.6 * Math.min(1, fade));
-      dummy.position.set(x, WALKER_RADIUS + bob, z);
-      dummy.scale.setScalar(r);
+      walkerPositions[index].set(x, WALKER_RADIUS + bob, z);
+      walkerRadii[index] = r;
+      if (index === selectedWalker && walkerMarker) {
+        walkerMarker.position.copy(walkerPositions[index]);
+        walkerMarker.scale.setScalar(r * 1.5);
+      }
+      dummy.position.copy(walkerPositions[index]);
+      dummy.scale.setScalar(index === selectedWalker ? 0 : r);
       dummy.updateMatrix();
       instances.setMatrixAt(index, dummy.matrix);
     });
@@ -250,6 +267,7 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
     onRemove() {
       hospitalRemoved = true;
       if (hospital) { scene.remove(hospital); disposeHospital(hospital); }
+      if (walkerMarker) walkerMarker.geometry.dispose();
       if (walkers) { walkers.geometry.dispose(); (walkers.material as MeshPhongMaterial).dispose(); walkers.dispose(); }
       stopPulse();
       motion?.removeEventListener('change', updateMotion);
@@ -273,8 +291,33 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
       if (hospital) hospital.visible = value;
       dirty = true; map?.triggerRepaint();
     },
+    clearWalker() { if (selectedWalker >= 0) { selectedWalker = -1; map?.triggerRepaint(); } },
     setHospitalOnly(value: boolean) { hospitalOnly = value; dirty = true; map?.triggerRepaint(); },
     setHospitalFocus(value: boolean) { hospitalFocus = value; dirty = true; map?.triggerRepaint(); },
+    // Returns the walker index when selected, -2 when the selected one was deselected, -1 on a miss.
+    pickWalker(point: PointLike): number {
+      if (!inverseProjection || !hospital || !walkers?.visible) return -1;
+      const [x, y] = Array.isArray(point) ? point : [point.x, point.y];
+      const canvas = map.getCanvas();
+      const nx = 2 * x / canvas.clientWidth - 1, ny = 1 - 2 * y / canvas.clientHeight;
+      const near = new Vector3(nx, ny, -1).applyMatrix4(inverseProjection);
+      const far = new Vector3(nx, ny, 1).applyMatrix4(inverseProjection);
+      const ray = new Ray(near, far.sub(near).normalize());
+      hospital.updateMatrixWorld(true);
+      let best = -1, bestDistance = Infinity;
+      walkerPositions.forEach((position, index) => {
+        const center = position.clone().applyMatrix4(walkers!.matrixWorld);
+        const hit = ray.intersectSphere(new Sphere(center, walkerRadii[index] * hospital!.scale.x * 1.6), new Vector3());
+        const distance = hit ? near.distanceToSquared(hit) : Infinity;
+        if (distance < bestDistance) { best = index; bestDistance = distance; }
+      });
+      const previous = selectedWalker;
+      selectedWalker = best >= 0 && best !== previous ? best : -1;
+      if (selectedWalker >= 0) frozenSeconds = performance.now() / 1000;
+      if (best < 0 && previous < 0) return -1;
+      map.triggerRepaint();
+      return best >= 0 ? selectedWalker : -2;
+    },
     hitTest(point: PointLike): PeopleCluster[] {
       if (!inverseProjection) return [];
       const [x, y] = Array.isArray(point) ? point : [point.x, point.y];

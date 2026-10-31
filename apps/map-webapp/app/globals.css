@@ -400,6 +400,10 @@ body {
 .wall-overlay .wall-canvas .wall-map-position button { margin-top: 0; box-shadow: 0 2px 8px rgb(40 30 10 / 10%); }
 .wall-map-position p { padding: 8px; background: #fff; }
 .wall-overlay .wall-canvas .wall-family-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; margin-top: 4px; background: #fff; border: 1px solid #e3dfd7; color: #48443c; font: 500 13px var(--font-plex-sans), sans-serif; }
+.wall-overlay .wall-canvas .wall-map-position { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-start; }
+.wall-overlay .wall-canvas .wall-map-position .wall-map-action button,
+.wall-overlay .wall-canvas .wall-map-position .wall-family-toggle { display: inline-flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; width: auto; min-height: 44px; margin: 0; padding: 0 12px; border: 1px solid #e3dfd7; background: #fff; color: #48443c; font: 500 13px/1.2 var(--font-plex-sans), sans-serif; }
+.wall-overlay .wall-canvas .wall-map-position svg { flex: none; }
 .wall-map-action p { font-size: 13px; }
 .wall-family-graph { position: absolute; z-index: 3; inset: 0; background: transparent; overflow: auto; pointer-events: none; }
 .wall-family-graph button { pointer-events: auto; }

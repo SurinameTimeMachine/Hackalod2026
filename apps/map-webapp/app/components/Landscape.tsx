@@ -37,9 +37,11 @@ export default function Landscape() {
   const [selectedPlace, setSelectedPlace] = useState<PeopleCluster | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<PeopleCluster[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonSelection | null>(null);
+  const [walkerIndex, setWalkerIndex] = useState<number | null>(null);
+  const [hospitalPeople, setHospitalPeople] = useState<{ patient_id: number; achternaam: string; initialen_of_contractnr: string; geboortejaar: string }[]>([]);
   const [desktop, setDesktop] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
-  const layerRef = useRef<{ select: (ids: string[]) => void; setPopularOnly: (value: boolean) => void; setData: (data: PeopleCluster[]) => void; setConnections: (ids: string[]) => void; setHospitalVisible: (value: boolean) => void; setHospitalFocus: (value: boolean) => void; setHospitalOnly: (value: boolean) => void; hitTest: (point: [number, number]) => PeopleCluster[] } | null>(null);
+  const layerRef = useRef<{ select: (ids: string[]) => void; setPopularOnly: (value: boolean) => void; setData: (data: PeopleCluster[]) => void; setConnections: (ids: string[]) => void; setHospitalVisible: (value: boolean) => void; setHospitalFocus: (value: boolean) => void; setHospitalOnly: (value: boolean) => void; pickWalker: (point: [number, number]) => number; clearWalker: () => void; hitTest: (point: [number, number]) => PeopleCluster[] } | null>(null);
   const hospitalVisibleRef = useRef(false);
   const hospitalFocusRef = useRef(false);
   const hospitalOnlyRef = useRef(false);
@@ -178,6 +180,8 @@ export default function Landscape() {
     });
 
     map.on('click', (event) => {
+      const walker = layerRef.current?.pickWalker([event.point.x, event.point.y]) ?? -1;
+      if (walker !== -1) { setWalkerIndex(walker >= 0 ? walker : null); return; }
       const hits = layerRef.current?.hitTest([event.point.x, event.point.y]) ?? [];
       if (hits.length === 1) {
         const place = hits[0];
@@ -292,6 +296,20 @@ export default function Landscape() {
     clearSelection();
     updatePopularOnly(!popularOnlyRef.current);
   }
+
+  const hospitalFocused = desktop && selectedPlace?.id === HOSPITAL_ID;
+  useEffect(() => {
+    if (!hospitalFocused) { layerRef.current?.clearWalker(); queueMicrotask(() => setWalkerIndex(null)); return; }
+    if (hospitalPeople.length) return;
+    const controller = new AbortController();
+    fetch('/data/mh1921_patienten.json', { signal: controller.signal })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error()))
+      .then(data => setHospitalPeople(Array.isArray(data) ? data : []))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [hospitalFocused, hospitalPeople.length]);
+
+  const walkerPerson = walkerIndex !== null && hospitalPeople.length ? hospitalPeople[walkerIndex % hospitalPeople.length] : null;
 
   function showPlace(place: PeopleCluster) {
     setNearbyPlaces([]);
@@ -420,9 +438,11 @@ export default function Landscape() {
       <button type="button" className="map-tool" aria-label="Uitzoomen" title="Uitzoomen" onClick={() => mapRef.current?.zoomOut()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14" /></svg></button>
       <button type="button" className="map-tool" aria-label="Noorden boven" title="Noorden boven" onClick={() => mapRef.current?.resetNorth()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 7 14l5-2 5 2-5-11Z" /><path d="M12 12v9" /></svg></button>
 
+      {/* Hidden for now; only the hospital view is offered.
       <button type="button" className="popular-toggle" aria-pressed={popularOnly} onClick={togglePopularOnly}>
         Populaire plaatsen <span>meer dan 50.000</span>
       </button>
+      */}
       {desktop && (
         <button type="button" className="popular-toggle hospital-toggle" aria-pressed={hospitalMode && selectedPlace?.id === HOSPITAL_ID} onClick={toggleHospitalOnly}>
           Alleen ziekenhuis <span>3D-model</span>
@@ -449,7 +469,11 @@ export default function Landscape() {
         }}>Inzoomen voor meer plaatsen</button>}
         {nearbyPlaces.slice(0, 30).map(place => <button type="button" className="nearby-place" key={place.id} onClick={() => showPlace(place)}>{place.label} <small>{place.person_count.toLocaleString('nl-NL')}</small></button>)}
       </section>}
-      {(selectedPlace || selectedPerson) && <section className="selection-panel" aria-label="Selectie">
+      {hospitalFocused && walkerIndex !== null && <section className="selection-panel" aria-label="Geselecteerde persoon">
+        <button type="button" onClick={() => { layerRef.current?.clearWalker(); setWalkerIndex(null); }} aria-label="Selectie sluiten">Sluiten</button>
+        {walkerPerson ? <><h2>{[walkerPerson.achternaam, walkerPerson.initialen_of_contractnr].filter(Boolean).join(' ')}</h2><p>was hier · 1921{walkerPerson.geboortejaar && walkerPerson.geboortejaar !== '?' ? ` · geb. ${walkerPerson.geboortejaar}` : ''}</p></> : <p>Patiënt bij ’s Lands Hospitaal · 1921</p>}
+      </section>}
+      {(selectedPlace || selectedPerson) && !(hospitalFocused && walkerIndex !== null) && <section className="selection-panel" aria-label="Selectie">
         <button type="button" onClick={clearSelection} aria-label="Selectie sluiten">Sluiten</button>
         {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0 && !specialPlaceForId(selectedPlace.id)} onClick={() => { setWallPlace(selectedPlace); setWallVisible(true); }}>Open namenmuur</button></>}
         {selectedPerson && <><h2>{selectedPerson.person.full_name || 'Naam onbekend'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Buiten de gekozen jaren.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} plaatsen op de kaart</p>}{selectedPerson.limited && <p>Sommige koppelingen ontbreken mogelijk.</p>}</>}
