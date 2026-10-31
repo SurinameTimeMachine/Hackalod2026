@@ -1,6 +1,6 @@
 # Stories in the constellation: what the projection needs to do
 
-Goal: when a visitor saves a story on the phone (`/scan`), the wall shows **right away** what they added: new lines draw in, told relatives appear as names, and the storyteller becomes part of the constellation. Example: Johanna's grandchild tells that Ramlal Doerga was their grandfather. The wall then shows Johanna, a new name for the grandchild (the storyteller) two generations below her, and Ramlal two generations above the grandchild.
+Goal: when a visitor saves a story on the phone (`/scan`), the wall shows **right away** what they added: new lines draw in, told relatives appear as names, and the storyteller becomes part of the constellation. Example: Johanna's grandchild tells that Ramlal Doerga was their grandfather, and that Ramlal's father came from Calcutta. The wall then shows Johanna, a new name for the grandchild (the storyteller) two generations below her, Ramlal two generations above the grandchild, and "zijn vader" one above Ramlal. A story can also tell a whole branch ("G.W. had twee kinderen, Anna en Kees; Anna kreeg een dochter, Maria"): every person in a story has one key, and the relations can be between any two of them.
 
 The server and phone side is done (see "What already exists"). This file describes the changes in the projection code (`app/projection/*`, `app/shared/signals.ts`, `app/shared/keys.ts`, `app/shared/strings.ts`), which another session is working on.
 
@@ -12,7 +12,7 @@ The server and phone side is done (see "What already exists"). This file describ
 - **`GET /story/graph?key=<key>`**: a `ToldGraph` with everything all saved stories added around a person (stories about them, naming them, told by them, or with a relation pointing at them). Use this when a constellation is opened, so earlier stories show up too.
 - Keys are the shared format (`app/shared/keys.ts`): `patient:<id>`, `person:<id>`, plus two new ones:
   - `name:<uuid>`: the storyteller, or a person the visitor named who is not linked to the archive (a provisional subject)
-  - `told:<row id>`: a relative told by name only ("mijn grootvader Ramlal Doerga")
+  - `told:<story id>/<entity id>`: a person from a story who is not linked to the archive ("mijn grootvader Ramlal Doerga", "zijn vader", "Anna"). The same person keeps the same key throughout that story.
 
 `ToldGraph` (see `app/shared/story.ts`):
 
@@ -22,7 +22,7 @@ edges: { id, from, to, relation_type, up?, generations?: 1 | 2, level?, story_id
 notes: { key, text, story_id }[]   // e.g. "verpleegster · 's Lands Hospitaal · overleden 1967"
 ```
 
-An edge reads as **"`to` is `relation_type` of `from`"**. The server already worked out the tree shape: `up` is the key of the elder end, `generations` is how far up (1 for a parent/child, 2 for a grandparent/grandchild), and `level` means side by side (spouse, sibling). Friends and `other` have no shape.
+An edge reads as **"`to` is `relation_type` of `from`"**. The server already worked out the tree shape: `up` is the key of the elder end, `generations` is how far up (1 for a parent/child, 2 for a grandparent/grandchild, 3 for a great-grandchild), and `level` means side by side (spouse, sibling). Friends and `other` have no shape.
 
 Example `added` for the Johanna story:
 
@@ -56,7 +56,7 @@ Add an action, e.g. `addTold(added: ToldGraph, { fresh: boolean })`, that clones
 - puts `notes` on that person's caption (under the existing subtitle).
 - `fresh: true` (from `story-saved`): remember the new keys in a `Set` for ~10 s, so they can pulse or glow (see 4). Use `origin` (the anchor's position) so new names glide out of the person they hang from, the way expanded names already do.
 
-**Two generations:** `TreeLayout` (`forceLayout.ts`) knows `parent` (one generation, `GENERATION`) and `level`. Grandparent and grandchild edges have `generations: 2`. Add an optional `generations` to `GEdge` and multiply the vertical distance by it in `TreeLayout`, so the storyteller ends up two rows below Johanna and Ramlal two rows above the storyteller.
+**More than one generation:** `TreeLayout` (`forceLayout.ts`) knows `parent` (one generation, `GENERATION`) and `level`. Grandparent and grandchild edges have `generations: 2`, a great-grandchild (the storyteller chose "Achterkleinkind") has `generations: 3`. Add an optional `generations` to `GEdge` and multiply the vertical distance by it in `TreeLayout`, so the storyteller ends up two rows below Johanna and Ramlal two rows above the storyteller.
 
 When `story-saved` arrives:
 1. If the current graph doesn't contain the subject (`signal.key`), open it first (as for `select`) and wait until its expansion has loaded.

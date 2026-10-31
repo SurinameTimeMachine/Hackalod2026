@@ -87,6 +87,8 @@ export const DICT = {
   notStoredNote: 'Herkend in je verhaal, maar het gaat niet over deze persoon. Het blijft onderdeel van je verhaal.',
   retry: 'Probeer opnieuw',
   narrator: 'de verteller',
+  you: 'jou',
+  removedTie: 'Verband weggehaald. Tik nog eens om het terug te zetten.',
   self: 'de persoon zelf',
 };
 
@@ -208,10 +210,14 @@ export const KIN: Record<string, string> = {
   spouse: 'partner',
   grandparent: 'grootouder',
   grandchild: 'kleinkind',
+  'great-grandchild': 'achterkleinkind',
   friend: 'vriend(in)',
   colleague: 'collega',
   other: 'familie',
 };
+
+// A stored tie reads "to is child of from"; seen from `from` it is the other way.
+export const PARENT_OF: Record<string, string> = { child: 'parent', grandchild: 'grandparent' };
 
 // The person's relation to the narrator → the narrator's chip for that person.
 export const NARRATOR_CHIP_FOR: Record<string, number> = { grandparent: 0, parent: 2, other: 3, sibling: 3, spouse: 3, friend: 4 };
@@ -219,7 +225,7 @@ export const NARRATOR_CHIP_FOR: Record<string, number> = { grandparent: 0, paren
 // How the narrator relates to the person (relation_type as in the dataset).
 export const NARRATOR_RELATIONS: { label: string; value: string | null }[] = [
   { label: 'Kleinkind', value: 'grandchild' },
-  { label: 'Achterkleinkind', value: 'other' },
+  { label: 'Achterkleinkind', value: 'great-grandchild' },
   { label: 'Kind', value: 'child' },
   { label: 'Andere familie', value: 'other' },
   { label: 'Vriend of kennis', value: 'friend' },

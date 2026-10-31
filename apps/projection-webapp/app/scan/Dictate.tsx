@@ -6,7 +6,7 @@
 // Nothing is saved yet; that is the consent + /contribute step.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Candidate, ExtractResult, MatchOption, PersonContext, ResolvedSuggestion, StoryEntity } from '../shared/story';
-import { APP_NAME, ASK, BADGE, CATEGORY, DICT, FIELD, FOUND, RELATION, SAVE, TYPE } from './strings';
+import { APP_NAME, ASK, BADGE, CATEGORY, DICT, FIELD, FOUND, KIN, PARENT_OF, RELATION, SAVE, TYPE } from './strings';
 import { Mic } from './icons';
 import { answer, nextQuestion, startAsk, type Ask, type Question } from './questions';
 import Save from './Save';
@@ -36,8 +36,9 @@ function spans(text: string, list: ResolvedSuggestion[]) {
   return out.sort((a, b) => a.start - b.start);
 }
 
-function describe(s: ResolvedSuggestion, subject: string, chosenLabel: string | null) {
+function describe(s: ResolvedSuggestion, subject: string, chosenLabel: string | null, ties: string[]) {
   if (s.is_subject) return `${DICT.self} · ${chosenLabel ?? subject}`;
+  if (s.type === 'person' && ties.length) return [chosenLabel, ...ties].filter(Boolean).join(' · ');
   if (!s.kind) {
     const about = !s.about || s.about === 'subject' ? subject : s.about === 'narrator' ? DICT.narrator : s.about;
     return [TYPE[s.type] ?? s.type, `over ${about}`, chosenLabel, DICT.notStored].filter(Boolean).join(' · ');
@@ -71,10 +72,10 @@ function columns(s: ResolvedSuggestion, personKey: string, r: Review) {
   return row.filter(([, v]) => v !== null && v !== '');
 }
 
-function badge(s: ResolvedSuggestion, r: Review): [string, string] {
+function badge(s: ResolvedSuggestion, r: Review, tied = false): [string, string] {
   if (s.is_subject) return ['b-link', BADGE.self];
   if (r.status === 'removed') return ['b-wait', DICT.removed];
-  if (!s.kind) return ['b-wait', BADGE.only];
+  if (!s.kind && !tied) return ['b-wait', BADGE.only];
   if (s.possibly_living) return ['b-warn', 'mogelijk levend'];
   if (r.status === 'ok') return ['b-you', DICT.confirmed];
   if (r.choice) return ['b-link', BADGE.linked];
@@ -150,6 +151,7 @@ export default function Dictate({ person, context, onBack, onSubject, onSaved }:
   const lastAudio = useRef<Blob | null>(null);
   const [asks, setAsks] = useState<Record<string, Ask>>({});
   const [walking, setWalking] = useState(false);
+  const [relRemoved, setRelRemoved] = useState<Set<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const panelBody = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -184,6 +186,7 @@ export default function Dictate({ person, context, onBack, onSubject, onSaved }:
         for (const s of out.suggestions) if (s.type === 'person' && !s.is_subject && !s.related_key && s.options.length) next[s.id] = startAsk(s.options);
         setAsks(next);
         setWalking(false);
+        setRelRemoved(new Set());
         setRevealed(0);
         setData(out);
         setPhase('done');
@@ -262,6 +265,35 @@ export default function Dictate({ person, context, onBack, onSubject, onSaved }:
   const marks = useMemo(() => spans(transcript, list), [transcript, list]);
   const shown = list.filter((s) => (order.get(s.id) ?? 0) < revealed);
   const kept = shown.filter((s) => s.kind && review[s.id]?.status !== 'removed');
+
+  // --- Relations between the story's people -------------------------------------
+  // A tie is gone when it was removed itself, or when one of its people was.
+  const relations = data?.relations ?? [];
+  const endGone = (end: string) => end !== 'subject' && end !== 'narrator' && review[end]?.status === 'removed';
+  const liveRelations = relations.filter((r) => !relRemoved.has(r.id) && !endGone(r.from) && !endGone(r.to));
+  const endName = (end: string) => {
+    if (end === 'subject') return person.text;
+    if (end === 'narrator') return DICT.you;
+    const e = list.find((x) => x.id === end);
+    return e ? (labelOf(e) ?? e.name_raw ?? e.mention) : '?';
+  };
+  // "kind van G.W.", "ouder van Maria": what `id` is of each person it is tied to.
+  const tiesOf = (id: string) =>
+    liveRelations.flatMap((r) => {
+      if (r.to === id) return [`${KIN[r.type] ?? r.type} van ${endName(r.from)}`];
+      if (r.from === id) return [`${KIN[PARENT_OF[r.type] ?? r.type] ?? r.type} van ${endName(r.to)}`];
+      return [];
+    });
+  const toggleRelation = (id: string) => {
+    const removed = relRemoved.has(id);
+    setRelRemoved((all) => {
+      const next = new Set(all);
+      if (removed) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    say(removed ? DICT.restored : DICT.removedTie);
+  };
   const labelOf = (s: ResolvedSuggestion) => {
     const c = review[s.id]?.choice;
     return c ? (s.options.find((o) => o.id === c)?.label ?? s.linkedLabel) : null;
@@ -481,14 +513,14 @@ export default function Dictate({ person, context, onBack, onSubject, onSaved }:
     panel = shown.length ? (
       [banner, subjectRow, ...shown.map((s) => {
         const r = review[s.id];
-        const [b, bl] = isOpen(s.id) ? ['b-ask', '?'] : badge(s, r);
+        const [b, bl] = isOpen(s.id) ? ['b-ask', '?'] : badge(s, r, tiesOf(s.id).length > 0);
         const left = isOpen(s.id) ? ` · ${ASK.remaining(asks[s.id].remaining.length)}` : '';
         return (
           <button type="button" key={s.id} className={`row${r.status === 'removed' ? ' gone' : ''}`} onClick={() => setSel(s.id)}>
             <span className={`dot c-${s.category}`} />
             <span className="tx">
               <span className="tt">{s.mention}</span>
-              <span className="ll">{describe(s, person.text, labelOf(s)) + left}</span>
+              <span className="ll">{describe(s, person.text, labelOf(s), tiesOf(s.id)) + left}</span>
             </span>
             <span className={`badge ${b}`}>{bl}</span>
           </button>
@@ -543,6 +575,27 @@ export default function Dictate({ person, context, onBack, onSubject, onSaved }:
             </span>
           </button>
         ))}
+        {relations
+          .filter((r) => !endGone(r.from) && !endGone(r.to))
+          .map((r) => (
+            <button type="button" key={r.id} className={`row${relRemoved.has(r.id) ? ' gone' : ''}`} onClick={() => toggleRelation(r.id)}>
+              <span className="dot c-rel" />
+              <span className="tx">
+                <span className="tt">
+                  {endName(r.to)} · {KIN[r.type] ?? r.type} van {endName(r.from)}
+                </span>
+                <span className="cols">
+                  <code>
+                    kind=<b>relation</b>
+                  </code>
+                  <code>
+                    relation_type=<b>{r.type}</b>
+                  </code>
+                </span>
+              </span>
+              <span className={`badge ${relRemoved.has(r.id) ? 'b-wait' : 'b-new'}`}>{relRemoved.has(r.id) ? DICT.removed : BADGE.new}</span>
+            </button>
+          ))}
         <span className="foot-note">{DICT.dataNote}</span>
       </>
     ) : (
@@ -593,7 +646,17 @@ export default function Dictate({ person, context, onBack, onSubject, onSaved }:
       });
 
   if (saving && data)
-    return <Save person={person} transcript={transcript} summary={data.summary} entities={storyEntities()} onBack={() => setSaving(false)} onSaved={onSaved} />;
+    return (
+      <Save
+        person={person}
+        transcript={transcript}
+        summary={data.summary}
+        entities={storyEntities()}
+        relations={liveRelations}
+        onBack={() => setSaving(false)}
+        onSaved={onSaved}
+      />
+    );
   const status =
     phase === 'typing' && transcript
       ? DICT.editHint
@@ -654,7 +717,7 @@ export default function Dictate({ person, context, onBack, onSubject, onSaved }:
             {DICT.tabFound} ({shown.length})
           </button>
           <button type="button" className={`tab${tab === 'data' && !sel ? ' act' : ''}`} onClick={() => (setTab('data'), setSel(null))}>
-            {DICT.tabData} ({data ? kept.length + 1 : 0})
+            {DICT.tabData} ({data ? kept.length + liveRelations.length + 1 : 0})
           </button>
         </div>
         <div className="panel-body" ref={panelBody}>

@@ -55,6 +55,10 @@ export async function save(req: ContributeRequest): Promise<{ story: SavedStory;
       row_id: null,
       narrator_relation: cut(e.narrator_relation, 40),
     };
+    // Every person gets one key for the whole story: the scanned person, an
+    // archive record they were linked to, or a told person of their own.
+    if (e.type === 'person')
+      clean.key = clean.is_subject ? req.key : clean.link && isArchive(clean.link) ? clean.link : `told:${storyId}/${clean.id}`;
     if (e.row) {
       const id = randomUUID();
       const r = e.row;
@@ -97,21 +101,23 @@ export async function save(req: ContributeRequest): Promise<{ story: SavedStory;
       ...base,
     });
 
-  // The narrator's own family as told ("mijn grootvader Ramlal"): relation
-  // rows from the narrator to those people.
-  for (const e of entities)
-    if (e.narrator_relation && !e.is_subject)
-      rows.push({
-        id: randomUUID(),
-        person_key: narratorKey,
-        kind: 'relation',
-        relation_type: e.narrator_relation,
-        related_key: e.link && /^(patient|person):/.test(e.link) ? e.link : null,
-        name_raw: e.link_label ?? e.mention,
-        quote: e.quote,
-        confirmed: true,
-        ...base,
-      });
+  // Every tie the story told, between any two of its people ("Anna kreeg
+  // een dochter, Maria"), as one relation row: `to` is `type` of `from`.
+  const byId = new Map(entities.filter((e) => e.key).map((e) => [e.id, e]));
+  const keyOf = (end: string) => (end === 'subject' ? req.key : end === 'narrator' ? narratorKey : (byId.get(end)?.key ?? null));
+  const nameOf = (end: string) => (end === 'subject' ? cut(req.subject_name, 200) : end === 'narrator' ? narrator.name : (byId.get(end)?.link_label ?? byId.get(end)?.mention ?? null));
+  const relations: SavedStory['relations'] = [];
+  for (const r of (req.relations ?? []).slice(0, 200)) {
+    const from = keyOf(String(r.from));
+    const to = keyOf(String(r.to));
+    // The narrator's tie to the subject comes from the save screen, as chosen.
+    const pair = [r.from, r.to].sort().join('|');
+    if (!from || !to || from === to || pair === 'narrator|subject') continue;
+    const row_id = randomUUID();
+    const type = cut(r.type, 40) ?? 'other';
+    rows.push({ id: row_id, person_key: from, kind: 'relation', relation_type: type, related_key: to, name_raw: nameOf(String(r.to)), quote: cut(r.quote, 500), confirmed: true, ...base });
+    relations.push({ id: String(r.id), from: String(r.from), to: String(r.to), type, quote: cut(r.quote, 500) ?? '', row_id, from_key: from, to_key: to });
+  }
 
   const story: SavedStory = {
     id: storyId,
@@ -121,6 +127,7 @@ export async function save(req: ContributeRequest): Promise<{ story: SavedStory;
     summary: cut(req.summary, 500) ?? '',
     entities,
     narrator,
+    relations,
     created_at: now,
     reviewed: 0,
   };
@@ -140,6 +147,7 @@ function shape(type: string, from: string, to: string): Pick<ToldEdge, 'up' | 'g
   if (type === 'grandparent') return { up: to, generations: 2 };
   if (type === 'child') return { up: from, generations: 1 };
   if (type === 'grandchild') return { up: from, generations: 2 };
+  if (type === 'great-grandchild') return { up: from, generations: 3 };
   if (type === 'spouse' || type === 'sibling') return { level: true };
   return {};
 }
@@ -151,7 +159,10 @@ function graphOf(story: SavedStory, rows: Record[]): ToldGraph {
     [story.person_key, story.person_name],
     [story.narrator.key, story.narrator.name],
   ]);
-  for (const e of story.entities) if (e.link && e.link_label && isArchive(e.link)) names.set(e.link, e.link_label);
+  for (const e of story.entities) {
+    if (e.link && e.link_label && isArchive(e.link)) names.set(e.link, e.link_label);
+    if (e.key && !names.has(e.key)) names.set(e.key, e.link_label ?? e.mention);
+  }
 
   const nodes = new Map<string, ToldNode>();
   const node = (key: string, name?: string | null) => {
@@ -224,6 +235,7 @@ const asStory = (r: Record): SavedStory => ({
   summary: r.summary as string,
   entities: r.entities as StoryEntity[],
   narrator: r.narrator as SavedStory['narrator'],
+  relations: (r.relations as SavedStory['relations'] | undefined) ?? [],
   created_at: r.created_at,
   reviewed: r.reviewed,
 });

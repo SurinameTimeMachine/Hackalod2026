@@ -3,7 +3,7 @@
 // "Vertel over jezelf": who told the story, consent, then POST /contribute.
 // The narrator becomes a person in the dataset, related to the subject.
 import { useCallback, useState } from 'react';
-import type { Candidate, ContributeRequest, StoryEntity } from '../shared/story';
+import type { Candidate, ContributeRequest, StoryEntity, StoryRelation } from '../shared/story';
 import { Mic } from './icons';
 import { KIN, NARRATOR_CHIP_FOR, NARRATOR_RELATIONS, SAVE } from './strings';
 import { useRecorder } from './useRecorder';
@@ -13,11 +13,12 @@ type Props = {
   transcript: string;
   summary: string;
   entities: StoryEntity[];
+  relations: StoryRelation[];
   onBack: () => void;
   onSaved: (narrator: string) => void;
 };
 
-export default function Save({ person, transcript, summary, entities, onBack, onSaved }: Props) {
+export default function Save({ person, transcript, summary, entities, relations, onBack, onSaved }: Props) {
   // What the story already says: "mijn grootmoeder Johanna" (the person) and
   // "mijn grootvader Ramlal" (other family of the narrator).
   const told = entities.find((e) => e.is_subject)?.narrator_relation;
@@ -52,7 +53,7 @@ export default function Save({ person, transcript, summary, entities, onBack, on
   );
   const rec = useRecorder(onAudio);
 
-  const rows = entities.filter((e) => e.row).length;
+  const rows = entities.filter((e) => e.row).length + relations.length;
   const missingName = !name.trim();
   const missingConsent = !publish || !ai;
 
@@ -69,6 +70,8 @@ export default function Save({ person, transcript, summary, entities, onBack, on
       transcript,
       summary,
       entities: entities.map((e) => (e.narrator_relation && !e.is_subject && !keep.has(e.id) ? { ...e, narrator_relation: null } : e)),
+      // Unticked family of the narrator: their tie to the narrator is left out.
+      relations: relations.filter((r) => !((r.from === 'narrator' && !keep.has(r.to)) || (r.to === 'narrator' && !keep.has(r.from)))),
       narrator: { name: name.trim(), relation: rel?.value ?? null, relation_label: rel?.label ?? null, about: about.trim() || null },
       consent: { publish, ai },
     };
