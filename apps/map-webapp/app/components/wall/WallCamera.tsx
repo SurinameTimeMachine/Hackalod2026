@@ -5,11 +5,12 @@ import type { OrthographicCamera as ThreeOrthographicCamera } from 'three';
 import type { StampLayout } from './wallLayout';
 import { wallFocus } from './wallFocus';
 
-export default function WallCamera({ selected, caption, detailsPanel = false }: { selected?: StampLayout; caption?: string; detailsPanel?: boolean }) {
+export default function WallCamera({ selected, caption, detailsPanel = false, familyCount = 0 }: { selected?: StampLayout; caption?: string; detailsPanel?: boolean; familyCount?: number }) {
   const camera = useRef<ThreeOrthographicCamera>(null);
   const size = useThree(state => state.size);
   const inset = selected && detailsPanel ? Math.min(352, size.width * 0.45) : 0;
   const target = wallFocus(size.width - inset, size.height, selected, caption);
+  if (familyCount > 1) target.zoom = Math.min(target.zoom, Math.min(size.width / 1100, size.height / 800));
 
   useFrame((_, delta) => {
     const current = camera.current;

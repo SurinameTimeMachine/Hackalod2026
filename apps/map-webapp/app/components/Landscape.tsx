@@ -248,6 +248,26 @@ export default function Landscape() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clusters]);
 
+  // Keep the URL in sync with the selection so it can be shared and survives a reload.
+  useEffect(() => {
+    if (!deepLinkDone.current) return;
+    const params = new URLSearchParams();
+    if (selectedPlace) {
+      params.set('place', selectedPlace.id);
+      params.set('label', selectedPlace.label);
+      params.set('lat', String(selectedPlace.lat));
+      params.set('lng', String(selectedPlace.lng));
+    } else if (selectedPerson && !selectedPerson.family) {
+      const { person } = selectedPerson;
+      params.set('person', String(person.person_id));
+      if (person.full_name) params.set('name', person.full_name);
+      if (person.event_year !== null) params.set('year', String(person.event_year));
+    }
+    const query = params.toString();
+    const next = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(null, '', next);
+  }, [selectedPlace, selectedPerson]);
+
   function togglePopularOnly() {
     clearSelection();
     updatePopularOnly(!popularOnlyRef.current);
@@ -277,7 +297,7 @@ export default function Landscape() {
     const map = mapRef.current;
     if (!map) return;
     updateSelectionIndicators(map, selected);
-    layerRef.current?.setConnections(selected.map(place => place.id));
+    layerRef.current?.setConnections(selection.family ? [] : selected.map(place => place.id));
     if (selected.length === 1) map.flyTo({ center: selected[0].center, zoom: Math.max(map.getZoom(), 15), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
     if (selected.length > 1) {
       const bounds = selected.reduce((b, place) => b.extend(place.center), new maplibregl.LngLatBounds(selected[0].center, selected[0].center));

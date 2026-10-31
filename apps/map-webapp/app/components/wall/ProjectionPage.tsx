@@ -15,6 +15,7 @@ import WallMapButton from './WallMapButton';
 import type { PersonSelection } from '../PeopleSearch';
 import { useConstellation } from '../family-graph/projection/useConstellation';
 import { usePatientEdges as useGraphEdges, usePatientIndex } from '../family-graph/shared/hooks';
+import FamilyConstellation from './FamilyConstellation';
 
 async function loadFonts() {
   await Promise.all(
@@ -39,6 +40,7 @@ export default function ProjectionPage({ onPerson }: { onPerson: (selection: Per
     return Number.isInteger(id) && id > 0 ? id : null;
   });
   const [debug, setDebug] = useState(false);
+  const [familyMapStatus, setFamilyMapStatus] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -97,6 +99,34 @@ export default function ProjectionPage({ onPerson }: { onPerson: (selection: Per
   );
 
   const selectedPatient = selectedId == null ? undefined : byId.get(selectedId);
+  async function showFamilyOnMap() {
+    if (!family.graph || !selectedPatient) return;
+    const graph = family.graph;
+    const keys = new Set([graph.root]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const edge of graph.edges.values()) {
+        if (!edge.certain || (!edge.parent && !edge.level)) continue;
+        if (keys.has(edge.from) && !keys.has(edge.to)) { keys.add(edge.to); changed = true; }
+        if (keys.has(edge.to) && !keys.has(edge.from)) { keys.add(edge.from); changed = true; }
+      }
+    }
+    const nodes = [...keys].map(key => graph.nodes.get(key)).filter(node => node && (node.patientId || node.personId));
+    setFamilyMapStatus('Plaatsen laden…');
+    try {
+      const results = await Promise.all(nodes.map(async node => {
+        const endpoint = node!.patientId ? 'patient-places' : 'person-places';
+        const response = await fetch(`/api/${endpoint}?id=${node!.patientId ?? node!.personId}`);
+        if (!response.ok) throw new Error('Could not load places');
+        return response.json() as Promise<{ ids: string[]; limited: boolean }>;
+      }));
+      const ids = [...new Set(results.flatMap(result => result.ids))];
+      if (!ids.length) { setFamilyMapStatus('Geen plaatsen op de kaart gevonden.'); return; }
+      setFamilyMapStatus('');
+      onPerson({ person: { person_id: selectedPatient.patient_id, full_name: displayName(selectedPatient), role: 'patient', source_dataset: 'mh1921', event_year: 1921 }, ids, limited: results.some(result => result.limited), family: true });
+    } catch { setFamilyMapStatus('De plaatsen konden niet worden geladen.'); }
+  }
 
   return (
     <main style={{ position: 'absolute', inset: 0 }}>
@@ -112,34 +142,23 @@ export default function ProjectionPage({ onPerson }: { onPerson: (selection: Per
         dpr={[1, 2]}
         onPointerMissed={() => select(null)}
       >
-        <WallCamera selected={stamps.find(stamp => stamp.id === selectedId)} caption={selectedId == null ? '' : describeSelected(selectedId)} />
+        <WallCamera selected={stamps.find(stamp => stamp.id === selectedId)} caption={selectedId == null ? '' : describeSelected(selectedId)} familyCount={family.graph?.nodes.size ?? 0} />
         <Wall
           stamps={stamps}
-          edges={edges}
+          edges={[]}
           selectedId={selectedId}
           onSelect={select}
           describeSelected={describeSelected}
           describeTie={describeTie}
         />
+        {family.graph && selectedId !== null && stamps.find(stamp => stamp.id === selectedId) && <FamilyConstellation graph={family.graph} anchor={stamps.find(stamp => stamp.id === selectedId)!} onSelect={family.click} />}
       </Canvas>}
       {selectedPatient && <div className="wall-map-position">
         <WallMapButton person={{ person_id: selectedPatient.patient_id, full_name: displayName(selectedPatient), role: 'patient', source_dataset: 'mh1921', event_year: 1921 }} endpoint="patient-places" onShow={onPerson} />
+        {family.graph && family.graph.nodes.size > 1 && <button type="button" className="wall-family-toggle" onClick={() => void showFamilyOnMap()}>Familie op de kaart</button>}
+        {familyMapStatus && <p role="status">{familyMapStatus}</p>}
       </div>}
-      {selectedPatient && family.graph && <div className="wall-family-graph" aria-label="Familie en verbindingen">
-        <button type="button" className="wall-family-close" onClick={() => select(null)}>Terug naar namen</button>
-        {family.offline && <p role="status">Verbindingen konden niet worden geladen.</p>}
-        {(() => {
-          const graph = family.graph!;
-          const nodes = [...graph.nodes.values()];
-          const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
-          const rows = Math.ceil(nodes.length / columns);
-          const positions = new Map(nodes.map((node, i) => [node.key, { x: ((i % columns) + .5) / columns * 100, y: (Math.floor(i / columns) + .5) / rows * 100 }]));
-          return <><svg className="wall-family-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{[...graph.edges.values()].map(edge => {
-            const a = positions.get(edge.from), b = positions.get(edge.to);
-            return a && b ? <line key={edge.key} x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeDasharray={edge.certain ? undefined : '1 1'} /> : null;
-          })}</svg>{nodes.map(node => { const point = positions.get(node.key)!; return <button type="button" key={node.key} className={node.key === graph.focus ? 'wall-family-node is-focused' : 'wall-family-node'} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => family.click(node.key)}><span>{node.name}</span>{node.caption && <small>{node.caption}</small>}</button>; })}</>;
-        })()}
-      </div>}
+      {mobile && family.graph && family.graph.nodes.size > 1 && <div className="wall-relations" aria-label="Familie en verbindingen"><strong>Verbindingen</strong><ul>{[...family.graph.nodes.values()].filter(node => node.key !== family.graph?.root).map(node => <li key={node.key}><button type="button" onClick={() => family.click(node.key)}>{node.name}</button><small>{node.caption}</small></li>)}</ul></div>}
       {debug && (
         <div className="debug">
           {`data: ${source}\nnames: ${stamps.length} @ ${stamps[0]?.size.toFixed(1) ?? '–'} units\npatient pairs with ties: ${edges.length}\nselected: ${selectedId ?? '–'}`}

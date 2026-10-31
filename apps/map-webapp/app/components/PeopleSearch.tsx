@@ -7,7 +7,7 @@ import { specialPlaces, specialPlaceCluster } from '../lib/special-places';
 type PlaceResult = { place_norm: string; label: string; records: number; gazetteer_id: string | null; gazetteer_label: string | null; lat: number | null; lng: number | null; match_type: string | null; confidence: number | null };
 
 type Person = { person_id: number; full_name: string; role: string | null; source_dataset: string; event_year: number | null };
-export type PersonSelection = { person: Person; ids: string[]; limited: boolean };
+export type PersonSelection = { person: Person; ids: string[]; limited: boolean; family?: boolean };
 
 type Props = {
   clusters: PeopleCluster[];

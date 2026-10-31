@@ -29,7 +29,6 @@ const people: Record<string, { name: string; year: number }> = {
   '433668': { name: 'Joseph Clarck', year: 1875 },
   '433674': { name: 'Cornelis Woisk', year: 1875 },
   '559374': { name: 'Meindert Verschuur', year: 1874 },
-  '344758': { name: 'Evert van der Klift', year: 1845 },
   '161611': { name: 'Cornelia van der Klift', year: 1891 },
   '163846': { name: 'Jansien Perkementis', year: 1891 },
   '112305': { name: 'Boudewijn Evert Johannes de Graaff', year: 1884 },
