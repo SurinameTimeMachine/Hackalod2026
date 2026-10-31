@@ -1,5 +1,5 @@
 import { MercatorCoordinate, type CustomLayerInterface, type Map as MapLibreMap, type PointLike } from 'maplibre-gl';
-import { Box3, BufferGeometry, Camera, DirectionalLight, AmbientLight, Float32BufferAttribute, Group, InstancedMesh, Matrix4, Mesh, MeshPhongMaterial, Points, PointsMaterial, Ray, Scene, Sphere, SphereGeometry, Texture, Vector3, WebGLRenderer } from 'three';
+import { Box3, BufferGeometry, Camera, DirectionalLight, AmbientLight, Float32BufferAttribute, Group, InstancedMesh, Matrix4, Object3D, Mesh, MeshPhongMaterial, Points, PointsMaterial, Ray, Scene, Sphere, SphereGeometry, Texture, Vector3, WebGLRenderer } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -9,6 +9,19 @@ import { connectionPairs } from './people-connections';
 
 export const PEOPLE_LAYER_ID = 'people-spheres';
 const HOSPITAL_COORDINATES: [number, number] = [-55.15685854195079, 5.830053055211843];
+const FLOOR_MAX_Y = 0.5;
+const WALKER_RADIUS = 2.8;
+// Model-space (x, z) of the main doors and the points where walkers appear.
+const DOORS: [number, number][] = [[45, -62], [90, -62], [135, -62], [70, -30], [110, -30]];
+const SPAWNS: [number, number][] = [[10, -105], [60, -110], [115, -105], [165, -100], [30, -20], [85, 10], [140, 5]];
+const WALKERS = Array.from({ length: 48 }, (_, i) => {
+  const rand = (n: number) => { const v = Math.sin(i * 12.9898 + n * 78.233) * 43758.5453; return v - Math.floor(v); };
+  const door = DOORS[i % DOORS.length];
+  // Street-side doors are reached from the south, courtyard doors from the north.
+  const pool = SPAWNS.filter(spawn => door[1] < -45 ? spawn[1] < -60 : spawn[1] > -40);
+  const spawn = pool[Math.floor(rand(1) * pool.length)];
+  return { from: spawn, to: [door[0] + (rand(2) - 0.5) * 8, door[1]] as [number, number], period: 12 + rand(3) * 14, phase: rand(4), entering: i % 2 === 0 };
+});
 type DisplayGroup = { members: PeopleCluster[]; center: [number, number]; radiusMeters: number };
 
 // One sphere per place. The apparent size is bounded in screen space for
@@ -35,6 +48,8 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
   let renderer: WebGLRenderer;
   let hospitalVisible = false;
   let hospitalFocus = false;
+  let hospitalOnly = false;
+  let walkers: InstancedMesh | null = null;
   let hospitalLoading = false;
   let hospitalRemoved = false;
   let hospital: Group | null = null;
@@ -92,15 +107,44 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
         return;
       }
       hospitalWidth = Math.max(size.x, size.z);
+      // Ground-level layers z-fight with the 3D terrain, so only the buildings and vegetation are kept.
+      const flat: Mesh[] = [];
+      gltf.scene.updateMatrixWorld(true);
+      gltf.scene.traverse(object => {
+        if (object instanceof Mesh && new Box3().setFromObject(object).max.y <= FLOOR_MAX_Y) flat.push(object);
+      });
+      for (const object of flat) object.visible = false;
       gltf.scene.position.set(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
       hospital = new Group();
       hospital.rotation.x = Math.PI / 2;
       hospital.add(gltf.scene);
+      walkers = new InstancedMesh(new SphereGeometry(1, 10, 8), new MeshPhongMaterial({ color: '#ffdc72', emissive: '#b26a10', emissiveIntensity: 0.5, specular: '#ffffff', shininess: 60 }), WALKERS.length);
+      walkers.frustumCulled = false;
+      gltf.scene.add(walkers);
       hospital.visible = hospitalVisible;
       scene.add(hospital);
       dirty = true;
       map.triggerRepaint();
     }, undefined, error => { hospitalLoading = false; console.error('Hospital model:', error); });
+  }
+  const dummy = new Object3D();
+  function updateWalkers(instances: InstancedMesh, seconds: number) {
+    instances.visible = true;
+    WALKERS.forEach((walker, index) => {
+      const t = ((seconds / walker.period + walker.phase) % 1 + 1) % 1;
+      // Entering walks outside -> door and shrinks away; leaving is the reverse.
+      const progress = walker.entering ? t : 1 - t;
+      const x = walker.from[0] + (walker.to[0] - walker.from[0]) * progress;
+      const z = walker.from[1] + (walker.to[1] - walker.from[1]) * progress;
+      const bob = Math.abs(Math.sin(seconds * 6 + walker.phase * 20)) * 0.5;
+      const fade = Math.min(1, (walker.entering ? 1 - t : t) * 12);
+      const r = WALKER_RADIUS * (0.4 + 0.6 * Math.min(1, fade));
+      dummy.position.set(x, WALKER_RADIUS + bob, z);
+      dummy.scale.setScalar(r);
+      dummy.updateMatrix();
+      instances.setMatrixAt(index, dummy.matrix);
+    });
+    instances.instanceMatrix.needsUpdate = true;
   }
   function stopPulse() { if (pulseTimer !== undefined) clearTimeout(pulseTimer); pulseTimer = undefined; }
   function schedulePulse() {
@@ -139,7 +183,7 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
         }
         let normalCount = 0, fadedCount = 0, selectedCount = 0;
         hitSpheres = [];
-        const filtered = popularOnly ? clusters.filter(isPopularPlace) : clusters;
+        const filtered = hospitalOnly ? [] : popularOnly ? clusters.filter(isPopularPlace) : clusters;
         for (const group of displayPlaces(map, filtered)) {
           if (hospitalFocus && hospitalFootprint > 0) {
             const dx = (group.center[0] - HOSPITAL_COORDINATES[0]) * 111320 * Math.cos(HOSPITAL_COORDINATES[1] * Math.PI / 180);
@@ -192,16 +236,21 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
         });
         positions.needsUpdate = true;
       }
+      const animateWalkers = !!hospital && hospitalVisible && !!walkers && !motion?.matches;
+      if (animateWalkers) updateWalkers(walkers!, performance.now() / 1000);
+      else if (walkers) walkers.visible = false;
       const canvas = map.getCanvas();
       connectionMaterial.linewidth = 3 * (canvas.width / canvas.clientWidth);
       renderer.resetState();
       renderer.setViewport(0, 0, canvas.width, canvas.height);
       renderer.render(scene, camera);
       if (connectionCenters.length > 0) schedulePulse();
+      if (animateWalkers && !document.hidden) map.triggerRepaint();
     },
     onRemove() {
       hospitalRemoved = true;
       if (hospital) { scene.remove(hospital); disposeHospital(hospital); }
+      if (walkers) { walkers.geometry.dispose(); (walkers.material as MeshPhongMaterial).dispose(); walkers.dispose(); }
       stopPulse();
       motion?.removeEventListener('change', updateMotion);
       document.removeEventListener('visibilitychange', updateMotion);
@@ -224,6 +273,7 @@ export function createPeopleLayer(initialClusters: PeopleCluster[]) {
       if (hospital) hospital.visible = value;
       dirty = true; map?.triggerRepaint();
     },
+    setHospitalOnly(value: boolean) { hospitalOnly = value; dirty = true; map?.triggerRepaint(); },
     setHospitalFocus(value: boolean) { hospitalFocus = value; dirty = true; map?.triggerRepaint(); },
     hitTest(point: PointLike): PeopleCluster[] {
       if (!inverseProjection) return [];

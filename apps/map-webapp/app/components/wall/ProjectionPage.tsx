@@ -151,11 +151,11 @@ export default function ProjectionPage({ onPerson }: { onPerson: (selection: Per
           describeSelected={describeSelected}
           describeTie={describeTie}
         />
-        {family.graph && selectedId !== null && stamps.find(stamp => stamp.id === selectedId) && <FamilyConstellation graph={family.graph} anchor={stamps.find(stamp => stamp.id === selectedId)!} onSelect={family.click} />}
+        {family.graph && selectedId !== null && stamps.find(stamp => stamp.id === selectedId) && <FamilyConstellation graph={family.graph} anchor={stamps.find(stamp => stamp.id === selectedId)!} rootCaption={describeSelected(selectedId)} onSelect={family.click} />}
       </Canvas>}
       {selectedPatient && <div className="wall-map-position">
         <WallMapButton person={{ person_id: selectedPatient.patient_id, full_name: displayName(selectedPatient), role: 'patient', source_dataset: 'mh1921', event_year: 1921 }} endpoint="patient-places" onShow={onPerson} />
-        {family.graph && family.graph.nodes.size > 1 && <button type="button" className="wall-family-toggle" onClick={() => void showFamilyOnMap()}>Familie op de kaart</button>}
+        {family.graph && family.graph.nodes.size > 1 && <button type="button" className="wall-family-toggle" onClick={() => void showFamilyOnMap()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15M15 6v15" /></svg>Familie op de kaart</button>}
         {familyMapStatus && <p role="status">{familyMapStatus}</p>}
       </div>}
       {mobile && family.graph && family.graph.nodes.size > 1 && <div className="wall-relations" aria-label="Familie en verbindingen"><strong>Verbindingen</strong><ul>{[...family.graph.nodes.values()].filter(node => node.key !== family.graph?.root).map(node => <li key={node.key}><button type="button" onClick={() => family.click(node.key)}>{node.name}</button><small>{node.caption}</small></li>)}</ul></div>}

@@ -399,7 +399,7 @@ body {
 .wall-map-position { position: fixed; z-index: 5; top: calc(60px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); max-width: calc(100% - 32px); }
 .wall-overlay .wall-canvas .wall-map-position button { margin-top: 0; box-shadow: 0 2px 8px rgb(40 30 10 / 10%); }
 .wall-map-position p { padding: 8px; background: #fff; }
-.wall-overlay .wall-canvas .wall-family-toggle { min-width: 44px; min-height: 44px; margin-left: 4px; background: #fff; border: 1px solid #e3dfd7; color: #48443c; font-size: 22px; }
+.wall-overlay .wall-canvas .wall-family-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; margin-top: 4px; background: #fff; border: 1px solid #e3dfd7; color: #48443c; font: 500 13px var(--font-plex-sans), sans-serif; }
 .wall-map-action p { font-size: 13px; }
 .wall-family-graph { position: absolute; z-index: 3; inset: 0; background: transparent; overflow: auto; pointer-events: none; }
 .wall-family-graph button { pointer-events: auto; }

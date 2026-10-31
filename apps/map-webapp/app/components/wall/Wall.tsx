@@ -69,7 +69,8 @@ export default function Wall({ stamps, edges, selectedId, onSelect, describeSele
           } else if (related.has(s.id)) state = 'related';
           else state = 'dimmed';
         }
-        return <Stamp key={s.id} stamp={s} state={state} caption={caption} onSelect={onSelect} />;
+        const stamp = state === 'selected' ? { ...s, text: s.text.replace(/ · was hier \d+$/, '') } : s;
+        return <Stamp key={s.id} stamp={stamp} state={state} caption={caption} onSelect={onSelect} />;
       })}
       <Constellation lines={lines} />
     </>

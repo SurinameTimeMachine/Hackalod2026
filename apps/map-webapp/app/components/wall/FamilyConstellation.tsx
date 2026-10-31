@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import type { Graph } from '../family-graph/projection/useConstellation';
 import Constellation, { type ConstellationLine } from './Constellation';
 import Stamp from './Stamp';
+import { captionSize, captionTop } from './Stamp';
 import type { StampLayout } from './wallLayout';
 
-export default function FamilyConstellation({ graph, anchor, onSelect }: { graph: Graph; anchor: StampLayout; onSelect: (key: string) => void }) {
+export default function FamilyConstellation({ graph, anchor, rootCaption, onSelect }: { graph: Graph; anchor: StampLayout; rootCaption: string; onSelect: (key: string) => void }) {
   const layout = useMemo(() => {
     const others = [...graph.nodes.values()].filter(node => node.key !== graph.root);
     const positions = new Map<string, StampLayout>([[graph.root, anchor]]);
@@ -16,12 +17,16 @@ export default function FamilyConstellation({ graph, anchor, onSelect }: { graph
     const lines: ConstellationLine[] = [...graph.edges.values()].flatMap(edge => {
       const from = positions.get(edge.from), to = positions.get(edge.to);
       if (!from || !to || from === to) return [];
-      return [{ key: edge.key, from, to, fromScale: edge.from === graph.root ? 2 : 1.6, toScale: edge.to === graph.root ? 2 : 1.6, fromBelow: 0, certain: edge.certain, reason: '', reference: '' }];
+      const below = (stamp: StampLayout, key: string) => {
+        const caption = key === graph.root ? rootCaption : graph.nodes.get(key)?.caption;
+        return caption ? (key === graph.root ? 2 : 1.6) * (-captionTop(stamp) + captionSize(stamp) * 1.25 * caption.split('\n').length) : 0;
+      };
+      return [{ key: edge.key, from, to, fromScale: edge.from === graph.root ? 2 : 1.6, toScale: edge.to === graph.root ? 2 : 1.6, fromBelow: below(from, edge.from), toBelow: below(to, edge.to), certain: edge.certain, reason: '', reference: '' }];
     });
     return { positions, lines };
-  }, [graph, anchor]);
+  }, [graph, anchor, rootCaption]);
   return <><Constellation lines={layout.lines} />{[...graph.nodes.values()].filter(node => node.key !== graph.root).map(node => {
     const stamp = layout.positions.get(node.key)!;
-    return <Stamp key={node.key} stamp={stamp} state="related" onSelect={() => onSelect(node.key)} />;
+    return <Stamp key={node.key} stamp={stamp} state="related" caption={node.caption} onSelect={() => onSelect(node.key)} />;
   })}</>;
 }

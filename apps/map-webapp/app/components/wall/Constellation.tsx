@@ -12,6 +12,7 @@ export type ConstellationLine = {
   fromScale: number; // the stamp's scale while lit, to clear its text
   toScale: number;
   fromBelow: number; // extra room under the selected name for its caption, world units
+  toBelow?: number;
   certain: boolean;
   reason: string;
   reference: string;
@@ -48,7 +49,7 @@ function Thread({ line }: { line: ConstellationLine }) {
   const ux = dx / dist;
   const uy = dy / dist;
   const start = clearance(from, line.fromScale, ux, uy, line.fromBelow);
-  const end = dist - clearance(to, line.toScale, ux, uy);
+  const end = dist - clearance(to, line.toScale, -ux, -uy, line.toBelow);
   const length = Math.max(end - start, 0);
   const angle = Math.atan2(dy, dx);
   const mid = start + length / 2;

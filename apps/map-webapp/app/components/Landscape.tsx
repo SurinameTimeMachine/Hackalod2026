@@ -39,9 +39,11 @@ export default function Landscape() {
   const [selectedPerson, setSelectedPerson] = useState<PersonSelection | null>(null);
   const [desktop, setDesktop] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
-  const layerRef = useRef<{ select: (ids: string[]) => void; setPopularOnly: (value: boolean) => void; setData: (data: PeopleCluster[]) => void; setConnections: (ids: string[]) => void; setHospitalVisible: (value: boolean) => void; setHospitalFocus: (value: boolean) => void; hitTest: (point: [number, number]) => PeopleCluster[] } | null>(null);
+  const layerRef = useRef<{ select: (ids: string[]) => void; setPopularOnly: (value: boolean) => void; setData: (data: PeopleCluster[]) => void; setConnections: (ids: string[]) => void; setHospitalVisible: (value: boolean) => void; setHospitalFocus: (value: boolean) => void; setHospitalOnly: (value: boolean) => void; hitTest: (point: [number, number]) => PeopleCluster[] } | null>(null);
   const hospitalVisibleRef = useRef(false);
   const hospitalFocusRef = useRef(false);
+  const hospitalOnlyRef = useRef(false);
+  const [hospitalMode, setHospitalMode] = useState(false);
   const clustersRef = useRef<PeopleCluster[]>([]);
   const allClusters = useRef<PeopleCluster[]>([]);
   const timeRequest = useRef<AbortController | null>(null);
@@ -60,15 +62,18 @@ export default function Landscape() {
   useEffect(() => {
     const year = selectedPerson?.person.event_year;
     const personInRange = !appliedYears || (year != null && year >= appliedYears[0] && year <= appliedYears[1]);
-    const visible = desktop && (popularOnly || selectedPlace?.id === HOSPITAL_ID ||
+    const visible = desktop && (selectedPlace?.id === HOSPITAL_ID ||
       !!(selectedPerson && personInRange && selectedPerson.ids.includes(HOSPITAL_ID) && clusters.some(place => place.id === HOSPITAL_ID)));
     const focused = desktop && selectedPlace?.id === HOSPITAL_ID;
     hospitalVisibleRef.current = visible;
     hospitalFocusRef.current = focused;
+    const only = focused && hospitalMode;
+    hospitalOnlyRef.current = only;
+    layerRef.current?.setHospitalOnly(only);
     layerRef.current?.setHospitalVisible(visible);
     layerRef.current?.setHospitalFocus(focused);
     if (mapRef.current && selectedPlace?.id === HOSPITAL_ID) updateSelectionIndicators(mapRef.current, focused ? [] : [selectedPlace]);
-  }, [desktop, popularOnly, selectedPlace, selectedPerson, appliedYears, clusters]);
+  }, [desktop, hospitalMode, selectedPlace, selectedPerson, appliedYears, clusters]);
 
   useEffect(() => {
     if (!container.current) return;
@@ -120,6 +125,7 @@ export default function Landscape() {
         peopleLayer.setPopularOnly(popularOnlyRef.current);
         peopleLayer.setHospitalVisible(hospitalVisibleRef.current);
         peopleLayer.setHospitalFocus(hospitalFocusRef.current);
+        peopleLayer.setHospitalOnly(hospitalOnlyRef.current);
         allClusters.current = data.clusters;
         clustersRef.current = data.clusters;
         setClusters(data.clusters);
@@ -268,7 +274,21 @@ export default function Landscape() {
     if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(null, '', next);
   }, [selectedPlace, selectedPerson]);
 
+  function toggleHospitalOnly() {
+    if (hospitalMode && selectedPlace?.id === HOSPITAL_ID) {
+      setHospitalMode(false);
+      clearSelection();
+      return;
+    }
+    const place = allClusters.current.find(cluster => cluster.id === HOSPITAL_ID);
+    if (!place) return;
+    setWallPlace(null);
+    setHospitalMode(true);
+    showPlace(place);
+  }
+
   function togglePopularOnly() {
+    setHospitalMode(false);
     clearSelection();
     updatePopularOnly(!popularOnlyRef.current);
   }
@@ -282,7 +302,7 @@ export default function Landscape() {
     const map = mapRef.current;
     if (map) updateSelectionIndicators(map, [place]);
     layerRef.current?.setConnections([]);
-    map?.flyTo({ center: place.center, zoom: Math.max(map.getZoom(), desktop && place.id === HOSPITAL_ID ? 17.5 : 13), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
+    map?.flyTo({ center: place.center, zoom: Math.max(map.getZoom(), desktop && place.id === HOSPITAL_ID ? 18.2 : 13), ...(desktop && place.id === HOSPITAL_ID ? { pitch: Math.max(map.getPitch(), 50) } : {}), duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200 });
   }
 
   function showPerson(selection: PersonSelection) {
@@ -348,6 +368,7 @@ export default function Landscape() {
     setTimeOpen(false);
     setTimeKey(value => value + 1);
     clearSelection();
+    setHospitalMode(false);
     updatePopularOnly(false);
     mapRef.current?.flyTo({
       ...getHomeView(window.innerWidth < 768),
@@ -402,6 +423,11 @@ export default function Landscape() {
       <button type="button" className="popular-toggle" aria-pressed={popularOnly} onClick={togglePopularOnly}>
         Populaire plaatsen <span>meer dan 50.000</span>
       </button>
+      {desktop && (
+        <button type="button" className="popular-toggle hospital-toggle" aria-pressed={hospitalMode && selectedPlace?.id === HOSPITAL_ID} onClick={toggleHospitalOnly}>
+          Alleen ziekenhuis <span>3D-model</span>
+        </button>
+      )}
       </div>
 
       <div className="map-sidebar">

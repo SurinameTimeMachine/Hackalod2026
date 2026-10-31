@@ -88,7 +88,7 @@ function GeneralWall({ place, onClose, years, onPerson, visible }: WallProps) {
   const stamps = useMemo(() => ready && !mobile && people.length ? layoutWall(people.map(p => ({ id: p.person_id, text: nameTag(p.full_name, p.event_year) })), makeMeasure()) : [], [people, ready, mobile]);
   const describe = useCallback((id: number) => {
     const p = people.find(person => person.person_id === id);
-    return p ? roleLabel(p.role) ?? '' : '';
+    return p ? [p.event_year != null ? `was hier · ${p.event_year}` : '', roleLabel(p.role) ?? ''].filter(Boolean).join(' · ') : '';
   }, [people]);
   const changePage = (next: number) => { setLoading(true); setError(''); setSelected(null); setPage(next); };
   return <WallDialog titleId="wall-title" onClose={onClose} visible={visible}>

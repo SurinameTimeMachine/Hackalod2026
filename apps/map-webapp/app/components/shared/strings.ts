@@ -3,7 +3,7 @@
 import type { Patient, Tie } from './api';
 
 export function nameTag(name: string | null, year: number | null) {
-  return `${name?.trim() || 'Naam onbekend'}${year != null && Number.isInteger(year) ? `, ${year}` : ''}`;
+  return `${name?.trim() || 'Naam onbekend'}${year != null && Number.isInteger(year) ? ` · was hier ${year}` : ''}`;
 }
 
 export function roleLabel(role: string | null) {
