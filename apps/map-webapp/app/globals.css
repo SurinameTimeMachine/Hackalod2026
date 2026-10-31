@@ -241,6 +241,28 @@ body {
 .wall-footer {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
+
+/* The names wall shares the map's paper, ink and ochre palette. */
+.wall-overlay[open] { background: #fbfaf6; color: #1d1b17; }
+.wall-overlay::backdrop { background: rgb(29 27 23 / 55%); }
+.wall-overlay .wall-header, .wall-overlay .wall-footer { background: #fff; color: #1d1b17; }
+.wall-header { border-bottom: 1px solid #e2ddd3; }
+.wall-footer { border-top: 1px solid #e2ddd3; }
+.wall-overlay .wall-header h2 { font-family: Georgia, serif; font-size: 25px; font-weight: 400; }
+.wall-header p, .wall-footer span { color: #625f57; }
+.wall-overlay .wall-header button, .wall-overlay .wall-footer button, .wall-overlay .wall-canvas button {
+  border: 1px solid #cfc8ba;
+  border-radius: 0;
+  background: #fff;
+  color: #1d1b17;
+}
+.wall-header button:hover, .wall-footer button:hover:not(:disabled), .wall-canvas button:hover { background: #f7e4ae; }
+.wall-header button:focus-visible, .wall-footer button:focus-visible, .wall-canvas button:focus-visible { outline: 2px solid #a86e00; outline-offset: 2px; }
+.wall-canvas { background: #fbfaf6; }
+.wall-name-list { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 8px 16px 24px; }
+.wall-overlay .wall-canvas .wall-name { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-height: 52px; padding: 12px 4px; border: 0; border-bottom: 1px solid #e2ddd3; background: transparent; text-align: left; font-family: Georgia, serif; font-size: 18px; }
+.wall-name small { margin-top: 5px; color: #625f57; font-family: var(--font-geist-sans), sans-serif; font-size: 13px; line-height: 1.4; }
+.wall-overlay .wall-canvas .wall-name[aria-expanded='true'] { color: #855800; background: #f7eedc; }
 .wall-header,
 .wall-footer {
   display: flex;

@@ -17,7 +17,7 @@ export type ConstellationLine = {
   reference: string;
 };
 
-const THREAD = '#e6dcc6';
+const THREAD = '#82601c';
 const DELAY = 0.35; // s, let the wall dim first
 const DRAW = 0.8; // s, line grows from the selected name outwards
 const LABEL_FADE = 0.5;
@@ -107,7 +107,7 @@ function Thread({ line }: { line: ConstellationLine }) {
             position={[0, i === 0 ? size * 0.35 : -size * 0.35, 0]}
             // Black outline cuts the label free of the dimmed names behind it.
             outlineWidth="30%"
-            outlineColor="#000"
+            outlineColor="#fbfaf6"
             maxWidth={size * 26}
             textAlign="center"
           >

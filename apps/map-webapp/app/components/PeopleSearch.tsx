@@ -97,7 +97,7 @@ export default function PeopleSearch({ clusters, onPlace, onPerson }: Props) {
       {state === '' && <p>Searching…</p>}
       {state === 'error' && <p>Person search unavailable. Try changing your search.</p>}
       {state === 'done' && !people.length && <p>No person records found.</p>}
-      {state === 'done' && people.map(person => <button type="button" className="search-result" key={person.person_id} disabled={busyPerson !== null} onClick={() => void selectPerson(person)}><ResultIcon type="person" /><span className="search-result-text"><strong><span className="sr-only">Person: </span>{person.full_name || 'Unnamed person'}</strong><small>{[person.role, person.event_year, person.source_dataset].filter(Boolean).join(' · ')} · record {person.person_id}</small></span></button>)}
+      {state === 'done' && people.map(person => <button type="button" className="search-result" key={person.person_id} disabled={busyPerson !== null} onClick={() => void selectPerson(person)}><ResultIcon type="person" /><span className="search-result-text"><strong><span className="sr-only">Person: </span>{person.full_name || 'Unnamed person'}</strong><small>{[person.role, person.event_year].filter(Boolean).join(' · ')}</small></span></button>)}
       {limited && <p>Showing the first 100 person records. Refine your search.</p>}
       {error && <p role="alert">{error}</p>}
     </div>}

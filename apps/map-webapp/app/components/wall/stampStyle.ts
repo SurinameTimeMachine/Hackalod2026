@@ -20,12 +20,12 @@ export const FONTS: StampFont[] = [
 export const CAPTION_FONT = '/fonts/courier-prime.woff';
 
 export const INKS = [
-  '#e6dcc6', // bone
-  '#c25a4e', // faded red
-  '#c9a24a', // ochre
-  '#7f93ad', // slate blue
-  '#8c9c68', // dull green
-  '#a58ab0', // faded violet
+  '#51483a', // warm ink
+  '#963e35', // muted red
+  '#926000', // ochre
+  '#465c73', // slate blue
+  '#52623b', // olive
+  '#705674', // muted violet
 ];
 
 export function rng(seed: number) {

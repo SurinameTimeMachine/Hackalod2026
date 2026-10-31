@@ -13,15 +13,6 @@ export function subtitle(p: Patient) {
 
 export const NO_TIES = 'no known ties to other names on this wall';
 
-const DATASETS: Record<string, string> = {
-  '03-birth': 'birth records',
-  '09-volkstelling-1921': 'census 1921',
-  '10-volkstelling-1950': 'census 1950',
-  '12-migratie-datasets': 'migration registers',
-  '13-civil': 'civil records',
-};
-const dataset = (d: string | null) => (d ? (DATASETS[d] ?? d) : 'archive');
-
 const RECORD_TYPES: Record<string, string> = {
   contract_record: 'contract register',
   erkenningen: 'recognition record',
@@ -66,7 +57,7 @@ export function tieReference(t: Tie) {
   const r = t.record;
   const what = r?.type ? (RECORD_TYPES[r.type] ?? r.type.replace(/_/g, ' ')) : null;
   const when = r?.date ?? r?.year ?? null;
-  const parts = [dataset(t.dataset), what, when, r ? `#${r.certificate_id}` : null].filter(Boolean);
+  const parts = [what, when, r ? `#${r.certificate_id}` : null].filter(Boolean);
   const ref = parts.join(' · ');
   return t.kind === 'same-match' ? `both linked to ${ref}` : ref;
 }

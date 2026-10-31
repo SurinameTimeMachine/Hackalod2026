@@ -9,6 +9,7 @@ import type { YearRange } from './TimeSlider';
 import { layoutWall, makeMeasure, WALL } from './wall/wallLayout';
 import { FONTS } from './wall/stampStyle';
 import Wall from './wall/Wall';
+import { useMobileWall } from './wall/useMobileWall';
 
 const HospitalProjection = dynamic(() => import('./wall/ProjectionPage'), { ssr: false });
 
@@ -39,12 +40,13 @@ function WallDialog({ titleId, onClose, children }: { titleId: string; onClose: 
 
 function HospitalWall({ onClose }: { onClose: () => void }) {
   return <WallDialog titleId="hospital-wall-title" onClose={onClose}>
-    <header className="wall-header"><div><h2 id="hospital-wall-title">’s Lands Hospitaal</h2><p>Hospital patients recorded in 1921 · projection prototype</p></div><button type="button" autoFocus onClick={onClose}>Close wall</button></header>
+    <header className="wall-header"><div><h2 id="hospital-wall-title">’s Lands Hospitaal</h2><p>1921</p></div><button type="button" autoFocus onClick={onClose}>Close wall</button></header>
     <div className="wall-canvas"><HospitalProjection /></div>
   </WallDialog>;
 }
 
 function GeneralWall({ place, onClose, years }: { place: PeopleCluster; onClose: () => void; years: YearRange }) {
+  const mobile = useMobileWall();
   const [page, setPage] = useState(0);
   const [people, setPeople] = useState<Person[]>([]);
   const [more, setMore] = useState(false);
@@ -70,16 +72,17 @@ function GeneralWall({ place, onClose, years }: { place: PeopleCluster; onClose:
       .catch(() => { if (!controller.signal.aborted) { setError('The wall could not load. Please try again.'); setLoading(false); } });
     return () => controller.abort();
   }, [place.id, page, retry, years]);
-  const stamps = useMemo(() => ready ? layoutWall(people.map(p => ({ id: p.person_id, text: p.full_name || 'Unnamed person' })), makeMeasure()) : [], [people, ready]);
+  const stamps = useMemo(() => ready && !mobile && people.length ? layoutWall(people.map(p => ({ id: p.person_id, text: p.full_name || 'Unnamed person' })), makeMeasure()) : [], [people, ready, mobile]);
   const describe = useCallback((id: number) => {
     const p = people.find(person => person.person_id === id);
-    return p ? [p.role, p.event_year, p.source_dataset].filter(Boolean).join(' · ') : '';
+    return p ? [p.role, p.event_year].filter(Boolean).join(' · ') : '';
   }, [people]);
   const changePage = (next: number) => { setLoading(true); setError(''); setSelected(null); setPage(next); };
   return <WallDialog titleId="wall-title" onClose={onClose}>
     <header className="wall-header"><div><h2 id="wall-title">{place.label}</h2><p>Person records · {years ? `${years[0]} – ${years[1]}` : 'All dates'}</p></div><button type="button" autoFocus onClick={onClose}>Close wall</button></header>
     <div className="wall-canvas">
-      {!loading && !error && ready && people.length > 0 && <Canvas flat dpr={[1, 1.5]} onPointerMissed={() => setSelected(null)}><color attach="background" args={['#000']} /><FitWall /><Wall stamps={stamps} edges={[]} selectedId={selected} onSelect={setSelected} describeSelected={describe} describeTie={() => ({ certain: false, reason: '', reference: '' })} /></Canvas>}
+      {!loading && !error && mobile && people.length > 0 && <div className="wall-name-list">{people.map(person => <button type="button" className="wall-name" key={person.person_id} aria-expanded={selected === person.person_id} onClick={() => setSelected(selected === person.person_id ? null : person.person_id)}><span>{person.full_name || 'Unnamed person'}</span>{selected === person.person_id && <small>{describe(person.person_id)}</small>}</button>)}</div>}
+      {!loading && !error && ready && !mobile && people.length > 0 && <Canvas flat dpr={[1, 1.5]} onPointerMissed={() => setSelected(null)}><color attach="background" args={['#fbfaf6']} /><FitWall /><Wall stamps={stamps} edges={[]} selectedId={selected} onSelect={setSelected} describeSelected={describe} describeTie={() => ({ certain: false, reason: '', reference: '' })} /></Canvas>}
       {loading && <p role="status">Loading names…</p>}
       {!loading && !error && !people.length && <p>No person records found for this place.</p>}
       {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => { setError(''); setLoading(true); setRetry(value => value + 1); }}>Retry</button></div>}

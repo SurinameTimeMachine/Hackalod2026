@@ -10,6 +10,7 @@ import { displayName, isCertain, NO_TIES, strongestTie, subtitle, tieReason, tie
 import { layoutWall, makeMeasure, WALL, type StampLayout } from './wallLayout';
 import { FONTS } from './stampStyle';
 import Wall from './Wall';
+import { useMobileWall } from './useMobileWall';
 
 const IDLE_TIMEOUT = 60_000;
 
@@ -30,6 +31,7 @@ async function loadFonts() {
 }
 
 export default function ProjectionPage() {
+  const mobile = useMobileWall();
   const { patients, source } = usePatients();
   const edges = usePatientEdges();
   const [fontsReady, setFontsReady] = useState(false);
@@ -46,13 +48,13 @@ export default function ProjectionPage() {
   }, []);
 
   const stamps: StampLayout[] = useMemo(() => {
-    if (!patients || !fontsReady) return [];
+    if (!patients || !fontsReady || mobile) return [];
     const measure = makeMeasure();
     return layoutWall(
       patients.map((p) => ({ id: p.patient_id, text: displayName(p) })),
       measure,
     );
-  }, [patients, fontsReady]);
+  }, [patients, fontsReady, mobile]);
 
   const byId = useMemo(() => new Map(patients?.map((p) => [p.patient_id, p]) ?? []), [patients]);
 
@@ -96,13 +98,23 @@ export default function ProjectionPage() {
   );
 
   return (
-    <main style={{ position: 'absolute', inset: 0, background: '#000' }}>
-      <Canvas
+    <main style={{ position: 'absolute', inset: 0, background: '#fbfaf6' }}>
+      {mobile ? <div className="wall-name-list">
+        {source === 'loading' && <p role="status">Loading names…</p>}
+        {source === 'failed' && <p role="alert">The names could not load.</p>}
+        {patients?.map(patient => {
+          const relatedIds = edges.flatMap(edge => edge.a === patient.patient_id ? [edge.b] : edge.b === patient.patient_id ? [edge.a] : []);
+          const names = relatedIds.map(id => byId.get(id)).filter((item): item is NonNullable<typeof item> => !!item).map(displayName);
+          return <button type="button" className="wall-name" key={patient.patient_id} aria-expanded={selectedId === patient.patient_id} onClick={() => select(selectedId === patient.patient_id ? null : patient.patient_id)}>
+            <span>{displayName(patient) || 'Unnamed person'}</span>{selectedId === patient.patient_id && <small>{subtitle(patient)}{names.length > 0 && <> · {names.join(', ')}</>}</small>}
+          </button>;
+        })}
+      </div> : <Canvas
         flat
         dpr={[1, 2]}
         onPointerMissed={() => select(null)}
       >
-        <color attach="background" args={['#000']} />
+        <color attach="background" args={['#fbfaf6']} />
         <FitWall />
         <Wall
           stamps={stamps}
@@ -112,7 +124,7 @@ export default function ProjectionPage() {
           describeSelected={describeSelected}
           describeTie={describeTie}
         />
-      </Canvas>
+      </Canvas>}
       {debug && (
         <div className="debug">
           {`data: ${source}\nnames: ${stamps.length} @ ${stamps[0]?.size.toFixed(1) ?? '–'} units\npatient pairs with ties: ${edges.length}\nselected: ${selectedId ?? '–'}`}
