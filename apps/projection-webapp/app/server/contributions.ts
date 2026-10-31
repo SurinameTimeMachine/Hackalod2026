@@ -1,17 +1,20 @@
-// The only writer. Each saved story becomes rows in the contributions shape:
-// the story itself (with its entities and their positions, for a clickable
-// view), one row per entity placed in the dataset, the narrator as a person
-// of their own, and their relation to the subject. Stored as JSON lines on
-// this machine until the Datasette `add_contribution` write is live; a
-// replay script can move them over later. Nothing here is ever deleted.
+// The only writer. Each saved story becomes rows in the contributions
+// database (Datasette, next to the archive): the story itself in `stories`,
+// its entities with their positions in `story_entities` (for a clickable
+// view), and in `contributions` one row per entity placed in the dataset, the
+// narrator as a person of their own, and every relation the story told.
+// Archive ids (person_id, obs_key, patient_id) are filled in from the keys so
+// rows join the archive directly. Nothing here is ever deleted; a save that
+// Datasette refuses is kept in data/failed.jsonl so no story is lost.
 import { randomUUID } from 'node:crypto';
-import { appendFile, mkdir, readFile } from 'node:fs/promises';
+import { appendFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import type { ContributeRequest, SavedStory, StoryEntity, ToldEdge, ToldGraph, ToldNode } from '../shared/story';
-import { LIMITS } from './config';
+import { parseKey } from '../shared/keys';
+import type { ContributeRequest, ContributionRow, SavedStory, StoryEntity, ToldEdge, ToldGraph, ToldNode } from '../shared/story';
+import { obsKeyOf } from './archive';
+import { CONTRIBUTIONS, LIMITS } from './config';
 
 const DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
-const FILE = path.join(DIR, 'contributions.jsonl');
 
 type Record = { id: string; story_id: string | null; person_key: string; kind: string; created_at: string; reviewed: 0 } & { [k: string]: unknown };
 
@@ -131,11 +134,110 @@ export async function save(req: ContributeRequest): Promise<{ story: SavedStory;
     created_at: now,
     reviewed: 0,
   };
-  const storyRow: Record = { ...story, id: storyId, story_id: null, kind: 'story', value: story.transcript, created_at: now, reviewed: 0, contributor: narrator.name, contributor_key: narratorKey };
-
-  await mkdir(DIR, { recursive: true });
-  await appendFile(FILE, [storyRow, ...rows].map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+  await persist(story, rows).catch(async (e) => {
+    await mkdir(DIR, { recursive: true });
+    await appendFile(path.join(DIR, 'failed.jsonl'), JSON.stringify({ story, rows, error: String(e) }) + '\n', 'utf8');
+    throw e;
+  });
   return { story, added: graphOf(story, rows) };
+}
+
+// --- Datasette ---------------------------------------------------------------
+
+async function write(query: string, params: { [k: string]: unknown }, retry = 1): Promise<void> {
+  const r = await fetch(`${CONTRIBUTIONS}/${query}?_json=1`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    // Datasette turns a JSON null into the text "None"; '' is NULLIF'd to NULL.
+    body: JSON.stringify(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, v ?? '']))),
+    signal: AbortSignal.timeout(15_000),
+  }).catch((e) => {
+    if (retry) return null; // one retry on a network hiccup
+    throw e;
+  });
+  if (!r) return write(query, params, retry - 1);
+  const out = (await r.json().catch(() => null)) as { ok?: boolean; message?: string } | null;
+  if (!r.ok || !out?.ok) throw new Error(`contributions ${query}: ${r.status} ${out?.message ?? ''}`);
+}
+
+type Row = { [k: string]: string | number | null };
+
+async function sql(query: string, params: { [k: string]: string } = {}): Promise<Row[]> {
+  const qs = new URLSearchParams({ sql: query, _shape: 'array', ...params });
+  const r = await fetch(`${CONTRIBUTIONS}.json?${qs}`, { signal: AbortSignal.timeout(15_000), cache: 'no-store' });
+  if (!r.ok) throw new Error(`contributions ${r.status}`);
+  return r.json() as Promise<Row[]>;
+}
+
+// The archive columns a key stands for.
+async function ids(key: string | null | undefined) {
+  const k = key ? parseKey(key) : null;
+  return {
+    person_id: k?.kind === 'person' ? k.id : null,
+    patient_id: k?.kind === 'patient' ? k.id : null,
+    obs_key: await obsKeyOf(key ?? null),
+  };
+}
+
+async function persist(story: SavedStory, rows: Record[]) {
+  const subject = await ids(story.person_key);
+  await write('add_story', {
+    id: story.id,
+    person_key: story.person_key,
+    ...subject,
+    person_name: story.person_name,
+    transcript: story.transcript,
+    summary: story.summary,
+    narrator_key: story.narrator.key,
+    narrator_name: story.narrator.name,
+    narrator_relation: story.narrator.relation,
+    narrator_relation_label: story.narrator.relation_label,
+    narrator_about: story.narrator.about,
+    consent: 1,
+    created_at: story.created_at,
+  });
+  const contributions = await Promise.all(
+    rows.map(async ({ id, ...r }) => {
+      const [own, related] = await Promise.all([ids(r.person_key), ids(r.related_key as string | null)]);
+      return {
+        ...r,
+        uid: id,
+        ...own,
+        related_person_id: related.person_id,
+        related_patient_id: related.patient_id,
+        related_obs_key: related.obs_key,
+        confirmed: r.confirmed ? 1 : 0,
+        consent: 1,
+      };
+    }),
+  );
+  if (contributions.length) await write('add_story_contributions', { story_id: story.id, rows: JSON.stringify(contributions) });
+  const entities = await Promise.all(
+    story.entities.map(async (e) => {
+      const link = await ids(e.link);
+      return {
+        id: `${story.id}/${e.id}`,
+        story_id: story.id,
+        start: e.start,
+        end: e.end,
+        mention: e.mention,
+        type: e.type,
+        category: e.category,
+        about: e.about,
+        is_subject: e.is_subject ? 1 : 0,
+        confirmed: e.confirmed ? 1 : 0,
+        quote: e.quote,
+        link: e.link,
+        link_label: e.link_label,
+        link_person_id: link.person_id,
+        link_obs_key: link.obs_key,
+        link_patient_id: link.patient_id,
+        link_place_norm: e.link?.startsWith('place:') ? e.link.slice(6) : null,
+        contribution_uid: e.row_id,
+      };
+    }),
+  );
+  if (entities.length) await write('add_story_entities', { story_id: story.id, rows: JSON.stringify(entities) });
 }
 
 // --- What stories add to a constellation ------------------------------------
@@ -195,17 +297,17 @@ function graphOf(story: SavedStory, rows: Record[]): ToldGraph {
 // Everything saved stories added around a key: stories about them, naming
 // them, told by them, or with a relation row pointing at them.
 export async function graphFor(key: string): Promise<ToldGraph> {
-  const all = await readAll();
-  const touched = new Set(all.filter((r) => r.story_id && (r.person_key === key || r.related_key === key)).map((r) => r.story_id as string));
-  const stories = all.filter(
-    (r) =>
-      r.kind === 'story' &&
-      (r.person_key === key || touched.has(r.id) || (r.entities as StoryEntity[] | undefined)?.some((e) => e.link === key) || (r.narrator as { key?: string } | undefined)?.key === key),
+  const stories = await load(
+    `select * from stories where person_key = :k or narrator_key = :k
+       or id in (select story_id from story_entities where link = :k)
+       or id in (select story_id from contributions where person_key = :k or related_key = :k)
+     order by created_at`,
+    { k: key },
   );
   const out: ToldGraph = { nodes: [], edges: [], notes: [] };
   const seen = new Set<string>();
-  for (const s of stories) {
-    const g = graphOf(asStory(s), all.filter((r) => r.story_id === s.id));
+  for (const { story, rows } of stories) {
+    const g = graphOf(story, rows);
     for (const n of g.nodes) if (!seen.has(n.key) && seen.add(n.key)) out.nodes.push(n);
     out.edges.push(...g.edges);
     out.notes.push(...g.notes);
@@ -213,47 +315,128 @@ export async function graphFor(key: string): Promise<ToldGraph> {
   return out;
 }
 
-async function readAll(): Promise<Record[]> {
-  const text = await readFile(FILE, 'utf8').catch(() => '');
-  return text
-    .split('\n')
-    .filter(Boolean)
-    .flatMap((line) => {
-      try {
-        return [JSON.parse(line) as Record];
-      } catch {
-        return [];
-      }
-    });
+// Stories with their entities and contribution rows, rebuilt from the three tables.
+async function load(query: string, params: { [k: string]: string } = {}): Promise<{ story: SavedStory; rows: Record[] }[]> {
+  const stories = await sql(query, params);
+  if (!stories.length) return [];
+  const list = { ids: JSON.stringify(stories.map((s) => s.id)) };
+  const [contribs, ents] = await Promise.all([
+    sql('select * from contributions where story_id in (select value from json_each(:ids)) order by id', list),
+    sql('select * from story_entities where story_id in (select value from json_each(:ids)) order by start, "end"', list),
+  ]);
+  return stories.map((s) => {
+    const id = String(s.id);
+    const rows = contribs.filter((c) => c.story_id === id).map(asRecord);
+    return { story: asStory(s, ents.filter((e) => e.story_id === id), rows), rows };
+  });
 }
 
-const asStory = (r: Record): SavedStory => ({
-  id: r.id,
-  person_key: r.person_key,
-  person_name: r.person_name as string,
-  transcript: r.transcript as string,
-  summary: r.summary as string,
-  entities: r.entities as StoryEntity[],
-  narrator: r.narrator as SavedStory['narrator'],
-  relations: (r.relations as SavedStory['relations'] | undefined) ?? [],
-  created_at: r.created_at,
-  reviewed: r.reviewed,
+const text = (v: unknown) => (v === null || v === undefined ? null : String(v));
+
+const asRecord = (c: Row): Record => ({
+  ...c,
+  id: String(c.uid ?? c.id),
+  story_id: text(c.story_id),
+  person_key: String(c.person_key ?? ''),
+  kind: String(c.kind ?? ''),
+  created_at: String(c.created_at ?? ''),
+  reviewed: 0,
+  confirmed: !!c.confirmed,
 });
+
+function asStory(s: Row, ents: Row[], rows: Record[]): SavedStory {
+  const id = String(s.id);
+  const person_key = String(s.person_key ?? '');
+  const narratorKey = String(s.narrator_key ?? '');
+  const byUid = new Map(rows.map((r) => [r.id, r]));
+  const entities: StoryEntity[] = ents.map((e) => {
+    const eid = String(e.id).replace(`${id}/`, '');
+    const link = text(e.link);
+    const r = e.contribution_uid ? byUid.get(String(e.contribution_uid)) : undefined;
+    const row: ContributionRow | null = r
+      ? {
+          kind: r.kind as ContributionRow['kind'],
+          relation_type: text(r.relation_type),
+          related_key: text(r.related_key),
+          name_raw: text(r.name_raw),
+          field: text(r.field),
+          value: text(r.value),
+          place_raw: text(r.place_raw),
+          place_norm: text(r.place_norm),
+          year: typeof r.year === 'number' ? r.year : null,
+        }
+      : null;
+    return {
+      id: eid,
+      start: Number(e.start) || 0,
+      end: Number(e.end) || 0,
+      mention: String(e.mention ?? ''),
+      type: e.type as StoryEntity['type'],
+      category: e.category as StoryEntity['category'],
+      about: text(e.about),
+      is_subject: !!e.is_subject,
+      confirmed: !!e.confirmed,
+      link,
+      link_label: text(e.link_label),
+      quote: String(e.quote ?? ''),
+      row,
+      row_id: text(e.contribution_uid),
+      narrator_relation: null,
+      ...(e.type === 'person' ? { key: e.is_subject ? person_key : link && isArchive(link) ? link : `told:${id}/${eid}` } : {}),
+    };
+  });
+  // Relation rows back to the story's people (`to` is `type` of `from`). Not
+  // an entity's own row, nor the narrator's tie to the subject (the save
+  // screen's).
+  const own = new Set(entities.map((e) => e.row_id));
+  const endOf = (key: string) =>
+    key === person_key ? 'subject' : key === narratorKey ? 'narrator' : (entities.find((e) => e.key === key)?.id ?? key);
+  const relations: SavedStory['relations'] = rows
+    .filter((r) => r.kind === 'relation' && !own.has(r.id) && !(r.person_key === person_key && r.related_key === narratorKey))
+    .map((r) => ({
+      id: r.id,
+      from: endOf(r.person_key),
+      to: endOf(String(r.related_key)),
+      type: String(r.relation_type ?? 'other'),
+      quote: String(r.quote ?? ''),
+      row_id: r.id,
+      from_key: r.person_key,
+      to_key: String(r.related_key),
+    }));
+  return {
+    id,
+    person_key,
+    person_name: String(s.person_name ?? ''),
+    transcript: String(s.transcript ?? ''),
+    summary: String(s.summary ?? ''),
+    entities,
+    narrator: {
+      key: narratorKey,
+      name: String(s.narrator_name ?? ''),
+      relation: text(s.narrator_relation),
+      relation_label: text(s.narrator_relation_label),
+      about: text(s.narrator_about),
+    },
+    relations,
+    created_at: String(s.created_at ?? ''),
+    reviewed: s.reviewed ? 1 : 0,
+  };
+}
 
 // Stories about a key (as the subject, or naming it as a linked entity), newest first.
 export async function storiesFor(key: string): Promise<SavedStory[]> {
-  return (await readAll())
-    .filter((r) => r.kind === 'story' && (r.person_key === key || (r.entities as StoryEntity[] | undefined)?.some((e) => e.link === key)))
-    .map(asStory)
-    .reverse();
+  const found = await load(
+    `select * from stories where person_key = :k or id in (select story_id from story_entities where link = :k) order by created_at desc limit 200`,
+    { k: key },
+  );
+  return found.map((f) => f.story);
 }
 
 export async function getStory(id: string): Promise<{ story: SavedStory; rows: Record[] } | null> {
-  const all = await readAll();
-  const s = all.find((r) => r.kind === 'story' && r.id === id);
-  return s ? { story: asStory(s), rows: all.filter((r) => r.story_id === id) } : null;
+  const [found] = await load('select * from stories where id = :id', { id });
+  return found ?? null;
 }
 
 export async function allStories(): Promise<SavedStory[]> {
-  return (await readAll()).filter((r) => r.kind === 'story').map(asStory).reverse();
+  return (await load('select * from stories order by created_at desc limit 500')).map((f) => f.story);
 }

@@ -74,7 +74,7 @@ When `story-saved` arrives:
 - The narrator caption and the "new story" line. (The phone's Dutch wording is in `app/scan/strings.ts`; the projection's language is up to you.)
 
 ### 6. Also when opening a constellation
-Whenever a constellation opens (and when a name is expanded), fetch `GET /story/graph?key=<shared key>` for that node, and merge it with `addTold(…, { fresh: false })`. Stories saved earlier then always show. The fetch is cheap (a local file); cache it per key, like `cachedGet`, but drop that cache entry on every `story-saved` signal.
+Whenever a constellation opens (and when a name is expanded), fetch `GET /story/graph?key=<shared key>` for that node, and merge it with `addTold(…, { fresh: false })`. Stories saved earlier then always show. The fetch is cheap (a few Datasette queries); cache it per key, like `cachedGet`, but drop that cache entry on every `story-saved` signal.
 
 A story about a **provisional person** (`name:<uuid>`: someone not on the wall and not linked to the archive) has no stamp to open. Skip it in a first version. Later, show it as a small free-floating constellation, rooted at a `t:name:…` node.
 
@@ -88,4 +88,4 @@ curl -N http://localhost:3001/signals
 # a phone selecting a wall name
 curl -X POST localhost:3001/select -H 'content-type: application/json' -d '{"key":"patient:111","name":"Leeuwaarden, van G.W."}'
 ```
-For `story-saved`, save a story through `/scan` (typing is enough), or POST a `ContributeRequest` to `/contribute` (see `app/shared/story.ts`). The response also contains `added`. `GET /story/graph?key=patient:111` shows what is stored. Stories end up in `data/contributions.jsonl` (gitignored); delete that file to start clean.
+For `story-saved`, save a story through `/scan` (typing is enough), or POST a `ContributeRequest` to `/contribute` (see `app/shared/story.ts`). The response also contains `added`. `GET /story/graph?key=patient:111` shows what is stored. Stories end up in the Datasette `contributions` database, which is shared and has no delete, so mark test stories as such (e.g. a narrator called "Test").

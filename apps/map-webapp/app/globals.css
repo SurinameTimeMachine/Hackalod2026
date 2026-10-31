@@ -678,3 +678,5 @@ body {
   outline: 2px solid #eee8d9;
   outline-offset: 3px;
 }
+.story-link { color: inherit; text-decoration: underline; text-decoration-color: #d49a1c; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.story-link:hover, .story-link:focus-visible { color: #855800; text-decoration-color: currentColor; }

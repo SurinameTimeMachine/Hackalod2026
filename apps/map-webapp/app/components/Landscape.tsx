@@ -222,6 +222,32 @@ export default function Landscape() {
     layerRef.current?.setPopularOnly(value);
   }
 
+  // Deep links from the story pages: /?person=<person_id>&name=&year= or /?place=<gazetteer id>&label=&lat=&lng=
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current || !clusters.length || !mapRef.current) return;
+    deepLinkDone.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const placeId = params.get('place');
+    const personId = params.get('person');
+    if (placeId) {
+      const lat = Number(params.get('lat'));
+      const lng = Number(params.get('lng'));
+      const label = params.get('label') || placeId;
+      const cluster = clusters.find(c => c.id === placeId)
+        ?? (Number.isFinite(lat) && Number.isFinite(lng) && params.get('lat') && params.get('lng')
+          ? { id: placeId, uri: null, label, type: 'place', lat, lng, person_count: 0, center: [lng, lat] as [number, number], radiusMeters: 0, placement: 'gazetteer-point', sizeCapped: false } as PeopleCluster
+          : null);
+      if (cluster) showPlace(cluster);
+    } else if (personId && /^[1-9]\d{0,14}$/.test(personId)) {
+      const year = Number(params.get('year'));
+      void fetch(`/api/person-places?id=${personId}`).then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))).then(result => {
+        showPerson({ person: { person_id: Number(personId), full_name: params.get('name') || '', role: null, source_dataset: '', event_year: Number.isFinite(year) && params.get('year') ? year : null }, ids: result.ids ?? [], limited: !!result.limited });
+      }).catch(error => console.error('Story link:', error));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clusters]);
+
   function togglePopularOnly() {
     clearSelection();
     updatePopularOnly(!popularOnlyRef.current);

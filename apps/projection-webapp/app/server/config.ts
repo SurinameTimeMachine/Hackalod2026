@@ -8,6 +8,11 @@ export const MODELS = {
 // Archive reads go through the public proxy, so no Tailscale is needed.
 export const ARCHIVE = process.env.ARCHIVE_BASE || 'https://hackalod.sbco.design/api/suriname_person_search';
 
+// Saved stories: the contributions database next to the archive, written
+// through its canned write queries (add_story, add_story_entities,
+// add_story_contributions), public for the hackathon.
+export const CONTRIBUTIONS = process.env.CONTRIBUTIONS_BASE || 'https://hackalod.sbco.design/api/contributions';
+
 export const LIMITS = {
   uploadBytes: 10 * 1024 * 1024,
   transcriptChars: 5000,
