@@ -280,6 +280,15 @@ function paragraphs(text: string | readonly string[]) {
   return (typeof text === 'string' ? [text] : text).filter(Boolean);
 }
 
+// Every story is known at build time, so each story page can be prerendered. The page waits for its
+// params (no streaming shell), so an unknown slug answers with a real 404 status.
+export const instant = false;
+
+export function generateStaticParams() {
+  return Object.keys(stories).map(slug => ({ slug }));
+}
+
+
 export default async function StoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const story = stories[slug as keyof typeof stories];
