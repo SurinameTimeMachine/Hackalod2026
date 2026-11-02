@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { offlineStories } from './offline';
 
-const stories = [
+const allStories = [
   { slug: 'gekomen-gebleven', image: '/verhalen-beelden/01-gekomen-gebleven/01-familieportret-paramaribo.jpg', alt: 'Familieportret in Paramaribo, datum onbekend', eyebrow: 'Familiegeschiedenis · Rotterdam – Paramaribo · 1841–1954', title: <>Gekomen, <em>gebleven</em></>, subtitle: 'Het leven van Jacobus Carolus van Bochove', description: 'Hij werd in 1866 in Rotterdam geboren en kwam als soldaat naar Suriname. Hij trouwde met Susanna van Zorgen, werd portier bij het Militair Hospitaal en ging nooit meer terug.', tags: ['Portier', 'Militair', '1866–1954'] },
   { slug: 'door-dezelfde-poort', image: '/verhalen-beelden/02-door-dezelfde-poort/01-groepsfoto-vervuurt-donner.jpg', alt: 'Familie Vervuurt en Donner, circa 1915–1917', eyebrow: 'Familiegeschiedenis · Weeze – Curaçao – Paramaribo · 1682–2023', title: <>Door dezelfde <em>poort</em></>, subtitle: 'Het verhaal van Steven Walther Coutinho', description: 'In 2020 zit Steven in de wachtkamer van ’s Lands Hospitaal. Ruim een eeuw eerder stierven daar twee van zijn familieleden en werd er een neefje geboren.', tags: ['Vervuurt · Donner', 'Coutinho', '1907 · 1912 · 1914'] },
   { slug: 'vrij-sinds-1836', image: '/verhalen-beelden/03-vrij-sinds-1836/01-zwartenhovenbrugstraat-1955.jpg', alt: 'De Zwartenhovenbrugstraat in Paramaribo, 1955', eyebrow: 'Familiegeschiedenis · Paramaribo · 1835–1922', title: <>Vrij sinds <em>1836</em></>, subtitle: 'Het leven van Michel Jacob Biervliet', description: 'Zijn grootmoeder Christiana werd in 1836 vrijgemaakt en heette voortaan Biervliet. Haar kleinzoon was gouddelver in Paramaribo en staat in 1921 twee keer in het Militair Hospitaal.', tags: ['Gouddelver', 'Vrijlating 1836', '1870–1922'] },
@@ -9,6 +10,7 @@ const stories = [
   { slug: 'geboren-in-het-hospitaal', image: '/verhalen-beelden/05-geboren-in-het-hospitaal/01-jodenbreestraat.jpg', alt: 'De Jodenbreestraat in Paramaribo', eyebrow: 'Familiegeschiedenis · China – Paramaribo – Commewijne · 1869–1950', title: <>Geboren in het <em>hospitaal</em></>, subtitle: 'Het gezin van Sjiew-Oe-Joen en June-Tjauw Won-Ton-Tja', description: 'Een Chinees-Surinaams gezin met zes kinderen, van wie er twee in het Militair Hospitaal werden geboren. In 1921 staat dochter Mathilde er als patiënt.', tags: ['Chinees-Surinaams', 'Commewijne', '1880–1950'] },
   { slug: 'de-naam-middelburg', image: '/verhalen-beelden/06-de-naam-middelburg/01-stadhuis-middelburg-1743.jpg', alt: 'Het stadhuis van Middelburg in 1743', eyebrow: 'Familiegeschiedenis · Paramaribo – Batavia – Nickerie · 1827–1928', title: <>De naam <em>Middelburg</em></>, subtitle: 'Annette, haar kinderen en een achternaam uit 1863', description: 'Op 1 juli 1863 kregen Antje Johanna, Louis en Georgina de achternaam Middelburg. Hun moeder en grootmoeder Annette was naar de leprakolonie gestuurd, een broer naar Nickerie verkocht. Waarom Middelburg, zegt geen bron.', tags: ['Emancipatie 1863', 'Weidestraat', '1827–1928'] },
 ];
+const stories = allStories.filter(story => !offlineStories.has(story.slug));
 
 const imageSizes: Record<string, [number, number]> = { 'gekomen-gebleven': [1362, 530], 'door-dezelfde-poort': [604, 408], 'vrij-sinds-1836': [1280, 730], 'klerk-marechaussee-boer': [1018, 632], 'geboren-in-het-hospitaal': [1400, 839], 'de-naam-middelburg': [1220, 950] };
 

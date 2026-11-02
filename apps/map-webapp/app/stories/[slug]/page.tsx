@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
+import { offlineStories } from '../offline';
 import { StoryText } from '../links';
 
 type StoryImage = { file: string; width: number; height: number; caption: string; full?: string; displayWidth?: number; href?: string };
@@ -285,14 +286,14 @@ function paragraphs(text: string | readonly string[]) {
 export const instant = false;
 
 export function generateStaticParams() {
-  return Object.keys(stories).map(slug => ({ slug }));
+  return Object.keys(stories).filter(slug => !offlineStories.has(slug)).map(slug => ({ slug }));
 }
 
 
 export default async function StoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const story = stories[slug as keyof typeof stories];
-  if (!story) notFound();
+  if (!story || offlineStories.has(slug)) notFound();
   const visuals = images[slug];
   const chapterNumbers: Record<string, number> = slug === 'door-dezelfde-poort' ? { 'Een wachtkamer als beginpunt': 1, 'De Donners': 4, 'Vader': 5, 'Door dezelfde poort': 7 } : {};
   return <main className="story-page">
