@@ -235,20 +235,35 @@ export default function Landscape() {
 
   // Deep links from the story pages: /?person=<person_id>&name=&year= or /?place=<gazetteer id>&label=&lat=&lng=
   const deepLinkDone = useRef(false);
+  const deepLinkPreviewed = useRef<maplibregl.Map | null>(null);
+  const deepLinkPreview = useRef<PeopleCluster | null>(null);
   useEffect(() => {
-    if (deepLinkDone.current || !clusters.length || !mapRef.current) return;
-    deepLinkDone.current = true;
+    if (deepLinkDone.current || !mapRef.current) return;
     const params = new URLSearchParams(window.location.search);
     const placeId = params.get('place');
     const personId = params.get('person');
+    const lat = Number(params.get('lat'));
+    const lng = Number(params.get('lng'));
+    const pointCluster = placeId && params.get('lat') && params.get('lng') && Number.isFinite(lat) && Number.isFinite(lng)
+      ? { id: placeId, uri: null, label: params.get('label') || placeId, type: 'place', lat, lng, person_count: 0, center: [lng, lat] as [number, number], radiusMeters: 0, placement: 'gazetteer-point', sizeCapped: false } as PeopleCluster
+      : null;
+    if (!clusters.length) {
+      // The people layer can take a while (or fail). Go to the place from the story link right away;
+      // once the people layer is in, the place is selected again with its real counts.
+      // (Once per map instance: in development React mounts the map twice.)
+      const map = mapRef.current;
+      if (pointCluster && deepLinkPreviewed.current !== map) {
+        deepLinkPreviewed.current = map;
+        deepLinkPreview.current = pointCluster;
+        showPlace(pointCluster);
+        // Before the style has loaded, a flyTo can be dropped; repeat it once the map is ready.
+        if (!map.loaded()) map.once('load', () => { if (!deepLinkDone.current && mapRef.current === map) showPlace(pointCluster); });
+      }
+      return;
+    }
+    deepLinkDone.current = true;
     if (placeId) {
-      const lat = Number(params.get('lat'));
-      const lng = Number(params.get('lng'));
-      const label = params.get('label') || placeId;
-      const cluster = clusters.find(c => c.id === placeId)
-        ?? (Number.isFinite(lat) && Number.isFinite(lng) && params.get('lat') && params.get('lng')
-          ? { id: placeId, uri: null, label, type: 'place', lat, lng, person_count: 0, center: [lng, lat] as [number, number], radiusMeters: 0, placement: 'gazetteer-point', sizeCapped: false } as PeopleCluster
-          : null);
+      const cluster = clusters.find(c => c.id === placeId) ?? pointCluster;
       if (cluster) {
         showPlace(cluster);
         // ?place=<hospital>&patient=<id> opens that patient's family tree directly.
@@ -494,7 +509,7 @@ export default function Landscape() {
       </section>}
       {(selectedPlace || selectedPerson) && !(hospitalFocused && walkerIndex !== null) && <section className="selection-panel" aria-label="Selectie">
         <button type="button" onClick={clearSelection} aria-label="Selectie sluiten">Sluiten</button>
-        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0 && !specialPlaceForId(selectedPlace.id)} onClick={() => { setWallPatientId(undefined); setWallPlace(selectedPlace); setWallVisible(true); }}>Open namenmuur</button></>}
+        {selectedPlace && <><h2>{selectedPlace.label}</h2><p>{selectedPlace !== deepLinkPreview.current || peopleFailed ? `${selectedPlace.person_count.toLocaleString('nl-NL')} persoonsvermeldingen` : 'Persoonsvermeldingen laden…'} · {appliedYears ? `${appliedYears[0]} – ${appliedYears[1]}` : 'Alle jaren'}</p><button type="button" className="open-wall" disabled={selectedPlace.person_count === 0 && !specialPlaceForId(selectedPlace.id)} onClick={() => { setWallPatientId(undefined); setWallPlace(selectedPlace); setWallVisible(true); }}>Open namenmuur</button></>}
         {selectedPerson && <><h2>{selectedPerson.family ? 'Familie van ' : ''}{selectedPerson.person.full_name || 'Naam onbekend'}</h2>{appliedYears && (selectedPerson.person.event_year === null || selectedPerson.person.event_year < appliedYears[0] || selectedPerson.person.event_year > appliedYears[1]) ? <p>Buiten de gekozen jaren.</p> : <p>{clusters.filter(place => selectedPerson.ids.includes(place.id)).length} plaatsen op de kaart{selectedPerson.family ? ' · waar familieleden voorkomen' : ''}</p>}{selectedPerson.limited && <p>Sommige koppelingen ontbreken mogelijk.</p>}</>}
         {selectedPerson && wallPlace && !wallVisible && <button type="button" className="return-wall" onClick={() => setWallVisible(true)}>← Terug naar namenmuur</button>}
       </section>}
