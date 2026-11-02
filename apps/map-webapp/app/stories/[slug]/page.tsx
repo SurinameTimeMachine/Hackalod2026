@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Suspense } from 'react';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { StoryText } from '../links';
@@ -226,16 +225,16 @@ function paragraphs(text: string | readonly string[]) {
   return (typeof text === 'string' ? [text] : text).filter(Boolean);
 }
 
-// Every story is known at build time, so each story page can be prerendered.
+// Every story is known at build time, so each story page can be prerendered. The page waits for its
+// params (no streaming shell), so an unknown slug answers with a real 404 status.
+export const instant = false;
+
 export function generateStaticParams() {
   return Object.keys(stories).map(slug => ({ slug }));
 }
 
-export default function StoryPage({ params }: { params: Promise<{ slug: string }> }) {
-  return <Suspense fallback={null}><Story params={params} /></Suspense>;
-}
 
-async function Story({ params }: { params: Promise<{ slug: string }> }) {
+export default async function StoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const story = stories[slug as keyof typeof stories];
   if (!story) notFound();
