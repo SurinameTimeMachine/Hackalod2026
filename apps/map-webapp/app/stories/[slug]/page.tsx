@@ -254,7 +254,7 @@ const stories = {
       ] },
       { heading: '1 juli 1863', text: [
         'Op 1 juli 1863 werd de slavernij in Suriname afgeschaft. Wie vrij werd, kwam in het emancipatieregister, en wie nog geen achternaam had, kreeg er een. Onder eigenaar A.P. Muller staan drie mensen: Antje, nu Antje Johanna, Louis en Georgina, alle drie huisbediende. Ze kregen de achternaam Middelburg. In het hele register komt die naam verder niet voor: hij werd voor deze familie gekozen.',
-        'Louis had weinig tijd als vrij man. Op 3 januari 1866 verdronk [Louis Middelburg](p:360521) in Commewijne, 32 jaar oud. Hij was fabrieksarbeider.',
+        'Louis had weinig tijd als vrij man. Op 3 januari 1866 verdronk [Louis Middelburg](p:360521) in Commewijne, 26 jaar oud (de overlijdensakte zegt 32). Hij was fabrieksarbeider.',
       ] },
       { heading: 'Een huwelijk in 1872', text: [
         'Op 11 december 1872 trouwde [Antje Johanna Middelburg](p:1899312), 45 jaar en wasvrouw, in het gemeentehuis van Paramaribo met [Frederik Kambel](p:1899311), 40 jaar en timmerman. Ook hij was in 1863 vrij geworden. Tot dan heette hij [Anthonij](p:1066023) en was hij eigendom van de minderjarige Marij Theresa Campbell. Zijn achternaam Kambel is de naam van zijn vroegere eigenaren, geschreven zoals hij werd uitgesproken.',
