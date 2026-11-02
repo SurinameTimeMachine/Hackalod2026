@@ -13,19 +13,19 @@ export const FONTS: StampFont[] = [
   { name: 'alfa-slab-one', url: '/fonts/alfa-slab-one.woff', weight: 2, scale: 0.88 },
   { name: 'im-fell-english', url: '/fonts/im-fell-english.woff', weight: 2, scale: 1.08 },
   { name: 'old-standard-tt', url: '/fonts/old-standard-tt.woff', weight: 2, scale: 1.02 },
-  { name: 'caveat', url: '/fonts/caveat.woff', weight: 2, scale: 1.2 },
+  { name: 'caveat', url: '/fonts/caveat.woff', weight: 6, scale: 1.2 },
 ];
 
 // Small explanatory text under a lit name: plain typewriter, for legibility.
 export const CAPTION_FONT = '/fonts/courier-prime.woff';
 
 export const INKS = [
-  '#e6dcc6', // bone
-  '#c25a4e', // faded red
-  '#c9a24a', // ochre
-  '#7f93ad', // slate blue
-  '#8c9c68', // dull green
-  '#a58ab0', // faded violet
+  '#51483a', // warm ink
+  '#963e35', // muted red
+  '#926000', // ochre
+  '#465c73', // slate blue
+  '#52623b', // olive
+  '#705674', // muted violet
 ];
 
 export function rng(seed: number) {

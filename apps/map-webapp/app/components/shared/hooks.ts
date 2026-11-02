@@ -31,10 +31,13 @@ export function usePatients() {
 // the API by `pnpm snapshot`. Swap this for a live query once one exists.
 export function usePatientEdges() {
   const [edges, setEdges] = useState<PatientEdge[]>([]);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   useEffect(() => {
+    let active = true;
     snapshot<{ edges: PatientEdge[] }>('patient_relations.json')
-      .then((d) => setEdges(d.edges))
-      .catch(() => setEdges([]));
+      .then((d) => { if (active) { setEdges(d.edges); setStatus('ready'); } })
+      .catch(() => { if (active) setStatus('failed'); });
+    return () => { active = false; };
   }, []);
-  return edges;
+  return { edges, status };
 }

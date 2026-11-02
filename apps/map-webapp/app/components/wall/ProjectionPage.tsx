@@ -1,24 +1,24 @@
 'use client';
 
-import { OrthographicCamera } from '@react-three/drei';
-import { Canvas, useThree } from '@react-three/fiber';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePatientEdges, usePatients } from '../shared/hooks';
 import { useSignals } from '../shared/signals';
 import type { Tie } from '../shared/api';
-import { displayName, isCertain, NO_TIES, strongestTie, subtitle, tieReason, tieReference } from '../shared/strings';
-import { layoutWall, makeMeasure, WALL, type StampLayout } from './wallLayout';
+import { displayName, isCertain, nameTag, strongestTie, subtitle, tieReason, tieReference } from '../shared/strings';
+import { layoutWall, makeMeasure, type StampLayout } from './wallLayout';
 import { FONTS } from './stampStyle';
 import Wall from './Wall';
-
-const IDLE_TIMEOUT = 60_000;
-
-// Fit the 1920×1080 wall into whatever the window is.
-function FitWall() {
-  const size = useThree((s) => s.size);
-  const zoom = Math.min(size.width / WALL.width, size.height / WALL.height);
-  return <OrthographicCamera makeDefault position={[0, 0, 100]} near={0.1} far={1000} zoom={zoom} />;
-}
+import { useMobileWall } from './useMobileWall';
+import WallCamera from './WallCamera';
+import WallMapButton from './WallMapButton';
+import type { PersonSelection } from '../PeopleSearch';
+import { useConstellation } from '../family-graph/projection/useConstellation';
+import { patientKey } from '../family-graph/projection/graph';
+import { usePatientEdges as useGraphEdges, usePatientIndex } from '../family-graph/shared/hooks';
+import FamilyConstellation from './FamilyConstellation';
+import { buildFamilyTree, type ExtraLink, type TreeNode } from './familyLayout';
+import { isFamily } from '../family-graph/shared/strings';
 
 async function loadFonts() {
   await Promise.all(
@@ -29,37 +29,67 @@ async function loadFonts() {
   );
 }
 
-export default function ProjectionPage() {
+export default function ProjectionPage({ onPerson, patientId }: { onPerson: (selection: PersonSelection) => void; patientId?: number }) {
+  const mobile = useMobileWall();
   const { patients, source } = usePatients();
-  const edges = usePatientEdges();
+  const { edges } = usePatientEdges();
+  const graphEdges = useGraphEdges();
+  const patientIndex = usePatientIndex();
+  const family = useConstellation({ patientOf: id => patientIndex.get(id), patientName: id => displayName(patients?.find(p => p.patient_id === id) ?? { patient_id: id, achternaam: `#${id}`, initialen_of_contractnr: null, geboortejaar: null, groep: '', aantal_vermeldingen: 0, beste_resultaat: '', gevonden_in: null }), wallTies: graphEdges });
   const [fontsReady, setFontsReady] = useState(false);
   // ?patient=<id> opens the wall with that name selected (demo story).
   const [selectedId, setSelectedId] = useState<number | null>(() => {
-    const id = Number(new URLSearchParams(window.location.search).get('patient'));
+    const id = patientId ?? Number(new URLSearchParams(window.location.search).get('patient'));
     return Number.isInteger(id) && id > 0 ? id : null;
   });
   const [debug, setDebug] = useState(false);
-  const [lastInput, setLastInput] = useState(() => Date.now());
+  const [familyMapStatus, setFamilyMapStatus] = useState('');
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Keep ?patient=<id> in the URL so a family tree can be shared.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (selectedId === null) url.searchParams.delete('patient'); else url.searchParams.set('patient', String(selectedId));
+    window.history.replaceState(null, '', url);
+  }, [selectedId]);
+  useEffect(() => () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('patient');
+    window.history.replaceState(null, '', url);
+  }, []);
+
+  useEffect(() => {
+    if (!mobile || selectedId == null) return;
+    const item = listRef.current?.querySelector<HTMLElement>(`[data-person-id="${selectedId}"]`);
+    item?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+  }, [mobile, selectedId, patients]);
 
   useEffect(() => {
     loadFonts().finally(() => setFontsReady(true));
   }, []);
 
   const stamps: StampLayout[] = useMemo(() => {
-    if (!patients || !fontsReady) return [];
+    if (!patients || !fontsReady || mobile) return [];
     const measure = makeMeasure();
     return layoutWall(
-      patients.map((p) => ({ id: p.patient_id, text: displayName(p) })),
+      patients.map((p) => ({ id: p.patient_id, text: nameTag(displayName(p), 1921) })),
       measure,
     );
-  }, [patients, fontsReady]);
+  }, [patients, fontsReady, mobile]);
 
   const byId = useMemo(() => new Map(patients?.map((p) => [p.patient_id, p]) ?? []), [patients]);
 
+  const { open: openFamily, reset: resetFamily } = family;
+  const initialOpened = useRef(false);
+  useEffect(() => {
+    if (initialOpened.current || selectedId === null || !patients?.some(patient => patient.patient_id === selectedId)) return;
+    initialOpened.current = true;
+    openFamily(selectedId);
+  }, [openFamily, patients, selectedId]);
   const select = useCallback((id: number | null) => {
     setSelectedId(id);
-    setLastInput(Date.now());
-  }, []);
+    if (id === null) resetFamily(); else openFamily(id);
+  }, [resetFamily, openFamily]);
   useSignals(select);
 
   useEffect(() => {
@@ -71,17 +101,11 @@ export default function ProjectionPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [select]);
 
-  useEffect(() => {
-    if (selectedId == null) return;
-    const t = setTimeout(() => setSelectedId(null), IDLE_TIMEOUT - (Date.now() - lastInput));
-    return () => clearTimeout(t);
-  }, [selectedId, lastInput]);
-
   const describeSelected = useCallback(
-    (id: number, hasTies: boolean) => {
+    (id: number) => {
       const p = byId.get(id);
       if (!p) return '';
-      return hasTies ? subtitle(p) : `${subtitle(p)}\n${NO_TIES}`;
+      return subtitle(p);
     },
     [byId],
   );
@@ -95,24 +119,89 @@ export default function ProjectionPage() {
     [byId],
   );
 
+  const selectedPatient = selectedId == null ? undefined : byId.get(selectedId);
+  // Patients who share a record with the selected one, but are not family: they probably knew each other.
+  const tree = useMemo(() => {
+    const graph = family.graph;
+    if (!graph || selectedId === null || graph.nodes.size < 2) return null;
+    const rootKey = patientKey(selectedId);
+    const isLink = (t: Tie) => !(t.kind === 'relation' && isFamily(t.type, t.record?.type ?? null));
+    const extras: ExtraLink[] = [];
+    for (const e of edges) {
+      const other = e.a === selectedId ? e.b : e.b === selectedId ? e.a : null;
+      const ties = e.ties.filter(isLink);
+      if (other === null || !ties.length || !byId.has(other) || graph.edges.has(`wall:${e.a}~${e.b}`)) continue;
+      const described = describeTie(ties, e.a, e.b);
+      extras.push({ patientId: other, key: patientKey(other), name: displayName(byId.get(other)!), caption: 'was hier · 1921', with: rootKey, ...described });
+    }
+    extras.sort((a, b) => Number(b.certain) - Number(a.certain));
+    return buildFamilyTree(graph, extras.slice(0, 12), byId.has(selectedId) ? subtitle(byId.get(selectedId)!) : undefined);
+  }, [family.graph, selectedId, edges, byId, describeTie]);
+  const openTreeNode = useCallback((node: TreeNode) => {
+    if (node.patientId !== undefined && node.patientId !== selectedId) select(node.patientId);
+    else if (node.kind !== 'connection') family.click(node.key);
+  }, [family, select, selectedId]);
+  async function showFamilyOnMap() {
+    if (!family.graph || !selectedPatient) return;
+    const graph = family.graph;
+    const keys = new Set([graph.root]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const edge of graph.edges.values()) {
+        if (!edge.certain || (!edge.parent && !edge.level)) continue;
+        if (keys.has(edge.from) && !keys.has(edge.to)) { keys.add(edge.to); changed = true; }
+        if (keys.has(edge.to) && !keys.has(edge.from)) { keys.add(edge.from); changed = true; }
+      }
+    }
+    const nodes = [...keys].map(key => graph.nodes.get(key)).filter(node => node && (node.patientId || node.personId));
+    setFamilyMapStatus('Plaatsen laden…');
+    try {
+      const results = await Promise.all(nodes.map(async node => {
+        const endpoint = node!.patientId ? 'patient-places' : 'person-places';
+        const response = await fetch(`/api/${endpoint}?id=${node!.patientId ?? node!.personId}`);
+        if (!response.ok) throw new Error('Could not load places');
+        return response.json() as Promise<{ ids: string[]; limited: boolean }>;
+      }));
+      const ids = [...new Set(results.flatMap(result => result.ids))];
+      if (!ids.length) { setFamilyMapStatus('Geen plaatsen op de kaart gevonden.'); return; }
+      setFamilyMapStatus('');
+      onPerson({ person: { person_id: selectedPatient.patient_id, full_name: displayName(selectedPatient), role: 'patient', source_dataset: 'mh1921', event_year: 1921 }, ids, limited: results.some(result => result.limited), family: true });
+    } catch { setFamilyMapStatus('De plaatsen konden niet worden geladen.'); }
+  }
+
   return (
-    <main style={{ position: 'absolute', inset: 0, background: '#000' }}>
-      <Canvas
+    <main style={{ position: 'absolute', inset: 0 }}>
+      {mobile ? <div className="wall-name-list" ref={listRef}>
+        {source === 'loading' && <p role="status">Namen laden…</p>}
+        {source === 'failed' && <p role="alert">De namen konden niet worden geladen.</p>}
+        {patients?.map((patient, index) => <button type="button" className={`wall-name tag-style-${index % 4}`} key={patient.patient_id} data-person-id={patient.patient_id} aria-expanded={selectedId === patient.patient_id} onClick={() => select(selectedId === patient.patient_id ? null : patient.patient_id)}>
+          <span>{nameTag(displayName(patient), 1921)}</span>
+        </button>)}
+      </div> : <Canvas
         flat
+        gl={{ alpha: true }}
         dpr={[1, 2]}
         onPointerMissed={() => select(null)}
       >
-        <color attach="background" args={['#000']} />
-        <FitWall />
+        <WallCamera selected={stamps.find(stamp => stamp.id === selectedId)} caption={selectedId == null ? '' : describeSelected(selectedId)} tree={tree} />
         <Wall
           stamps={stamps}
-          edges={edges}
+          edges={[]}
           selectedId={selectedId}
           onSelect={select}
           describeSelected={describeSelected}
           describeTie={describeTie}
         />
-      </Canvas>
+        {tree && selectedId !== null && stamps.find(stamp => stamp.id === selectedId) && <FamilyConstellation tree={tree} anchor={stamps.find(stamp => stamp.id === selectedId)!} onSelect={openTreeNode} onClose={() => select(null)} />}
+      </Canvas>}
+      {selectedPatient && <div className="wall-map-position">
+        <WallMapButton person={{ person_id: selectedPatient.patient_id, full_name: displayName(selectedPatient), role: 'patient', source_dataset: 'mh1921', event_year: 1921 }} endpoint="patient-places" onShow={onPerson} />
+        {family.graph && family.graph.nodes.size > 1 && <button type="button" className="wall-family-toggle" onClick={() => void showFamilyOnMap()}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15M15 6v15" /></svg>Familie op de kaart</button>}
+        {familyMapStatus && <p role="status">{familyMapStatus}</p>}
+        {!familyMapStatus && (!family.graph || family.graph.nodes.size < 2) && (family.offline || family.loading.size > 0) && <p role="status" className="wall-family-status">{family.offline ? 'Familiegegevens zijn nu niet bereikbaar. Herlaad de pagina om het opnieuw te proberen.' : 'Familie wordt geladen…'}</p>}
+      </div>}
+      {mobile && family.graph && family.graph.nodes.size > 1 && <div className="wall-relations" aria-label="Familie en verbindingen"><strong>Verbindingen</strong><ul>{[...family.graph.nodes.values()].filter(node => node.key !== family.graph?.root).map(node => <li key={node.key}><button type="button" onClick={() => family.click(node.key)}>{node.name}</button><small>{node.caption}</small></li>)}</ul></div>}
       {debug && (
         <div className="debug">
           {`data: ${source}\nnames: ${stamps.length} @ ${stamps[0]?.size.toFixed(1) ?? '–'} units\npatient pairs with ties: ${edges.length}\nselected: ${selectedId ?? '–'}`}

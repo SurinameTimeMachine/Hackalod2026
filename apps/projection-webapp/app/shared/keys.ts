@@ -2,8 +2,10 @@
 // phone, contributions). Internally the constellation keeps its short NodeKeys.
 //   patient:<patient_id>   a row in mh1921_patienten
 //   person:<person_id>     a row in persons (an attestation, not a merged person)
-//   name:<uuid>            a name told by a visitor that isn't in the archive (yet)
-export type Key = `patient:${number}` | `person:${number}` | `name:${string}`;
+//   name:<uuid>            a name told by a visitor that isn't in the archive (yet),
+//                          or the storyteller
+//   told:<row id>          a relative a story names without an archive record
+export type Key = `patient:${number}` | `person:${number}` | `name:${string}` | `told:${string}`;
 
 export const patientKey = (id: number): Key => `patient:${id}`;
 export const personKey = (id: number): Key => `person:${id}`;
@@ -16,11 +18,12 @@ export function parseKey(key: string): { kind: 'patient' | 'person'; id: number 
   return Number.isInteger(id) && id > 0 ? { kind: m[1] as 'patient' | 'person', id } : null;
 }
 
-// Constellation NodeKey ('p:12' | 'x:345' | 's:…') to a shared key; summary
-// names ("witness · 214 more") are not people and have none.
+// Constellation NodeKey ('p:12' | 'x:345' | 't:told:…' | 's:…') to a shared
+// key; summary names ("witness · 214 more") are not people and have none.
 export function fromNodeKey(node: string): Key | null {
   const id = Number(node.slice(2));
   if (node.startsWith('p:')) return patientKey(id);
   if (node.startsWith('x:')) return personKey(id);
+  if (node.startsWith('t:')) return node.slice(2) as Key;
   return null;
 }

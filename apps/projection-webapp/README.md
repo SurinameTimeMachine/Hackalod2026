@@ -30,6 +30,52 @@ So a phone scan only has to choose among names that are actually readable, the p
 - Each name carries its shared key (`patient:<id>` / `person:<id>`, see `app/shared/keys.ts`), text, font, ink name, position (0–1 across the wall, y from the top), letter height, state and subtitle. Types in `app/shared/display.ts`.
 - `GET /display` lists all screens, `GET /display?screen=projection` one screen, `GET /display?stamps=1` a flat list of every visible name: the candidate list for `/story/scan`.
 
+## Phone app: "I was here" (`/scan`)
+
+A visitor photographs a name on the wall, confirms the person, and tells what they know. Look and wording follow the team's "I was here" prototype (light paper, IBM Plex, Permanent Marker, Dutch). See `README_MobileApp.md` for the full brief.
+
+1. **Home**: the background names are the ones the projection shows right now.
+2. **Scan**: the native camera (`<input capture>`), downscaled to 1280 px, goes to `POST /story/scan`. One vision call picks the name from the display registry's candidates (font, ink and position break ties between identical names). A name on no screen falls back to `person_search`. Or type a name.
+3. **Found**: the name in its own stamp lettering, with facts from the archive (`GET /story/context?key=`). Other candidates are one tap away.
+4. **Tell**: tap to record (max 3 min, or type instead). `POST /story/transcribe` takes the audio, with the person's related names and places as a spelling hint. `POST /story/extract` maps the story onto the columns of the `contributions` dataset, and the code resolves places (`ui_places`) and people (`person_search`). The top half shows the transcript with recognised words underlined in their colour (dotted means it still needs a choice). The bottom half lists what was found and the dataset rows it would become. Tap a word or row to pick the archive match, keep it as told, confirm or remove it.
+
+5. **Follow-up questions**: names with several archive candidates get a **?**. Questions are built in code from what separates the candidates (era, place, then a pick); "Help zoeken" walks through them. Archive search results are never picked for the visitor, and a pick that does not fit the story is checked again afterwards.
+6. **Save**: "Vertel over jezelf" (name, relation to the person, a short text, typed or spoken) plus consent, then `POST /contribute`. The narrator becomes a person of their own (`name:<uuid>`), related to the subject.
+
+**Saved stories** go to the Datasette `contributions` database (`https://hackalod.sbco.design/api/contributions`, override with `CONTRIBUTIONS_BASE`) through its public write queries. Per story: one row in `stories` (full transcript, narrator), its entities in `story_entities` (character offsets `start`/`end`, type, archive `link`, `contribution_uid` of the dataset row it produced), and in `contributions` one row per entity placed in the dataset, a `narrator` row, the narrator's `relation` row and one `relation` row per tie the story told. `person_id` / `patient_id` / `obs_key` are filled in from the keys, so rows join the archive. A save Datasette refuses is kept in `data/failed.jsonl` (gitignored). Read them with:
+
+- `GET /story/all`: every story, newest first
+- `GET /story/for?key=patient:111`: stories about a person, or naming them as a linked entity
+- `GET /story/get?id=<uuid>`: one story plus the rows it produced
+
+A dashboard can render a story clickable by cutting `transcript` at the entity offsets and linking each piece to `link` (archive) or `row_id` (addition). Types in `app/shared/story.ts` (`SavedStory`, `StoryEntity`).
+
+**Live signals to the wall:** `GET /signals` (server-sent events) carries `select` (a phone starts telling about a person) and `story-saved` (with exactly what the story added: told relatives, the storyteller, the new relations). `GET /story/graph?key=` gives everything stories added around a person. How the projection should show it: `STORIES_IN_CONSTELLATION.md`.
+
+Not yet: showing saved stories on the phone.
+
+**Setup.** Put `OPENAI_API_KEY` in `.env` at the repo root (see `.env.example`); `next.config.ts` loads it. The key is only used server-side (`app/server/openai.ts`). Models are set in `app/server/config.ts`: `gpt-5.4-mini` for scan and extraction, `gpt-4o-transcribe` for speech. In dev, append `?model=` to a `/story/*` request to try another model.
+
+**On a real phone** you need HTTPS for the camera and microphone: `brew install cloudflared`, run `pnpm dev`, then `pnpm dev:phone` and open the printed `https://….trycloudflare.com/scan` URL.
+
+## Searchlight mode (`/projection?mode=searchlight`, `/tracker`)
+
+A phone taped to the beamer turns the projection into a flashlight: the names stay fixed on the real wall and turning the beamer reveals another part of a virtual wall 3×2 beams large (names about 5× larger; **n** / **m** make them smaller or larger, which shrinks or grows the virtual wall with them). The beam never selects anything: names are opened as on the plain wall, by a phone scan or a mouse click. A tree opens where the beam points, laid out over the whole projection (names `treeNames` = 2× the plain projection's), and the round beam opens up to the whole image while it is open. The brief is `README_Searchlight.md` at the repository root.
+
+1. On the phone (rotation lock on, auto-lock off), open `https://hackalod.sbco.design/tracker` and tap **Start** (iOS asks for motion access; it needs HTTPS). Locally, `pnpm dev:phone` gives a temporary https tunnel instead.
+2. Open `/projection?mode=searchlight` on the beamer's laptop, or press **S** on `/projection` to switch between static and searchlight.
+3. Tape the phone flat on top of the beamer, its top edge towards the wall (any other way: after calibrating, tilt the beamer up and press **O**; the app reads the mount from that tilt). Point the beamer straight at the wall and tap **Calibrate** on the phone (or press **C**). The first pose also calibrates.
+
+Keys (searchlight only): **C** calibrate, **O** phone mount (after a tilt up: fitted from it; otherwise 90° steps), **T** test grid (crosses every half beam), **V** round beam on/off, **[ ]** hFov ±0.5° (with Shift ±5°), **; '** lens shift ±0.02 (with Shift ±0.2), **- =** filter min cutoff, **9 0** filter beta, **7 8** prediction ±10 ms, **F** fit to the tape (below), **, .** smaller / larger round beam (hard edge), **n m** smaller / larger names, **P** save to localStorage and print the config JSON to the console (copy it into `searchlight/config.ts`), **D** debug overlay. Without a phone: the arrow keys turn the beam; `?sim=1` sweeps it slowly.
+
+Latency: the phone sends ~60 poses a second as separate posts (up to 8 in flight); the debug overlay shows the rate and age of the poses arriving. The filter (`minCutoff` 1 Hz, `beta` 0.3) is calm at rest and opens up while turning; lower `beta` (**9**) if the image trembles while turning, raise it (**0**) if it trails. What is left is network delay (phone → server → laptop); the debug overlay shows it as `delay` (phone clock to laptop clock, so roughly). Prediction guesses ahead along the current turn and can hide a steady delay up to 500 ms, including the beamer's own image processing (put it in game / low-latency mode and turn off its keystone correction first): turn the beamer back and forth and raise the prediction (**8**) until names stop trailing, lower it (**7**) if they overshoot when the turn stops.
+
+Calibrating on site, field of view (**F**): press **T** for the test grid (a red crosshair marks the middle of the image) and **C** with the beamer pointing straight at the wall. Put tape on the wall at the medium cross a quarter image to the right of the centre. Turn the beamer until the crosshair sits on the tape and press **F**: from the angle turned it sets hFov, so names stay put while turning. Then **C** again, tape the medium cross above the centre, tilt up until the crosshair is on it and press **F** again: that sets the lens shift (beamers that project upwards, such as mirror short-throw ones). Check by turning: the tape stays on its cross. **P** saves. A rough start without tape: `hFov = 2·atan(W / 2d)` with W the image width and d the distance to the wall (3 m at 1.25 m is 100°).
+
+Poses go from the phone over `POST /pose` and reach projections through `GET /pose` (server-sent events), like `/signals`: this Next.js app has no websocket server. Poses are relayed only to `/pose` listeners and never logged or stored. The projection acks twice a second, so the phone shows the latency to the wall. With several phones, the projection follows the one that started last.
+
+Code: `app/projection/searchlight/` (loaded only in searchlight mode), `app/tracker/` (no three.js), `app/pose/route.ts` + `app/server/pose.ts`. The shared wall code only gained optional inputs: `layoutWall(…, bounds)` and a frame for where a tree opens (`frame.ts`).
+
 ## Data
 
 - **The wall** comes live from `/api/suriname_person_search/mh1921_patienten.json`. In dev, `next.config.ts` proxies `/api/*` to `https://hackalod.sbco.design`; in production Caddy serves it on the same origin. If the API is down, the app falls back to `public/data/mh1921_patienten.json`.
@@ -56,6 +102,11 @@ app/projection/
   wallLayout.ts        seeded random scatter, no overlaps, thinning towards a ragged edge
                        (FILL sets how airy the wall is, and with it the font size)
   stampStyle.ts        fonts, inks, seeded variation, font+ink candidates per patient
+app/scan/              phone app: ScanApp (home/scan/found), Dictate, useRecorder,
+                       downscale, strings (all Dutch wording), scan.css
+app/story/*/route.ts   /story/scan, /story/context, /story/transcribe, /story/extract
+app/server/            story.ts (prompts, schemas, resolving), archive.ts (Datasette
+                       reads, buildContext), openai.ts, config.ts, guard.ts (rate limit)
 app/display/route.ts   GET/POST /display
 app/server/display.ts  in-memory display registry (activeStamps() for the scan)
 app/shared/

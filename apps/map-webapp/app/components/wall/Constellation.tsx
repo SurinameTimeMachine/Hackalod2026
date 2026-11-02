@@ -12,12 +12,13 @@ export type ConstellationLine = {
   fromScale: number; // the stamp's scale while lit, to clear its text
   toScale: number;
   fromBelow: number; // extra room under the selected name for its caption, world units
+  toBelow?: number;
   certain: boolean;
   reason: string;
   reference: string;
 };
 
-const THREAD = '#e6dcc6';
+const THREAD = '#82601c';
 const DELAY = 0.35; // s, let the wall dim first
 const DRAW = 0.8; // s, line grows from the selected name outwards
 const LABEL_FADE = 0.5;
@@ -48,7 +49,7 @@ function Thread({ line }: { line: ConstellationLine }) {
   const ux = dx / dist;
   const uy = dy / dist;
   const start = clearance(from, line.fromScale, ux, uy, line.fromBelow);
-  const end = dist - clearance(to, line.toScale, ux, uy);
+  const end = dist - clearance(to, line.toScale, -ux, -uy, line.toBelow);
   const length = Math.max(end - start, 0);
   const angle = Math.atan2(dy, dx);
   const mid = start + length / 2;
@@ -107,7 +108,7 @@ function Thread({ line }: { line: ConstellationLine }) {
             position={[0, i === 0 ? size * 0.35 : -size * 0.35, 0]}
             // Black outline cuts the label free of the dimmed names behind it.
             outlineWidth="30%"
-            outlineColor="#000"
+            outlineColor="#fbfaf6"
             maxWidth={size * 26}
             textAlign="center"
           >

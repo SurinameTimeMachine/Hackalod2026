@@ -62,6 +62,20 @@ export function parsePeoplePage(value: unknown): PeoplePlace[] {
 
 // One aggregate response avoids Datasette's 1,000-row cap and repeated full
 // joins for pagination. The count verifies that the entire payload arrived.
+// Fast path: the per-place counts precomputed in the archive database (map_place_counts,
+// built by scripts/person_search/map_counts.py); same columns as peopleQuery().
+export function peoplePayloadQueryFast() {
+  return `WITH points AS (
+    SELECT z.id, z.uri, z.prefLabel AS label, z.type, z.lat, z.lng, c.person_count
+    FROM map_place_counts c JOIN gazetteer z ON z.id = c.gazetteer_id
+    WHERE z.lat IS NOT NULL AND z.lng IS NOT NULL AND c.person_count > 0
+    ORDER BY z.id)
+    SELECT COUNT(*) AS place_count, json_group_array(json_object(
+      'id', id, 'uri', uri, 'label', label, 'type', type,
+      'lat', lat, 'lng', lng, 'person_count', person_count
+    )) AS places FROM points`;
+}
+
 export function peoplePayloadQuery(useTimeRange = false) {
   return `WITH points AS (${peopleQuery(useTimeRange)})
     SELECT COUNT(*) AS place_count, json_group_array(json_object(

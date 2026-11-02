@@ -7,13 +7,13 @@ const Landscape = dynamic(() => import('./components/Landscape'), {
   loading: () => (
     <main
       style={{
-        height: '100dvh',
+        height: 'calc(100dvh - var(--site-header-height))',
         background: '#101f20',
         color: '#eee8d9',
         padding: 24,
       }}
     >
-      Loading landscape…
+      Kaart laden…
     </main>
   ),
 });

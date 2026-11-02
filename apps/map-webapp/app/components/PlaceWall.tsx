@@ -1,50 +1,54 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { OrthographicCamera } from '@react-three/drei';
-import { Canvas, useThree } from '@react-three/fiber';
+import Image from 'next/image';
+import { Canvas } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PeopleCluster } from '../lib/people-data';
 import type { YearRange } from './TimeSlider';
-import { layoutWall, makeMeasure, WALL } from './wall/wallLayout';
+import { layoutWall, makeMeasure } from './wall/wallLayout';
 import { FONTS } from './wall/stampStyle';
 import Wall from './wall/Wall';
+import { useMobileWall } from './wall/useMobileWall';
+import { nameTag, roleLabel } from './shared/strings';
+import WallCamera from './wall/WallCamera';
+import WallMapButton from './wall/WallMapButton';
+import type { PersonSelection } from './PeopleSearch';
+import { specialPlaceForId } from '../lib/special-places';
 
 const HospitalProjection = dynamic(() => import('./wall/ProjectionPage'), { ssr: false });
 
 type Person = { person_id: number; full_name: string | null; role: string | null; source_dataset: string; event_year: number | null };
-function FitWall() {
-  const size = useThree(state => state.size);
-  return <OrthographicCamera makeDefault position={[0, 0, 100]} near={0.1} far={1000} zoom={Math.min(size.width / WALL.width, size.height / WALL.height)} />;
+type WallProps = { patientId?: number; place: PeopleCluster; onClose: () => void; years: YearRange; onPerson: (selection: PersonSelection) => void; visible: boolean };
+export default function PlaceWall(props: WallProps) {
+  return props.place.id === 'stm-1885-address-0327' && !props.years ? <HospitalWall patientId={props.patientId} onClose={props.onClose} onPerson={props.onPerson} visible={props.visible} /> : <GeneralWall {...props} />;
 }
 
-export default function PlaceWall(props: { place: PeopleCluster; onClose: () => void; years: YearRange }) {
-  return props.place.id === 'stm-1885-address-0327' && !props.years ? <HospitalWall onClose={props.onClose} /> : <GeneralWall {...props} />;
-}
-
-function WallDialog({ titleId, onClose, children }: { titleId: string; onClose: () => void; children: ReactNode }) {
+function WallDialog({ titleId, onClose, visible, children }: { titleId: string; onClose: () => void; visible: boolean; children: ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    if (!visible) { if (dialog.open) dialog.close(); return; }
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialog.showModal();
+    if (!dialog.open) dialog.showModal();
     return () => {
-      dialog.close();
+      if (dialog.open) dialog.close();
       previousFocus?.focus();
     };
-  }, []);
+  }, [visible]);
   return <dialog ref={dialogRef} className="wall-overlay" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }}>{children}</dialog>;
 }
 
-function HospitalWall({ onClose }: { onClose: () => void }) {
-  return <WallDialog titleId="hospital-wall-title" onClose={onClose}>
-    <header className="wall-header"><div><h2 id="hospital-wall-title">’s Lands Hospitaal</h2><p>Hospital patients recorded in 1921 · projection prototype</p></div><button type="button" autoFocus onClick={onClose}>Close wall</button></header>
-    <div className="wall-canvas"><HospitalProjection /></div>
+function HospitalWall({ onClose, onPerson, visible, patientId }: Pick<WallProps, 'onClose' | 'onPerson' | 'visible' | 'patientId'>) {
+  return <WallDialog titleId="hospital-wall-title" onClose={onClose} visible={visible}>
+    <header className="wall-header"><h2 id="hospital-wall-title">’s Lands Hospitaal <span>· 1921</span></h2><button type="button" autoFocus onClick={onClose} aria-label="Namenmuur sluiten">Sluiten <span aria-hidden="true">×</span></button></header>
+    <div className="wall-canvas"><HospitalProjection onPerson={onPerson} patientId={patientId} /></div>
   </WallDialog>;
 }
 
-function GeneralWall({ place, onClose, years }: { place: PeopleCluster; onClose: () => void; years: YearRange }) {
+function GeneralWall({ place, onClose, years, onPerson, visible }: WallProps) {
+  const mobile = useMobileWall();
   const [page, setPage] = useState(0);
   const [people, setPeople] = useState<Person[]>([]);
   const [more, setMore] = useState(false);
@@ -53,37 +57,53 @@ function GeneralWall({ place, onClose, years }: { place: PeopleCluster; onClose:
   const [retry, setRetry] = useState(0);
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
+  const special = specialPlaceForId(place.id);
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!mobile || selected == null) return;
+    const item = listRef.current?.querySelector<HTMLElement>(`[data-person-id="${selected}"]`);
+    item?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+  }, [mobile, selected]);
   useEffect(() => {
     let active = true;
     Promise.all(FONTS.map(async font => {
       const face = new FontFace(font.name, `url(${font.url})`);
       document.fonts.add(await face.load());
-    })).then(() => { if (active) setReady(true); }).catch(() => { if (active) setError('The wall fonts could not load.'); });
+    })).then(() => { if (active) setReady(true); }).catch(() => { if (active) setError('De lettertypen konden niet worden geladen.'); });
     return () => { active = false; };
   }, []);
   useEffect(() => {
     const controller = new AbortController();
+    if (place.id.startsWith('special-')) {
+      queueMicrotask(() => { if (!controller.signal.aborted) { setPeople([]); setMore(false); setLoading(false); } });
+      return () => controller.abort();
+    }
     const yearsQuery = years ? `&from=${years[0]}&to=${years[1]}` : '';
     fetch(`/api/place-wall?id=${encodeURIComponent(place.id)}&offset=${page * 50}${yearsQuery}`, { signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error(); return response.json(); })
       .then(data => { setPeople(data.people); setMore(data.more); setLoading(false); })
-      .catch(() => { if (!controller.signal.aborted) { setError('The wall could not load. Please try again.'); setLoading(false); } });
+      .catch(() => { if (!controller.signal.aborted) { setError('De namenmuur kon niet worden geladen. Probeer het opnieuw.'); setLoading(false); } });
     return () => controller.abort();
   }, [place.id, page, retry, years]);
-  const stamps = useMemo(() => ready ? layoutWall(people.map(p => ({ id: p.person_id, text: p.full_name || 'Unnamed person' })), makeMeasure()) : [], [people, ready]);
+  const stamps = useMemo(() => ready && !mobile && people.length ? layoutWall(people.map(p => ({ id: p.person_id, text: nameTag(p.full_name, p.event_year) })), makeMeasure()) : [], [people, ready, mobile]);
   const describe = useCallback((id: number) => {
     const p = people.find(person => person.person_id === id);
-    return p ? [p.role, p.event_year, p.source_dataset].filter(Boolean).join(' · ') : '';
+    return p ? [p.event_year != null ? `was hier · ${p.event_year}` : '', roleLabel(p.role) ?? ''].filter(Boolean).join(' · ') : '';
   }, [people]);
   const changePage = (next: number) => { setLoading(true); setError(''); setSelected(null); setPage(next); };
-  return <WallDialog titleId="wall-title" onClose={onClose}>
-    <header className="wall-header"><div><h2 id="wall-title">{place.label}</h2><p>Person records · {years ? `${years[0]} – ${years[1]}` : 'All dates'}</p></div><button type="button" autoFocus onClick={onClose}>Close wall</button></header>
-    <div className="wall-canvas">
-      {!loading && !error && ready && people.length > 0 && <Canvas flat dpr={[1, 1.5]} onPointerMissed={() => setSelected(null)}><color attach="background" args={['#000']} /><FitWall /><Wall stamps={stamps} edges={[]} selectedId={selected} onSelect={setSelected} describeSelected={describe} describeTie={() => ({ certain: false, reason: '', reference: '' })} /></Canvas>}
-      {loading && <p role="status">Loading names…</p>}
-      {!loading && !error && !people.length && <p>No person records found for this place.</p>}
-      {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => { setError(''); setLoading(true); setRetry(value => value + 1); }}>Retry</button></div>}
+  return <WallDialog titleId="wall-title" onClose={onClose} visible={visible}>
+    <header className="wall-header"><h2 id="wall-title">{place.label} <span>· {years ? `${years[0]} – ${years[1]}` : 'Alle jaren'}</span></h2><button type="button" autoFocus onClick={onClose} aria-label="Namenmuur sluiten">Sluiten <span aria-hidden="true">×</span></button></header>
+    <div className={`wall-content${special ? ' wall-content-split' : ''}`}>
+    {special && <div className="wall-location-photo"><Image src={`/locaties-tweeluik/${special.file}_foto.png`} alt={special.label} fill sizes="50vw" /></div>}
+    <div className="wall-canvas" style={special ? { backgroundImage: `linear-gradient(rgb(251 250 246 / 70%), rgb(251 250 246 / 70%)), url('/locaties-tweeluik/${special.file}_patroon.png')` } : undefined}>
+      {!loading && !error && mobile && people.length > 0 && <div className="wall-name-list" ref={listRef}>{people.map((person, index) => <button type="button" className={`wall-name tag-style-${index % 4}`} key={person.person_id} data-person-id={person.person_id} aria-expanded={selected === person.person_id} onClick={() => setSelected(selected === person.person_id ? null : person.person_id)}><span>{nameTag(person.full_name, person.event_year)}</span>{selected === person.person_id && <small>{describe(person.person_id)}</small>}</button>)}</div>}
+      {!loading && !error && ready && !mobile && people.length > 0 && <Canvas flat gl={{ alpha: true }} dpr={[1, 1.5]} onPointerMissed={() => setSelected(null)}><WallCamera selected={stamps.find(stamp => stamp.id === selected)} caption={selected == null ? '' : describe(selected)} /><Wall stamps={stamps} edges={[]} selectedId={selected} onSelect={setSelected} describeSelected={describe} describeTie={() => ({ certain: false, reason: '', reference: '' })} /></Canvas>}
+      {selected !== null && people.filter(person => person.person_id === selected).map(person => <div className="wall-map-position" key={person.person_id}><WallMapButton person={{ ...person, full_name: person.full_name ?? '' }} endpoint="person-places" onShow={onPerson} /></div>)}
+      {loading && <p role="status">Namen laden…</p>}
+      {!loading && !error && !people.length && <p>Geen personen gevonden voor deze plaats.</p>}
+      {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => { setError(''); setLoading(true); setRetry(value => value + 1); }}>Opnieuw proberen</button></div>}
     </div>
-    <footer className="wall-footer"><button type="button" disabled={page === 0 || loading} onClick={() => changePage(page - 1)}>Previous</button><span>Page {page + 1} · up to 50 records</span><button type="button" disabled={!more || loading} onClick={() => changePage(page + 1)}>Next</button></footer>
+    </div>
+    <footer className="wall-footer" aria-label="Pagina's"><button type="button" aria-label="Vorige pagina" disabled={page === 0 || loading} onClick={() => changePage(page - 1)}>←</button><span aria-label={`Pagina ${page + 1}`}>{page + 1}</span><button type="button" aria-label="Volgende pagina" disabled={!more || loading} onClick={() => changePage(page + 1)}>→</button></footer>
   </WallDialog>;
 }

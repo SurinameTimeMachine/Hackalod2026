@@ -14,11 +14,20 @@ export type DisplayStamp = {
   subtitle?: string; // e.g. "was here · 1921 · b. 1884", for the phone's confirm screen
 };
 
+// Two records the open constellation takes to be one person (drawn dashed),
+// so the phone can ask a visitor whether that is right.
+export type DisplayGuess = {
+  keys: [string, string]; // person:<id> of both records
+  question: string; // "Is A (role · dataset · year) the same person as B (…)?"
+  source: 'archive' | 'name'; // the archive's probable link, or only the same name
+};
+
 export type DisplayReport = {
   screen: string;
   view: 'wall' | 'constellation';
   focus: string | null; // key of the selected name, if a constellation is open
   stamps: DisplayStamp[];
+  guesses?: DisplayGuess[];
 };
 
 export type DisplayScreen = DisplayReport & { updatedAt: string };
