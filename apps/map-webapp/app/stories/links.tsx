@@ -53,6 +53,23 @@ const people: Record<string, { name: string; year: number }> = {
   '266112': { name: 'Joseph van de Winkel', year: 1906 },
   '751898': { name: 'Cornelia Henriette de Graaff', year: 1915 },
   '343778': { name: 'Gerardus Hendricus van der Erf', year: 1915 },
+  // De naam Middelburg
+  '851573': { name: 'Andresa Petronella Muller', year: 1842 },
+  '851574': { name: 'Jan Albertinus Maij', year: 1842 },
+  '1242853': { name: 'Annette', year: 1848 },
+  '963499': { name: 'Frits', year: 1854 },
+  '963505': { name: 'Frits Meij', year: 1863 },
+  '397631': { name: 'Frits Meij', year: 1871 },
+  '963515': { name: 'Antje Middelburg', year: 1863 },
+  '963531': { name: 'Louis Middelburg', year: 1863 },
+  '963542': { name: 'Georgina Middelburg', year: 1863 },
+  '360521': { name: 'Louis Middelburg', year: 1866 },
+  '1899312': { name: 'Antje Johanna Middelburg', year: 1872 },
+  '1899311': { name: 'Frederik Kambel', year: 1872 },
+  '1066023': { name: 'Anthonij Kambel', year: 1863 },
+  '231123': { name: 'Antje Johanna Middelburg', year: 1901 },
+  '1920530': { name: 'Beharij Britsch-Indie 105/B', year: 1896 },
+  '1771473': { name: 'Frederik Kambel', year: 1913 },
 };
 
 const places: Record<string, { label: string; lat: number; lng: number }> = {
@@ -78,6 +95,7 @@ const places: Record<string, { label: string; lat: number; lng: number }> = {
   'stm-01255': { label: 'Guadeloupe (Beneden-Commewijne)', lat: 5.911208559999999, lng: -55.02539713875001 },
   'stm-01253': { label: 'Johan en Margaretha', lat: 5.925381068, lng: -55.036235166 },
   'stm-01948': { label: 'Kwatta', lat: 5.846638741666666, lng: -55.22653475750001 },
+  'stm-06412': { label: 'Batavia (Coppename)', lat: 5.713214047548087, lng: -55.877510839037434 },
 };
 
 function href(kind: string, id: string): string | null {
