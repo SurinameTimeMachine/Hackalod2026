@@ -198,7 +198,7 @@ const stories = {
     category: 'Familiegeschiedenis · Paramaribo · 1835–1922',
     title: <>Vrij sinds <em>1836</em></>,
     subtitle: 'Het leven van Michel Jacob Biervliet',
-    introduction: '[Michel Jacob Biervliet](p:546189) stamt uit een vrije familie: zijn grootmoeder [Christiana](p:831685) werd al op 17 februari 1836 vrijgemaakt en kreeg toen de naam Biervliet, 27 jaar vóór de afschaffing van de slavernij in 1863, maar de daadwerkelijke onafhankelijkheid en het einde van gedwongen arbeid kwamen pas in 1 juli 1873. Haar kleinzoon Michel Jacob was gouddelver en stoker in Paramaribo. In de volkstelling van 1921 staat hij twee keer in het [Militair Hospitaal](g:stm-1885-address-0327), kort voor zijn dood.',
+    introduction: '[Michel Jacob Biervliet](p:546189) stamt uit een vrije familie: zijn grootmoeder [Christiana](p:831685) werd al op 17 februari 1836 vrijgemaakt en kreeg toen de naam Biervliet, 27 jaar vóór de afschaffing van de slavernij in 1863, maar het staatstoezicht, met de verplichting om op de plantages te blijven werken, eindigde pas op 1 juli 1873. Haar kleinzoon Michel Jacob was gouddelver en stoker in Paramaribo. In de volkstelling van 1921 staat hij twee keer in het [Militair Hospitaal](g:stm-1885-address-0327), kort voor zijn dood.',
     sections: [
       { heading: 'Vrij geworden, 17 februari 1836', text: [
         'In april 1835 vroeg F. Bothe, liquidateur van de opgeheven firma Bothe en Fuchs, namens de erven van Johann Gottlieb Schubert de vrijlating aan van “de Slaven Jantje, Doris, Charles en Christiana”. De firma had Christiana kort daarvoor gekocht uit de boedel van H. Jacobs.',
