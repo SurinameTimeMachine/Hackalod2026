@@ -68,6 +68,20 @@ const images: Record<string, { folder: string; hero: StoryImage; chapters: Recor
       'Twee keer in het hospitaal, 1921': [{ layout: 'single', items: [{ href: 'https://resolver.kb.nl/resolve?urn=ddd:011217294:mpeg21:a0047', file: '06-overlijdensbericht-1922.jpg', width: 412, height: 334, displayWidth: 412, caption: 'Rubriek Overleden, De Surinamer, 22 januari 1922: “12 Jan. … Biervliet, Michel J. 51 j.” (Delpher).' }] }],
     },
   },
+  'de-naam-middelburg': {
+    folder: '06-de-naam-middelburg',
+    hero: { href: 'https://www.rijksmuseum.nl/nl/collectie/RP-P-AO-15-161-3', file: '01-stadhuis-middelburg-1743.jpg', width: 1220, height: 950, caption: 'Het stadhuis van Middelburg in 1743. Geen bron legt een verband tussen deze stad en de familie aan de Weidestraat. Rijksmuseum, RP-P-AO-15-161-3, publiek domein.' },
+    chapters: {
+      'Een huis aan de Weidestraat': [{ layout: 'single', items: [{ href: 'https://www.nationaalarchief.nl/onderzoeken/archief/1.05.08.01/invnr/681/file/NL-HaNA_1.05.08.01_681_0098', file: '02-wijkregister-1842.jpg', width: 1400, height: 733, displayWidth: 664, caption: 'Wijkregister 1842, Weidestraat. Onder elkaar staan Andresa Petronella Müller, 62 jaar, lid van de Broedergemeente (M.B.), en Jan Albertinus May, 31, met zijn gezin. De tot slaaf gemaakte mensen staan alleen als aantallen in de rechterkolommen. Nationaal Archief 1.05.08.01, inv. 681, scan 0098.' }] }],
+      'Besmet verklaard, 24 mei 1851': [{ layout: 'single', items: [{ href: 'https://www.rijksmuseum.nl/nl/collectie/RP-F-2009-282-59', file: '03-batavia-coppename-1895.jpg', width: 1370, height: 545, displayWidth: 664, caption: 'Batavia, “vroeger leprosen-établissement a/d Coppename”, 7 augustus 1895. Album Van Lelyveld, Rijksmuseum RP-F-2009-282-59, publiek domein.' }] }],
+      'Verkocht naar Nickerie': [{ layout: 'single', items: [{ href: 'http://hdl.handle.net/1887.1/item:808307', file: '04-plantage-waterloo.jpg', width: 600, height: 357, displayWidth: 600, caption: 'Prentbriefkaart “Plantage Waterloo, Suriname, S. Amerika”. Hier werkte Frits vanaf 1860. Universitaire Bibliotheken Leiden (KITLV), item 808307.' }] }],
+      'Een huwelijk in 1872': [{ layout: 'single', items: [{ href: 'https://www.nationaalarchief.nl/onderzoeken/archief/2.10.61/invnr/@1517/file/NL-HaNA_2.10.61_1517_0058', file: '05-huwelijksakte-1872.jpg', width: 969, height: 1700, displayWidth: 485, caption: 'Huwelijksakte van Frederik Kambel en Antje Johanna Middelburg, Paramaribo, 11 december 1872 (folio 100). Hij is de zoon van “wijlen Minerva, toebehoord hebbende aan wijlen Colin Campbell”, zij de dochter van “wijlen Nanette, toebehoord hebbende aan wijlen Jan May”. Nationaal Archief 2.10.61, inv. 1517, scan 0058.' }] }],
+      'Tweede Buitenwijk 68': [
+        { layout: 'single', items: [{ href: 'https://www.openarchieven.nl/nas:108293b4-443c-a9f6-cba5-5fbb0550de45', file: '07-overlijdensakte-1901.jpg', width: 1100, height: 1650, displayWidth: 550, caption: 'Overlijdensakte van Antje Johanna Middelburg, “echtgenoote van Frederik Kambel”, “dochter van wijlen Nanette”, Paramaribo, 20 november 1901 (folio 918). Nationaal Archief Suriname 2.10.61, inv. 1098, scan 0061.' }] },
+        { layout: 'single', items: [{ href: 'https://www.nationaalarchief.nl/onderzoeken/archief/2.10.61/invnr/@145/file/NL-HaNA_2.10.61_145_0143', file: '06-erkenning-1913.jpg', width: 1078, height: 1700, displayWidth: 540, caption: 'Frederik Kambel erkent Georgina als zijn natuurlijk kind, Paramaribo, 7 maart 1913 (folio 309). Onderaan: de comparant verklaarde “het schrijven niet te kennen”. Nationaal Archief 2.10.61, inv. 145, scan 0143.' }] },
+      ],
+    },
+  },
 };
 
 function StoryFigure({ image, folder, hero = false }: { image: StoryImage; folder: string; hero?: boolean }) {
@@ -217,6 +231,47 @@ const stories = {
       ] },
     ],
     sources: 'Bronnen: slaven- en emancipatieregisters, wijkregisters 1835 en 1839, geboorte- en overlijdensakten (Nationaal Archief Suriname 2.10.61), erkenningen 1911 en 1917, volkstelling 1921 (ids 40639, 40640, 40645), Surinaamsche Courant 1835, 1841 en 1865, De West-Indiër 1864, 1869 en 1890, De Surinamer 22-01-1922 (Delpher). Redactie: Nisha Marapin en Thunnis van Oort.',
+  },
+  'de-naam-middelburg': {
+    category: 'Familiegeschiedenis · Paramaribo – Batavia – Nickerie · 1827–1928',
+    title: <>De naam <em>Middelburg</em></>,
+    subtitle: 'Annette, haar kinderen en een achternaam uit 1863',
+    introduction: 'Op 1 juli 1863 kregen drie mensen uit één huishouden aan de Weidestraat de achternaam Middelburg: [Antje Johanna](p:963515), haar broer [Louis](p:963531) en haar dochter [Georgina](p:963542). Hun moeder en grootmoeder Annette was twaalf jaar eerder naar de leprakolonie gestuurd, een broer was naar Nickerie verkocht. Waarom juist Middelburg, zegt geen enkele bron. Een reconstructie aan de hand van slavenregisters, wijkregisters, akten en kranten.',
+    sections: [
+      { heading: 'Een huis aan de Weidestraat', text: [
+        '[Andresa Petronella Muller](p:851573) was een vrije vrouw van kleur, geboren rond 1780 en lid van de Evangelische Broedergemeente. Vanaf 1833 woonde ze aan de [Weidestraat](g:stm-street-weidestraat), samen met haar zoon [Jan Albertinus Maij](p:851574), schrijver van beroep. In 1837 kocht ze er een huis; in 1838 droeg ze een ander huis aan dezelfde straat over aan twee leden van de familie Maij.',
+        'In haar huishouden leefden tien tot veertien tot slaaf gemaakte mensen. Onder hen was [Annette](p:1242853), geboren rond 1813, met haar kinderen Antje (ca. 1827), Frits (ca. 1832) en Francina (ca. 1836). Op 5 januari 1839 kreeg Annette een zoon, Louis. Het slavenregister noteert hem als eigendom van Muller, “uit Annette”.',
+        'Annette had eerder aan iemand anders toebehoord. Bij het huwelijk van haar dochter in 1872 schreef de ambtenaar dat Antje de dochter was van “wijlen Nanette, toebehoord hebbende aan wijlen Jan May”. Wie Jan May was, weten we nog niet. Hij droeg dezelfde achternaam als de zonen van Andresa Petronella Muller.',
+      ] },
+      { heading: 'Besmet verklaard, 24 mei 1851', text: [
+        'Op 30 juni 1848 kreeg Antje, ongeveer 21 jaar oud, een dochter: Georgina. Twee maanden later stierf haar zusje Francina, twaalf jaar oud.',
+        'Drie jaar later staat bij Annettes naam in het slavenregister: “1851 24 Mei besmet verklaard en naar Batavia verzonden.” [Batavia](g:stm-06412) aan de Coppename was de plek waar mensen met lepra werden afgezonderd. Wie erheen ging, kwam meestal niet terug. In de registers komt Annette daarna niet meer voor. Vijftig jaar later noemt de overlijdensakte van Antje haar moeder nog: “wijlen Nanette”.',
+      ] },
+      { heading: 'Verkocht naar Nickerie', text: [
+        'Op 12 april 1854 verkocht Muller [Frits](p:963499), toen ongeveer 22, aan de erven van James Balfour. Het gouvernement gaf toestemming om hem “naar Nickerie over te voeren”, ver van zijn familie in Paramaribo. Vanaf 1860 staat hij op de lijst van [plantage Waterloo](g:stm-01345).',
+        'Datzelfde jaar stierf Antjes dochter Helena, drie jaar oud. Haar zoon Frans, geboren in januari 1854, overleed eind 1858.',
+        'Op 1 juli 1863 werd Frits vrij als [Frits Meij](p:963505), delver op Waterloo. Die naam lijkt op die van Jan Albertinus Maij, en op die van Jan May aan wie zijn moeder ooit had toebehoord. Hij stierf op 3 januari 1871 in Nickerie als [veldarbeider](p:397631).',
+      ] },
+      { heading: '1 juli 1863', text: [
+        'Op 1 juli 1863 werd de slavernij in Suriname afgeschaft. Wie vrij werd, kwam in het emancipatieregister, en wie nog geen achternaam had, kreeg er een. Onder eigenaar A.P. Muller staan drie mensen: Antje, nu Antje Johanna, Louis en Georgina, alle drie huisbediende. Ze kregen de achternaam Middelburg. In het hele register komt die naam verder niet voor: hij werd voor deze familie gekozen.',
+        'Louis had weinig tijd als vrij man. Op 3 januari 1866 verdronk [Louis Middelburg](p:360521) in Commewijne, 32 jaar oud. Hij was fabrieksarbeider.',
+      ] },
+      { heading: 'Een huwelijk in 1872', text: [
+        'Op 11 december 1872 trouwde [Antje Johanna Middelburg](p:1899312), 45 jaar en wasvrouw, in het gemeentehuis van Paramaribo met [Frederik Kambel](p:1899311), 40 jaar en timmerman. Ook hij was in 1863 vrij geworden. Tot dan heette hij [Anthonij](p:1066023) en was hij eigendom van de minderjarige Marij Theresa Campbell. Zijn achternaam Kambel is de naam van zijn vroegere eigenaren, geschreven zoals hij werd uitgesproken.',
+        'De akte noemt beide moeders, en aan wie zij hadden toebehoord. Frederik was de zoon van “wijlen Minerva, toebehoord hebbende aan wijlen Colin Campbell”, Antje de dochter van “wijlen Nanette, toebehoord hebbende aan wijlen Jan May”.',
+      ] },
+      { heading: 'Tweede Buitenwijk 68', text: [
+        'Antje en Frederik woonden in de Tweede Buitenwijk, op nummer 68. Daar stierf [Antje Johanna Middelburg](p:231123) op 19 november 1901, 74 jaar oud. De timmerman Adriaan Matthijs Goede, een buurman, deed aangifte.',
+        'Georgina trouwde op 2 september 1896, 48 jaar oud, met [Beharij](p:1920530), koewachter. Hij was als contractarbeider uit Brits-Indië gekomen en stond in het immigrantenregister onder nummer 105/B. Haar zoon James Kastir Beharij stierf in 1908, veertig jaar oud; Beharij een jaar later.',
+        'Op 7 maart 1913 ging [Frederik Kambel](p:1771473), tachtig jaar en weduwnaar, naar de burgerlijke stand. Hij verklaarde Georgina, “geboren in Suriname omstreeks het jaar 1848 uit Antje Johanna Middelburg”, te erkennen als zijn natuurlijk kind. Georgina was toen 64. Of hij werkelijk haar vader was, valt niet te zeggen: volgens het slavenregister was hij in 1848 zelf pas zestien.',
+        'Frederik Kambel stierf op 6 april 1918, 85 jaar oud. Georgina Middelburg overleed op 24 maart 1928, 79 jaar oud: geboren als eigendom van Muller, gestorven 65 jaar na de afschaffing.',
+      ] },
+      { heading: 'Waarom Middelburg?', ending: true, text: [
+        'Geen bron zegt waarom deze familie Middelburg ging heten. In 1863 kregen meer mensen een Zeeuwse plaatsnaam, zoals Axel, Biervliet, Tholen, Vlissingen en Zeeland, en op plantage Domburg heette een man al in 1838 Middleburg. Maar als achternaam werd Middelburg alleen aan dit huishouden gegeven.',
+        'Het nieuwste spoor is Jan May, aan wie Annette ooit toebehoorde. Was hij familie van de Maij’s in het huis van Muller, en had hij een band met Zeeland? Het Zeeuws Archief en de doopboeken van de Broedergemeente kunnen daar misschien antwoord op geven.',
+      ] },
+    ],
+    sources: 'Bronnen: slaven- en emancipatieregisters (inv. 9 fo. 1345, inv. 14 fo. 1128, inv. 26 fo. 880, inv. 24 fo. 196), wijkregisters Paramaribo 1828–1846, huwelijksakten 1872 en 1896, erkenning 1913, overlijdensakten 1866, 1869, 1871, 1901, 1908 en 1909 (Nationaal Archief Suriname 2.10.61), Surinaamsche Courant 1837 en 1838, Suriname 1872 en 1918, De West-Indiër 1896, De Surinamer 1909 en 1928 (Delpher).',
   },
 } as const;
 
